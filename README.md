@@ -1,0 +1,159 @@
+# AI's Eye
+
+매장 CCTV 영상과 주문 정보를 이용해 매장 상황을 알려주는 프로젝트입니다.
+
+영상 분석 결과로 매장 인원과 대기 인원을 파악하고, 이 정보를 대시보드와 AICC에서 같이 사용하는 것을 목표로 하고 있습니다.
+
+지금은 팀원들이 각자 기능 개발을 시작할 수 있도록 React, FastAPI, PostgreSQL, 샘플 데이터까지 기본 구성을 만들어 둔 상태입니다. 실제 YOLO 모델과 AICC는 각 담당자가 작업하면서 연결합니다.
+
+## 폴더 구성
+
+```text
+ai-s-eye/
+├── apps/
+│   └── dashboard/                 # React 대시보드
+│       ├── src/
+│       │   ├── App.jsx            # 화면과 API 호출
+│       │   ├── App.css            # 화면 스타일
+│       │   ├── index.css          # 공통 스타일
+│       │   └── main.jsx           # React 시작 파일
+│       ├── Dockerfile
+│       ├── package.json
+│       └── vite.config.js
+├── services/
+│   ├── api/                       # FastAPI 공통 서버
+│   │   ├── app/
+│   │   │   ├── main.py            # API 경로
+│   │   │   ├── models.py          # 요청·응답 데이터 형식
+│   │   │   ├── repository.py      # 임시 메모리 저장소
+│   │   │   └── config.py          # 환경변수 설정
+│   │   ├── Dockerfile
+│   │   └── requirements.txt
+│   ├── vision-worker/             # YOLO 담당 작업 영역
+│   └── aicc/                      # AICC 담당 작업 영역
+├── packages/
+│   └── contracts/                 # 공통 JSON Schema
+├── samples/                       # 메뉴·정책·상태·주문 샘플
+├── docs/                          # API 규격과 인수인계 문서
+├── tests/                         # FastAPI 테스트
+├── .gitattributes                 # 팀 공통 줄바꿈 설정
+├── .env.example                   # 환경변수 예시
+├── docker-compose.yml             # 전체 서비스 실행 설정
+└── README.md
+```
+
+`vision-worker`와 `aicc`는 담당자가 작업을 시작할 위치만 준비되어 있습니다. 실제 YOLO 모델과 AICC 코드는 아직 들어 있지 않습니다.
+
+## 실행 방법
+
+저장소를 받은 뒤 프로젝트 폴더로 이동합니다.
+
+```bash
+git clone https://github.com/aivle-b-t24/ai-s-eye.git
+cd ai-s-eye
+```
+
+Docker가 설치되어 있으면 아래 명령어로 전체 서비스를 실행합니다. React나 Python, PostgreSQL은 따로 설치하지 않아도 됩니다.
+
+```bash
+cp .env.example .env
+docker compose up --build -d
+```
+
+컨테이너가 잘 실행됐는지는 다음 명령어로 확인할 수 있습니다.
+
+```bash
+docker compose ps
+curl http://localhost:8000/health
+```
+
+브라우저에서 대시보드와 API 문서를 확인할 수 있습니다.
+
+- 대시보드: [http://localhost:5173](http://localhost:5173)
+- API 문서: [http://localhost:8000/docs](http://localhost:8000/docs)
+
+작업 중 API 로그를 보고 싶을 때는 아래 명령어를 사용합니다.
+
+```bash
+docker compose logs -f api
+```
+
+실행을 끝낼 때는 다음과 같이 종료합니다.
+
+```bash
+docker compose down
+```
+
+`docker compose down -v`를 사용하면 PostgreSQL 데이터도 같이 지워지므로 DB를 처음부터 다시 만들 때만 사용합니다.
+
+## 지금 만들어진 범위
+
+아직 실제 CCTV 영상이나 주문 시스템이 연결된 상태는 아닙니다. 각 담당자가 개발을 시작할 수 있도록 가상의 매장 `store-001`과 샘플 데이터를 넣어두었습니다.
+
+현재 서버에서 확인할 수 있는 내용은 다음과 같습니다.
+
+| 내용 | 현재 상태 |
+|---|---|
+| 매장 인원과 대기 인원 | React 화면에서 샘플 값 조회 가능 |
+| 예상 대기시간 | 대기 인원 1명당 3분으로 임시 계산 |
+| 메뉴와 품절 여부 | 샘플 메뉴 10개 중 2개 품절 처리 |
+| 매장 정책 | 샘플 정책 5개 조회 가능 |
+| 영상 분석 결과 받기 | YOLO가 나중에 보낼 JSON 형식만 준비 |
+| 주문 이벤트 받기 | 주문 시스템이 나중에 보낼 JSON 형식만 준비 |
+
+서버를 실행한 뒤 [http://localhost:8000/docs](http://localhost:8000/docs)에 들어가면 위 기능을 직접 눌러서 확인할 수 있습니다.
+
+`docs/api-contract.md`에는 담당자들이 서로 다른 이름이나 형식으로 데이터를 보내지 않도록, API에서 주고받을 값의 이름을 정리해 두었습니다.
+
+## PostgreSQL 사용 방식
+
+개발할 때는 한 곳의 DB를 여러 명이 같이 쓰지 않고, 각자 PC에서 Docker로 PostgreSQL을 실행합니다. 같은 설정으로 실행되기 때문에 따로 설치하거나 테이블을 직접 만들 필요는 없습니다.
+
+팀 기능을 합칠 때는 미니PC에 같은 Docker 구성을 올려 공용 테스트 서버로 사용하고, 최종 배포 단계에서 클라우드 환경으로 옮길 예정입니다.
+
+현재 PostgreSQL은 API 연결 상태만 확인하고 있습니다. 메뉴와 주문 같은 실제 테이블은 기능을 합치는 과정에서 추가합니다. 그전까지는 `samples` 폴더의 JSON을 기준으로 개발하면 됩니다.
+
+## 테스트
+
+API 코드만 따로 테스트하려면 Python 가상환경을 만든 뒤 실행합니다.
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r services/api/requirements.txt
+pytest
+```
+
+React 코드는 실행 중인 컨테이너에서 확인할 수 있습니다.
+
+```bash
+docker compose exec dashboard npm run lint
+docker compose exec dashboard npm run build
+```
+
+## Git 작업 방법
+
+브랜치는 다음 용도로 나눕니다.
+
+- `main`: 발표하거나 배포해도 되는 확인된 상태
+- `develop`: 팀원 작업을 매일 합치고 통합하는 상태
+- `feature/작업이름`: 각자 기능을 개발하는 상태
+
+평소에는 `develop`에서 개인 브랜치를 만든 뒤, 작업이 끝나면 `develop`을 대상으로 PR을 만듭니다. 담당 폴더만 수정했다면 직접 실행해 본 뒤 본인이 병합할 수 있습니다. 별도의 승인 인원은 강제하지 않습니다.
+
+공통 API, Docker, `packages/contracts`를 바꿨다면 바로 병합하지 않고 팀원에게 먼저 알립니다. `main`에는 개인 작업을 바로 합치지 않고, 통합 확인이 끝난 `develop`만 기능 단위나 발표 전 시점에 반영합니다.
+
+PR을 만들면 `.github/pull_request_template.md`의 작업 내용과 확인 항목이 본문에 자동으로 나타납니다. 템플릿은 작성 기준을 알려주는 용도이며 체크 여부를 강제하지 않습니다.
+
+```bash
+git switch develop
+git pull
+git switch -c feature/작업이름
+```
+
+## 작업할 때 주의할 점
+
+- `.env`와 API 키, 비밀번호는 GitHub에 올리지 않습니다.
+- 영상, 데이터셋, 모델 가중치와 학습 결과는 이 저장소에 올리지 않습니다.
+- 공통 JSON 형식을 바꿔야 한다면 `packages/contracts`와 `samples`를 같이 수정합니다.
+- 아직 매장 상태와 주문 이벤트는 메모리에 저장되기 때문에 API를 다시 실행하면 추가한 값이 사라집니다.

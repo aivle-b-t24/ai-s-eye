@@ -1,0 +1,44 @@
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+
+# JavaScript
+node_modules/
+dist/
+coverage/
+
+# Python reports and tool caches
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# AI assets and generated outputs
+*.pt
+*.pth
+*.engine
+*.onnx
+*.mp4
+*.avi
+*.mov
+runs/
+outputs/
+models/
+data/
+
+# Local database and logs
+postgres_data/
+*.log
+
+# Local planning note
+/2026-07-14_기초구축_GitHub_분담.md

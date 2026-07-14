@@ -1,0 +1,16 @@
+{
+  "data_source": "mock",
+  "menus": [
+    {"menu_id": "americano", "category": "coffee", "name": "아메리카노", "price": 4500, "prep_minutes": 3, "available": true, "sold_out_reason": null},
+    {"menu_id": "cafe_latte", "category": "coffee", "name": "카페라테", "price": 5000, "prep_minutes": 4, "available": true, "sold_out_reason": null},
+    {"menu_id": "vanilla_latte", "category": "coffee", "name": "바닐라라테", "price": 5500, "prep_minutes": 4, "available": true, "sold_out_reason": null},
+    {"menu_id": "caramel_macchiato", "category": "coffee", "name": "캐러멜 마키아토", "price": 5800, "prep_minutes": 5, "available": true, "sold_out_reason": null},
+    {"menu_id": "espresso", "category": "coffee", "name": "에스프레소", "price": 4000, "prep_minutes": 2, "available": true, "sold_out_reason": null},
+    {"menu_id": "green_tea", "category": "tea", "name": "녹차", "price": 4800, "prep_minutes": 3, "available": true, "sold_out_reason": null},
+    {"menu_id": "choco_latte", "category": "non_coffee", "name": "초코라테", "price": 5200, "prep_minutes": 4, "available": true, "sold_out_reason": null},
+    {"menu_id": "croissant", "category": "bakery", "name": "크루아상", "price": 3800, "prep_minutes": 3, "available": true, "sold_out_reason": null},
+    {"menu_id": "ham_cheese_sandwich", "category": "food", "name": "햄치즈 샌드위치", "price": 6500, "prep_minutes": 7, "available": false, "sold_out_reason": "재료 소진"},
+    {"menu_id": "cheesecake", "category": "dessert", "name": "치즈케이크", "price": 6000, "prep_minutes": 2, "available": false, "sold_out_reason": "금일 판매 종료"}
+  ]
+}
+

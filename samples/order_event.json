@@ -1,0 +1,15 @@
+{
+  "event_id": "event-001",
+  "order_id": "order-001",
+  "store_id": "store-001",
+  "occurred_at": "2026-07-15T10:31:00+09:00",
+  "status": "received",
+  "items": [
+    {
+      "menu_id": "americano",
+      "name": "아메리카노",
+      "quantity": 2
+    }
+  ]
+}
+

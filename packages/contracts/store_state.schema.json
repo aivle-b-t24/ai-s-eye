@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "store_state.schema.json",
+  "title": "StoreState",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "store_id",
+    "camera_id",
+    "captured_at",
+    "visible_person_count",
+    "queue_count_estimate",
+    "zone_counts",
+    "quality_status",
+    "source",
+    "model_version"
+  ],
+  "properties": {
+    "schema_version": {"type": "string", "const": "1.0"},
+    "store_id": {"type": "string", "minLength": 1},
+    "camera_id": {"type": "string", "minLength": 1},
+    "captured_at": {"type": "string", "format": "date-time"},
+    "visible_person_count": {"type": "integer", "minimum": 0},
+    "queue_count_estimate": {"type": "integer", "minimum": 0},
+    "zone_counts": {
+      "type": "object",
+      "additionalProperties": {"type": "integer", "minimum": 0}
+    },
+    "quality_status": {
+      "type": "string",
+      "enum": ["normal", "low", "stale", "unknown"]
+    },
+    "source": {"type": "string", "minLength": 1},
+    "model_version": {"type": "string", "minLength": 1}
+  }
+}
+

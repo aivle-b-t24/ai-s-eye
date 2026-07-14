@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "store_id": "store-001",
+  "camera_id": "cam-01",
+  "captured_at": "2026-07-15T10:30:00+09:00",
+  "visible_person_count": 5,
+  "queue_count_estimate": 2,
+  "zone_counts": {
+    "counter": 1,
+    "waiting": 2,
+    "seating": 2
+  },
+  "quality_status": "normal",
+  "source": "mock",
+  "model_version": "mock-v1"
+}
+

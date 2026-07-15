@@ -10,7 +10,7 @@
 
 ```text
 ai-s-eye/
-├── apps/
+├── aicc/
 │   └── dashboard/                 # React 대시보드
 │       ├── src/
 │       │   ├── App.jsx            # 화면과 API 호출

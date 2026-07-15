@@ -32,8 +32,10 @@ DEFAULT_ZONES = Path(r"C:\Users\chicb\Downloads\Indoor_까페노아067_006_zones
 OUT_DIR = Path(__file__).resolve().parent / "outputs"  # .gitignore의 outputs/ 규칙으로 자동 제외
 
 # --- 구역 이름(한글) -> 전송 스키마용 영문 키 -----------------------------
-ZONE_KEY = {"좌석": "seating", "카운터": "counter", "통로": "aisle", "직원": "staff"}
-QUEUE_ZONE_KO = "카운터"  # 대기 인원으로 볼 구역
+ZONE_KEY = {"좌석": "seating", "카운터": "counter", "통로": "aisle",
+            "직원": "staff", "대기": "waiting"}
+# 대기 인원(queue): 대기 구역이 있으면 그걸, 없으면 카운터(주문)로 근사
+QUEUE_KEY_PRIORITY = ["waiting", "counter"]
 STAFF_KO = "직원"          # 직원 구역(고객 집계에서 제외)
 
 # 구역별 색상 (BGR)
@@ -42,6 +44,7 @@ ZONE_COLOR = {
     "counter": (0, 165, 255),   # 주황
     "aisle": (0, 200, 0),       # 초록
     "staff": (200, 0, 200),     # 보라(직원)
+    "waiting": (0, 80, 255),    # 빨강 계열(대기 줄)
     "unknown": (150, 150, 150),  # 회색(미배정)
 }
 KST = timezone(timedelta(hours=9))
@@ -155,7 +158,7 @@ def build_store_state(zone_counts, total, queue_count, camera_id, store_id, qual
 
 
 def process(image_path, zones_path, model_name, conf, iou, count_in_zone_only,
-            store_id, camera_id, show):
+            store_id, camera_id, show, save_image=True):
     _, zones = load_zones(zones_path)
     # 스키마에 나올 구역 키를 0으로 초기화(사람이 없어도 키 유지)
     zone_counts = {z["key"]: 0 for z in zones}
@@ -189,8 +192,9 @@ def process(image_path, zones_path, model_name, conf, iou, count_in_zone_only,
     unassigned = total_raw - in_zone
     # 매장 구역 안 인원만 셀지(창밖/매장 밖 오탐 제외) 여부
     total = in_zone if count_in_zone_only else total_raw
-    queue_key = ZONE_KEY.get(QUEUE_ZONE_KO, QUEUE_ZONE_KO)
-    queue_count = zone_counts.get(queue_key, 0)
+    queue_count = next(
+        (zone_counts[k] for k in QUEUE_KEY_PRIORITY if k in zone_counts), 0
+    )
     # 탐지가 0이면 화질/각도 문제일 수 있어 low로 표기
     quality = "normal" if total > 0 else "low"
 
@@ -205,9 +209,14 @@ def process(image_path, zones_path, model_name, conf, iou, count_in_zone_only,
 
     OUT_DIR.mkdir(exist_ok=True)
     stem = Path(image_path).stem
-    annotated = draw(img, zones, detections, zone_counts, zone_person, total, total_raw)
-    out_img = OUT_DIR / f"{stem}_roi.jpg"
-    cv2.imencode(".jpg", annotated)[1].tofile(str(out_img))
+    # 주석 이미지는 저장(또는 창 표시)이 필요할 때만 그린다 — 배치 시 파일 폭증 방지
+    annotated = None
+    out_img = None
+    if save_image or show:
+        annotated = draw(img, zones, detections, zone_counts, zone_person, total, total_raw)
+    if save_image:
+        out_img = OUT_DIR / f"{stem}_roi.jpg"
+        cv2.imencode(".jpg", annotated)[1].tofile(str(out_img))
     out_json = OUT_DIR / f"{stem}_state.json"
     out_json.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -223,7 +232,7 @@ def process(image_path, zones_path, model_name, conf, iou, count_in_zone_only,
             print(f"  {z['zid']:12s}: {'사람 ' + str(n) if n else '빈자리':8s}")
     print("=== 전송 JSON ===")
     print(json.dumps(state, ensure_ascii=False, indent=2))
-    print(f"\n저장: {out_img}\n      {out_json}")
+    print(f"\n저장: {out_json}" + (f"\n      {out_img}" if out_img else " (이미지 생략)"))
 
     if show:
         disp = cv2.resize(annotated, None, fx=0.7, fy=0.7)
@@ -245,10 +254,13 @@ def main():
     ap.add_argument("--store-id", default="store-001")
     ap.add_argument("--camera-id", default="cam-067")
     ap.add_argument("--no-show", dest="show", action="store_false")
+    ap.add_argument("--json-only", dest="save_image", action="store_false",
+                    help="주석 이미지 저장 없이 JSON만 저장(배치용)")
     args = ap.parse_args()
     process(
         args.image, args.zones, args.model, args.conf, args.iou,
         args.count_in_zone_only, args.store_id, args.camera_id, args.show,
+        args.save_image,
     )
 
 

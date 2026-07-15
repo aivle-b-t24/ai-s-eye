@@ -2,13 +2,87 @@
 
 고객 질문에 따라 공통 API를 호출하는 Tool 기능을 구현하는 영역이다.
 
-현재 공통 API에 연결할 수 있는 Tool 범위:
+## 현재 구현 상태
 
-- 매장 상태 조회
-- 예상 대기시간 조회
-- 메뉴 판매 가능 여부 조회
-- 매장 정책 조회
+Tool 호출과 오류 처리를 구현했다. 질문 유형은 LLM 없이 키워드로 나눈다.
 
-실제 LLM API와 비밀키는 아직 연결하지 않는다. 먼저 mock API 호출과 오류 처리를 구현한다.
+| 질문 유형 | 예시 | Tool | 공통 API |
+|---|---|---|---|
+| 메뉴·가격·품절 | 아메리카노 얼마예요? | Menu | `GET /api/stores/{store_id}/menus` |
+| 인원·혼잡도 | 지금 사람 많나요? | State | `GET /api/stores/{store_id}/state` |
+| 예상 대기시간 | 얼마나 기다려야 해요? | ETA | `GET /api/stores/{store_id}/eta` |
+| 영업시간·주차·환불 | 주차 되나요? | Policy | `GET /api/stores/{store_id}/policies` |
 
-직원 연결 요청은 처리 방식과 API를 팀에서 정한 뒤 추가한다.
+정책 질문은 추후 RAG가 맡을 자리다. 지금은 정책 원문을 그대로 돌려주고 `pending: rag`로 표시한다.
+
+## 폴더 구성
+
+```text
+services/aicc/
+├── app/
+│   ├── client.py     # 공통 API 호출과 상태 코드 해석
+│   ├── tools.py      # Tool 4개
+│   ├── router.py     # 질문 유형 분기
+│   ├── errors.py     # 오류 종류와 안내 문장
+│   └── config.py     # 환경변수 설정
+└── tests/
+```
+
+## 사용법
+
+질문을 그대로 넘기면 알맞은 Tool을 호출한다.
+
+```python
+from app.router import QuestionRouter
+
+with QuestionRouter() as router:
+    answer = router.handle("얼마나 기다려야 해요?")
+    # {'question_type': 'eta', 'tool': 'eta', 'result': {'ok': True, 'estimated_wait_minutes': 6, ...}}
+```
+
+Tool을 직접 부를 수도 있다.
+
+```python
+from app.tools import StoreTools
+
+with StoreTools() as tools:
+    tools.get_menus(menu_name="아메리카노")
+```
+
+## 환경변수
+
+| 이름 | 기본값 | 설명 |
+|---|---|---|
+| `AICC_API_BASE_URL` | `http://localhost:8000` | 공통 API 주소 |
+| `AICC_REQUEST_TIMEOUT_SECONDS` | `5` | 요청 제한 시간(초) |
+| `AICC_DEFAULT_STORE_ID` | `store-001` | store_id를 넘기지 않았을 때 쓰는 매장 |
+
+## 오류 처리
+
+Tool은 예외를 던지지 않고 `ok: False` 결과를 돌려준다. LLM이 대화를 끊지 않고 고객에게 상황을 설명할 수 있어야 하기 때문이다. `message`는 고객에게 그대로 전달해도 되는 문장이다.
+
+| `error` | 발생 상황 |
+|---|---|
+| `store_not_found` | 매장 상태가 없음 (`404`) |
+| `invalid_request` | 요청 형식 오류 (`422`) |
+| `sample_data_unavailable` | 샘플 파일 누락 (`503`) |
+| `api_unavailable` | 공통 API에 연결 실패 |
+| `unexpected_response` | 응답 형식이 계약과 다름 |
+
+앞의 세 가지는 `docs/api-contract.md`의 오류 규격을 따른다.
+
+## 테스트
+
+```bash
+pip install -r services/aicc/requirements.txt
+pytest services/aicc/tests
+```
+
+공통 API를 띄우지 않아도 된다. HTTP 호출은 테스트에서 가짜 응답으로 대신한다.
+
+## 다음 작업
+
+- 정책 질문에 RAG를 연결한다. `router.py`의 `QuestionType.POLICY` 자리를 교체하면 된다.
+- 실제 LLM API와 비밀키는 아직 연결하지 않았다. 질문에서 메뉴 이름을 뽑아내는 일은 LLM이 맡는다. `get_menus(menu_name=...)`로 넘기면 해당 메뉴만 걸러진다.
+- 직원 연결 요청은 처리 방식과 API를 팀에서 정한 뒤 추가한다.
+- 주문 조회 API가 공통 API에 없어 "3번 주문 어디쯤이야?" 같은 질문은 답할 수 없다. `GET /api/orders/{order_id}`가 필요하다.

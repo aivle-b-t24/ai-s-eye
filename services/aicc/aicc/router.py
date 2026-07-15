@@ -73,7 +73,7 @@ POLICY_PENDING_MESSAGE = (
     "정책 질문은 RAG 연결 후 답변할 수 있습니다. 지금은 정책 원문을 그대로 전달합니다."
 )
 
-UNKNOWN_MESSAGE = "질문 유형을 알지 못해 매장 상태와 대기시간을 안내합니다."
+UNKNOWN_MESSAGE = "매장 상태, 대기시간, 메뉴, 정책 외의 질문은 아직 답변할 수 없습니다."
 
 
 def _normalize(question: str) -> str:
@@ -110,13 +110,12 @@ class QuestionRouter:
 
     def handle(self, question: str, store_id: str | None = None) -> dict[str, Any]:
         question_type = classify(question)
-        result = self._call(question_type, question, store_id)
+        result = self._call(question_type, store_id)
         return {"question": question, "question_type": question_type.value, **result}
 
     def _call(
         self,
         question_type: QuestionType,
-        question: str,
         store_id: str | None,
     ) -> dict[str, Any]:
         if question_type is QuestionType.MENU:
@@ -133,7 +132,10 @@ class QuestionRouter:
                 "result": self._tools.get_policies(store_id),
             }
         return {
-            "tool": "state",
-            "note": UNKNOWN_MESSAGE,
-            "result": self._tools.get_store_state(store_id),
+            "tool": None,
+            "result": {
+                "ok": False,
+                "error": "unsupported_question",
+                "message": UNKNOWN_MESSAGE,
+            },
         }

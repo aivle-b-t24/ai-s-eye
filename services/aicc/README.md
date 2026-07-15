@@ -12,14 +12,19 @@ Tool 호출과 오류 처리를 구현했다. 질문 유형은 LLM 없이 키워
 | 인원·혼잡도 | 지금 사람 많나요? | State | `GET /api/stores/{store_id}/state` |
 | 예상 대기시간 | 얼마나 기다려야 해요? | ETA | `GET /api/stores/{store_id}/eta` |
 | 영업시간·주차·환불 | 주차 되나요? | Policy | `GET /api/stores/{store_id}/policies` |
+| 그 외 | 화장실 어디예요? | 없음 | 호출하지 않음 |
 
 정책 질문은 추후 RAG가 맡을 자리다. 지금은 정책 원문을 그대로 돌려주고 `pending: rag`로 표시한다.
+
+네 유형에 해당하지 않는 질문은 Tool을 호출하지 않고 `unsupported_question`을 돌려준다. 모르는 질문에 매장 상태 같은 엉뚱한 값을 주면 LLM이 그걸 근거로 틀린 답을 지어낼 수 있기 때문이다.
+
+키워드 방식이라 한계가 있다. `아메리카노 포장 얼마예요?`처럼 메뉴와 정책 키워드가 섞이면 정책으로 분류된다. 질문의 의도를 읽는 일은 LLM을 연결할 때 해결한다.
 
 ## 폴더 구성
 
 ```text
 services/aicc/
-├── app/
+├── aicc/
 │   ├── client.py     # 공통 API 호출과 상태 코드 해석
 │   ├── tools.py      # Tool 4개
 │   ├── router.py     # 질문 유형 분기
@@ -33,7 +38,7 @@ services/aicc/
 질문을 그대로 넘기면 알맞은 Tool을 호출한다.
 
 ```python
-from app.router import QuestionRouter
+from aicc.router import QuestionRouter
 
 with QuestionRouter() as router:
     answer = router.handle("얼마나 기다려야 해요?")
@@ -43,7 +48,7 @@ with QuestionRouter() as router:
 Tool을 직접 부를 수도 있다.
 
 ```python
-from app.tools import StoreTools
+from aicc.tools import StoreTools
 
 with StoreTools() as tools:
     tools.get_menus(menu_name="아메리카노")
@@ -68,6 +73,7 @@ Tool은 예외를 던지지 않고 `ok: False` 결과를 돌려준다. LLM이 �
 | `sample_data_unavailable` | 샘플 파일 누락 (`503`) |
 | `api_unavailable` | 공통 API에 연결 실패 |
 | `unexpected_response` | 응답 형식이 계약과 다름 |
+| `unsupported_question` | 답할 수 있는 네 유형이 아님 (Tool 호출 안 함) |
 
 앞의 세 가지는 `docs/api-contract.md`의 오류 규격을 따른다.
 
@@ -86,3 +92,9 @@ pytest services/aicc/tests
 - 실제 LLM API와 비밀키는 아직 연결하지 않았다. 질문에서 메뉴 이름을 뽑아내는 일은 LLM이 맡는다. `get_menus(menu_name=...)`로 넘기면 해당 메뉴만 걸러진다.
 - 직원 연결 요청은 처리 방식과 API를 팀에서 정한 뒤 추가한다.
 - 주문 조회 API가 공통 API에 없어 "3번 주문 어디쯤이야?" 같은 질문은 답할 수 없다. `GET /api/orders/{order_id}`가 필요하다.
+
+## 팀에 공유할 것: 패키지 이름
+
+이 서비스의 패키지를 `app`에서 `aicc`로 바꿨다. `services/api`도 패키지 이름이 `app`이라, 두 서비스를 같은 파이썬에 함께 올리면 먼저 등록된 쪽만 잡히고 다른 쪽은 `No module named 'app.main'`으로 실패한다. 컨테이너 안에서는 서로 격리되어 문제가 없지만, 테스트를 `tests/` 한 곳으로 합치거나 CI를 붙이면 드러난다.
+
+`vision-worker`도 패키지를 만들 때 `app`을 쓰면 같은 문제가 생긴다. 서비스마다 폴더명과 같은 패키지 이름을 쓰면 피할 수 있다.

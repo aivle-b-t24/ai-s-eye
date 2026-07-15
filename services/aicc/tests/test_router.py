@@ -2,8 +2,8 @@ from typing import Any
 
 import pytest
 
-from app.router import QuestionRouter, QuestionType, classify
-from app.tools import StoreTools
+from aicc.router import QuestionRouter, QuestionType, classify
+from aicc.tools import StoreTools
 
 
 class FakeTools(StoreTools):
@@ -96,15 +96,27 @@ def test_policy_question_is_marked_as_pending_rag() -> None:
     assert answer["note"]
 
 
-def test_unknown_question_falls_back_to_state_with_note() -> None:
+def test_unknown_question_calls_no_tool_and_says_so() -> None:
     tools = FakeTools()
     router = QuestionRouter(tools)
 
     answer = router.handle("사장님 성함이 뭐예요?")
 
     assert answer["question_type"] == "unknown"
-    assert answer["note"]
-    assert tools.calls == ["state"]
+    assert answer["tool"] is None
+    assert answer["result"]["ok"] is False
+    assert answer["result"]["error"] == "unsupported_question"
+    assert tools.calls == []
+
+
+def test_order_status_question_does_not_answer_with_store_state() -> None:
+    tools = FakeTools()
+    router = QuestionRouter(tools)
+
+    answer = router.handle("3번 주문 어디쯤이에요?")
+
+    assert answer["result"]["ok"] is False
+    assert tools.calls == []
 
 
 def test_handle_keeps_original_question_and_tool_result() -> None:

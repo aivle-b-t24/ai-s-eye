@@ -2,8 +2,8 @@ from typing import Any, Callable
 
 import httpx
 
-from app.client import StoreApiClient
-from app.tools import StoreTools
+from aicc.client import StoreApiClient
+from aicc.tools import StoreTools
 
 
 def store_state_body(store_id: str = "store-001") -> dict[str, Any]:

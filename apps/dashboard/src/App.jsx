@@ -50,7 +50,7 @@ function App() {
   return (
     <main className="page-shell">
       <header className="page-header">
-        <h1>테스트입니다</h1>
+        
 
         <div>
           <p className="eyebrow">AI's Eye</p>

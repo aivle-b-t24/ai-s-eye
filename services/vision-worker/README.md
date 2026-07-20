@@ -15,7 +15,7 @@
 영상·YOLO·GPU 없이도 실제 분석 결과를 API에 흘려보낼 수 있다. 대시보드나 AICC를
 개발할 때 매장 인원이 계속 변하는 상황을 만들 수 있다.
 
-미리 분석해 둔 결과가 `results/merged_all_states.json`에 있고,
+미리 분석해 둔 결과가 `samples/merged_all_states.json`에 있고,
 `replay_states.py`가 그 값을 순서대로 API에 전송한다.
 파이썬 표준 라이브러리만 사용하므로 따로 설치할 패키지가 없다.
 
@@ -28,7 +28,7 @@ python services/vision-worker/replay_states.py
 
 | 옵션 | 설명 | 기본값 |
 |---|---|---|
-| `--file` | 재생할 결과 JSON 경로 | `results/merged_all_states.json` |
+| `--file` | 재생할 결과 JSON 경로 | `samples/merged_all_states.json` |
 | `--api` | API 주소 | `http://localhost:8000` |
 | `--interval` | 전송 간격(초) | `2` |
 | `--limit` | 앞에서 N건만 전송 | 전체 |
@@ -63,7 +63,7 @@ curl http://localhost:8000/api/stores/store-001/eta
 
 ## 분석 결과 데이터
 
-`results/merged_all_states.json`은 카페 매장 CCTV 4대를 분석해 매장 단위로
+`samples/merged_all_states.json`은 카페 매장 CCTV 4대를 분석해 매장 단위로
 합친 결과 636건이다. 인원은 17~36명, 대기 인원은 1~14명 범위로 변한다.
 
 `zone_counts` 키는 `구역_층` 형식이다.

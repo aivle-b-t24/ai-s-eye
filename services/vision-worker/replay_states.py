@@ -19,7 +19,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-DEFAULT_FILE = Path(__file__).resolve().parent / "results" / "merged_all_states.json"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_FILE = REPO_ROOT / "samples" / "merged_all_states.json"
 
 
 def load_states(path: Path) -> list[dict]:

@@ -141,13 +141,18 @@ def draw(img, zones, detections, zone_counts, zone_person, store_count, raw_coun
     return img
 
 
-def build_store_state(zone_counts, total, queue_count, camera_id, store_id, quality):
-    """계약(store_state.schema.json)에 맞는 전송 JSON 생성."""
+def build_store_state(zone_counts, total, queue_count, camera_id, store_id, quality,
+                      captured_at=None):
+    """계약(store_state.schema.json)에 맞는 전송 JSON 생성.
+
+    captured_at: 지정하면 그 시각을 쓴다(배치 생성 시 프레임별 시각 부여용).
+                 없으면 현재 시각.
+    """
     return {
         "schema_version": "1.0",
         "store_id": store_id,
         "camera_id": camera_id,
-        "captured_at": datetime.now(KST).isoformat(timespec="seconds"),
+        "captured_at": (captured_at or datetime.now(KST)).isoformat(timespec="seconds"),
         "visible_person_count": int(total),
         "queue_count_estimate": int(queue_count),
         "zone_counts": {k: int(v) for k, v in zone_counts.items()},

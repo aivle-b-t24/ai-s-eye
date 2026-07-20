@@ -52,6 +52,32 @@ POS/KDS 또는 주문 시뮬레이터가 주문 상태 변경을 전송한다.
 
 성공 상태 코드는 `202 Accepted`다.
 
+## GET /api/orders/{order_id}
+
+주문번호의 가장 최근 주문 상태를 반환한다.
+
+주문 이벤트가 여러 건이면 `occurred_at`이 가장 늦은 이벤트를 반환한다.
+주문이 없으면 `404`를 반환한다.
+
+응답 예시:
+
+```json
+{
+  "event_id": "event-002",
+  "order_id": "order-001",
+  "store_id": "store-001",
+  "occurred_at": "2026-07-20T10:33:00+09:00",
+  "status": "ready",
+  "items": [
+    {
+      "menu_id": "menu-001",
+      "name": "아메리카노",
+      "quantity": 1
+    }
+  ]
+}
+```
+
 ## GET /api/stores/{store_id}/state
 
 해당 매장의 가장 최근 StoreState를 반환한다. 상태가 없으면 `404`를 반환한다.
@@ -105,4 +131,3 @@ POS/KDS 또는 주문 시뮬레이터가 주문 상태 변경을 전송한다.
 
 - `packages/contracts/store_state.schema.json`
 - `packages/contracts/order_event.schema.json`
-

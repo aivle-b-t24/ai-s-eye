@@ -17,9 +17,10 @@ function App() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
 
-  const loadDashboard = useCallback(async () => {
-    setLoading(true)
-    setError('')
+  const loadDashboard = useCallback(async (isInitial = false) => {
+    if (isInitial) {
+        setLoading(true)
+    }
 
     try {
       const [state, eta, menuData, policyData] = await Promise.all([
@@ -43,9 +44,14 @@ function App() {
   }, [])
 
   useEffect(() => {
-    loadDashboard()
-  }, [loadDashboard])
+    loadDashboard(true)
 
+    const timer = setInterval(() => {
+        loadDashboard(false)
+    }, 2000)
+
+    return () => clearInterval(timer)
+}, [loadDashboard])
   
   return (
     <main className="page-shell">
@@ -53,14 +59,14 @@ function App() {
         <h1>AI's Eye</h1>
 
         <div>
-          <p className="eyebrow">AI's Eye</p>
-          <h1>매장 현황</h1>
+          
+          <h1>매장-현황</h1>
           <p className="subtitle">
             현재는 store-001의 샘플 데이터를 표시합니다.
           </p>
         </div>
 
-        <button type="button" onClick={loadDashboard} disabled={loading}>
+        <button type="button" onClick={() => loadDashboard(true)} disabled={loading}>
           {loading ? "불러오는 중..." : "새로고침"}
         </button>
       </header>
@@ -72,7 +78,8 @@ function App() {
           <span>
             {error}
             <br />
-            API 서버(Docker)가 실행 중인지 확인한 후 다시 시도해주세요.
+            API 연결에 실패했습니다.
+            기존 데이터를 계속 표시합니다.
           </span>
         </section>
       )}
@@ -83,7 +90,7 @@ function App() {
         </section>
       )}
 
-      {dashboard && !error && (
+      {dashboard && (
         <>
           <section className="summary-grid" aria-label="매장 요약">
             <article className="summary-card">

@@ -42,7 +42,9 @@ ai-s-eye/
 └── README.md
 ```
 
-`vision-worker`와 `aicc`는 담당자가 작업을 시작할 위치만 준비되어 있습니다. 실제 YOLO 모델과 AICC 코드는 아직 들어 있지 않습니다.
+`vision-worker`는 담당자가 작업을 시작할 위치만 준비되어 있습니다. 실제 YOLO 모델은 아직 들어 있지 않습니다.
+
+`aicc`에는 공통 API를 호출하는 Tool과 질문 유형 분기가 들어 있습니다. LLM과 RAG는 아직 연결하지 않았습니다. 자세한 내용은 `services/aicc/README.md`를 참고하세요.
 
 ## 실행 방법
 

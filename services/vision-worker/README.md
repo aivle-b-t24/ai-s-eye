@@ -34,8 +34,22 @@ python services/vision-worker/replay_states.py
 | `--limit` | 앞에서 N건만 전송 | 전체 |
 | `--loop` | 끝나면 처음부터 반복 | 꺼짐 |
 
-시연에는 `--interval 0.5 --loop`를 권장한다. 원본 촬영 속도(2fps)와 같은 속도로
-약 5분 20초마다 반복된다. 중단은 `Ctrl+C`.
+상황별 실행 예시:
+
+```bash
+# 잘 동작하는지 빠르게 확인 (5건만, 0.5초 간격)
+python services/vision-worker/replay_states.py --limit 5 --interval 0.5
+
+# 한 건만 보내고 값을 고정해 두기 (화면 확인용)
+python services/vision-worker/replay_states.py --limit 1
+
+# 개발 중 값이 계속 바뀌게 두기 (2초 간격, 끝나면 반복)
+python services/vision-worker/replay_states.py --interval 2 --loop
+
+# 시연용 - 원본 촬영 속도(2fps)와 동일, 약 5분 20초마다 반복
+python services/vision-worker/replay_states.py --interval 0.5 --loop
+
+중단은 `Ctrl+C`.
 
 전송한 값은 다음으로 확인한다.
 
@@ -43,6 +57,9 @@ python services/vision-worker/replay_states.py
 curl http://localhost:8000/api/stores/store-001/state
 curl http://localhost:8000/api/stores/store-001/eta
 ```
+
+대시보드는 화면을 열 때 값을 한 번 읽어오므로, 재생 중 값이 바뀌는 것을 보려면
+새로고침하거나 대시보드에 주기적 재조회를 넣어야 한다.
 
 ## 분석 결과 데이터
 

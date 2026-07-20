@@ -93,6 +93,18 @@ def save_order_event(event: OrderEvent) -> dict[str, Any]:
 
 
 @app.get(
+    "/api/orders/{order_id}",
+    response_model=OrderEvent,
+    tags=["orders"],
+)
+def get_order_status(order_id: str) -> OrderEvent:
+    event = repository.get_latest_order_event(order_id)
+    if event is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return event
+
+
+@app.get(
     "/api/stores/{store_id}/state",
     response_model=StoreState,
     tags=["stores"],

@@ -25,3 +25,13 @@ class InMemoryRepository:
             self._order_events[event.event_id] = event
         return event
 
+    def get_latest_order_event(self, order_id: str) -> OrderEvent | None:
+        with self._lock:
+            events = [
+                event
+                for event in self._order_events.values()
+                if event.order_id == order_id
+            ]
+        if not events:
+            return None
+        return max(events, key=lambda event: event.occurred_at)

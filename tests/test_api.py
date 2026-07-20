@@ -82,6 +82,38 @@ def test_order_event_is_accepted(client: TestClient) -> None:
     assert response.json()["accepted"] is True
 
 
+def test_latest_order_event_can_be_read(client: TestClient) -> None:
+    received_event = {
+        "event_id": "event-order-status-received",
+        "order_id": "order-status-test",
+        "store_id": "store-001",
+        "occurred_at": "2026-07-20T11:00:00+09:00",
+        "status": "received",
+        "items": [{"menu_id": "menu-001", "quantity": 1}],
+    }
+    ready_event = {
+        **received_event,
+        "event_id": "event-order-status-ready",
+        "occurred_at": "2026-07-20T11:03:00+09:00",
+        "status": "ready",
+    }
+
+    client.post("/internal/order-events", json=received_event)
+    client.post("/internal/order-events", json=ready_event)
+    response = client.get("/api/orders/order-status-test")
+
+    assert response.status_code == 200
+    assert response.json()["event_id"] == "event-order-status-ready"
+    assert response.json()["status"] == "ready"
+
+
+def test_missing_order_returns_404(client: TestClient) -> None:
+    response = client.get("/api/orders/order-does-not-exist")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Order not found"
+
+
 def test_invalid_order_status_is_rejected(client: TestClient) -> None:
     payload = {
         "event_id": "event-invalid",
@@ -95,4 +127,3 @@ def test_invalid_order_status_is_rejected(client: TestClient) -> None:
     response = client.post("/internal/order-events", json=payload)
 
     assert response.status_code == 422
-

@@ -168,10 +168,10 @@ def main():
     if args.all:
         end = min(args.end or limit, limit)
         model = YOLO("yolo11s.pt")
-        # 전체 병합 결과는 팀 공유용이라 results/에 저장(outputs/는 gitignore 대상)
-        results_dir = Path(__file__).resolve().parent / "results"
-        results_dir.mkdir(exist_ok=True)
-        out = results_dir / "merged_all_states.json"
+        # 전체 병합 결과는 팀 공유용이라 samples/에 저장(outputs/는 gitignore 대상)
+        samples_dir = Path(__file__).resolve().parents[2] / "samples"
+        samples_dir.mkdir(exist_ok=True)
+        out = samples_dir / "merged_all_states.json"
         print(f"=== 전체 병합 (frame {args.start}~{end}, 카메라 {len(CAMERAS)}대) ===")
         doc = run_batch(args.start, end, model, args.conf, args.iou,
                         args.store_id, args.interval, out)

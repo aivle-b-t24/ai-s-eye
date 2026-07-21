@@ -1,7 +1,7 @@
 {
   "data_source": "mock",
   "menus": [
-     {
+    {
       "menu_id": "menu-001",
       "category": "coffee",
       "name": "아메리카노",
@@ -46,8 +46,6 @@
       "available": false,
       "sold_out_reason": "바닐라 시럽 재고 부족"
     },
-
-
     {
       "menu_id": "menu-006",
       "category": "beverage",
@@ -76,17 +74,6 @@
       "sold_out_reason": null
     },
     {
-      "menu_id": "menu-018",
-      "category": "beverage",
-      "name": "토피넛 라떼",
-      "price": 6000,
-      "prep_minutes": 4,
-      "available": true,
-      "sold_out_reason": null
-    },
-
-
-    {
       "menu_id": "menu-009",
       "category": "ade",
       "name": "자몽에이드",
@@ -104,8 +91,6 @@
       "available": false,
       "sold_out_reason": "청포도 시럽 소진"
     },
-
-
     {
       "menu_id": "menu-011",
       "category": "tea",
@@ -133,8 +118,6 @@
       "available": true,
       "sold_out_reason": null
     },
-
-
     {
       "menu_id": "menu-014",
       "category": "dessert",
@@ -171,8 +154,15 @@
       "available": true,
       "sold_out_reason": null
     },
-
-
+    {
+      "menu_id": "menu-018",
+      "category": "beverage",
+      "name": "토피넛 라떼",
+      "price": 6000,
+      "prep_minutes": 4,
+      "available": true,
+      "sold_out_reason": null
+    },
     {
       "menu_id": "menu-019",
       "category": "frappuccino",

@@ -84,4 +84,4 @@ curl http://localhost:8000/api/stores/store-001/eta
 
 ## 성능 평가
 
-- `성능평가/4주차_YOLO_성능평가.md`
+- [4주차 YOLO 성능평가](성능평가/4주차_YOLO_성능평가.md)

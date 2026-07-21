@@ -188,3 +188,82 @@ def test_unexpected_body_reports_unexpected_response() -> None:
 
     assert result["ok"] is False
     assert result["error"] == "unexpected_response"
+
+
+def order_body(order_id: str = "order-001", status: str = "received") -> dict[str, Any]:
+    return {
+        "event_id": "event-001",
+        "order_id": order_id,
+        "store_id": "store-001",
+        "occurred_at": "2026-07-20T10:31:00+09:00",
+        "status": status,
+        "items": [{"menu_id": "menu-001", "name": "아메리카노", "quantity": 2}],
+    }
+
+
+def test_order_status_received() -> None:
+    with tools_for(responder(200, order_body(status="received"))) as tools:
+        result = tools.get_order_status("order-001")
+
+    assert result["ok"] is True
+    assert result["order_id"] == "order-001"
+    assert result["status"] == "received"
+    assert "접수" in result["status_message"]
+    assert result["items"][0]["name"] == "아메리카노"
+    assert result["items"][0]["quantity"] == 2
+
+
+def test_order_status_preparing() -> None:
+    with tools_for(responder(200, order_body(status="preparing"))) as tools:
+        result = tools.get_order_status("order-001")
+
+    assert result["status"] == "preparing"
+    assert "준비" in result["status_message"]
+
+
+def test_order_status_ready() -> None:
+    with tools_for(responder(200, order_body(status="ready"))) as tools:
+        result = tools.get_order_status("order-001")
+
+    assert result["status"] == "ready"
+    assert "픽업" in result["status_message"] or "준비" in result["status_message"]
+
+
+def test_order_status_all_six_statuses_have_message() -> None:
+    for status in ("received", "preparing", "ready", "completed", "cancelled", "rejected"):
+        with tools_for(responder(200, order_body(status=status))) as tools:
+            result = tools.get_order_status("order-001")
+        assert result["status_message"], f"{status} 안내 문장 없음"
+
+
+def test_order_uses_requested_id_in_path() -> None:
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.path)
+        return httpx.Response(200, json=order_body("order-042"))
+
+    with tools_for(handler) as tools:
+        tools.get_order_status("order-042")
+
+    assert seen == ["/api/orders/order-042"]
+
+
+def test_missing_order_reports_order_not_found() -> None:
+    with tools_for(responder(404, {"detail": "Order not found"})) as tools:
+        result = tools.get_order_status("order-999")
+
+    assert result["ok"] is False
+    assert result["error"] == "order_not_found"
+    assert result["message"]
+
+
+def test_order_api_error_reports_gracefully() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection refused", request=request)
+
+    with tools_for(handler) as tools:
+        result = tools.get_order_status("order-001")
+
+    assert result["ok"] is False
+    assert result["error"] == "api_unavailable"

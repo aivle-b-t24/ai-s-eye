@@ -1,15 +1,20 @@
+
 {
   "event_id": "event-001",
   "order_id": "order-001",
   "store_id": "store-001",
-  "occurred_at": "2026-07-15T10:31:00+09:00",
+  "occurred_at": "2026-07-20T10:31:00+09:00",
   "status": "received",
   "items": [
     {
-      "menu_id": "americano",
-      "name": "아메리카노",
+      "menu_id": "menu-001",
+      "name": "아메리카노노",
       "quantity": 2
+    },
+    {
+      "menu_id": "menu-014",
+      "name": "스콘 (오리지널/초코)",
+      "quantity": 1
     }
   ]
 }
-

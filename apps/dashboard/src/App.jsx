@@ -93,19 +93,59 @@ function App() {
       {dashboard && (
         <>
           <section className="summary-grid" aria-label="매장 요약">
-            <article className="summary-card">
-              <span>매장 인원</span>
-              <strong>{dashboard.state.visible_person_count}명</strong>
-            </article>
+            <article className="summary-card population-card">
+            <span>매장 인원</span>
+
+            <strong className="population-total">
+              {dashboard.state.visible_person_count ?? 0}명
+            </strong>
+
+            <table className="zone-table">
+              <tbody>
+                <tr>
+                  <th>외부 대기 인원</th>
+                  <td>{dashboard.state.zone_counts.waiting_out ?? 0}명</td>
+                </tr>
+
+                <tr>
+                  <th>카운터 직원</th>
+                  <td>{dashboard.state.zone_counts.staff_1f ?? 0}명</td>
+                </tr>
+
+                <tr>
+                  <th>카운터 손님</th>
+                  <td>{dashboard.state.zone_counts.counter_1f ?? 0}명</td>
+                </tr>
+
+                <tr>
+                  <th></th>
+                  <th>좌석</th>
+                  <th>통로</th>
+                </tr>
+
+                <tr>
+                  <th>1층</th>
+                  <td>{dashboard.state.zone_counts.seating_1f ?? 0}명</td>
+                  <td>{dashboard.state.zone_counts.aisle_1f ?? 0}명</td>
+                </tr>
+
+                <tr>
+                  <th>2층</th>
+                  <td>{dashboard.state.zone_counts.seating_2f ?? 0}명</td>
+                  <td>{dashboard.state.zone_counts.aisle_2f ?? 0}명</td>
+                </tr>
+              </tbody>
+            </table>
+          </article>
 
             <article className="summary-card">
               <span>대기 인원</span>
-              <strong>{dashboard.state.queue_count_estimate}명</strong>
+              <strong>{dashboard.state.queue_count_estimate ?? 0}명</strong>
             </article>
 
             <article className="summary-card accent-card">
               <span>예상 대기시간</span>
-              <strong>{dashboard.eta.estimated_wait_minutes}분</strong>
+              <strong>{dashboard.eta.estimated_wait_minutes ?? 0}분</strong>
             </article>
 
             <article className="summary-card">

@@ -32,6 +32,11 @@ SYSTEM_PROMPT = """너는 카페 'AI's Eye 데모점'의 안내 직원이다.
 
 FALLBACK_NOTICE = "AI 응답에 실패해 키워드 기준으로 안내합니다."
 
+# 무한루프 방지: 질문 하나에 도구를 이 횟수까지만 자동 호출한다.
+# 우리 챗봇은 질문당 도구 1~2번이면 충분하므로 5로 제한한다(SDK 기본값은 10).
+# 이 횟수를 넘으면 도구 호출을 멈춰서, 무한정 반복하며 토큰을 소진하는 것을 막는다.
+MAX_TOOL_CALLS = 5
+
 
 class GeminiUnavailableError(RuntimeError):
     """Gemini를 쓸 수 없을 때. 호출한 쪽이 키워드 분기로 넘어가면 된다."""
@@ -105,6 +110,9 @@ class StoreAgent:
                 config=types.GenerateContentConfig(
                     system_instruction=SYSTEM_PROMPT,
                     tools=self._tool_functions(store_id),
+                    automatic_function_calling=types.AutomaticFunctionCallingConfig(
+                        maximum_remote_calls=MAX_TOOL_CALLS,
+                    ),
                 ),
             )
         except Exception as exc:

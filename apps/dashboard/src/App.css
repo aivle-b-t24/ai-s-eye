@@ -103,6 +103,7 @@ button:disabled {
   gap: 12px;
   border-radius: 18px;
   padding: 22px;
+  transition: all 0.2s ease;
 }
 
 .summary-card span {
@@ -128,11 +129,14 @@ button:disabled {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
   gap: 24px;
+  align-items: start;
 }
 
 .panel {
   overflow: hidden;
   border-radius: 18px;
+  transition: all 0.2s ease;
+  height: fit-content;
 }
 
 .panel-heading {

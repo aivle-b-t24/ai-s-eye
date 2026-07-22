@@ -1,7 +1,6 @@
-"""PostgreSQL에 저장할 초기 테이블 구조.
+"""PostgreSQL에 저장하는 매장 상태와 주문 이벤트 테이블 구조.
 
 Pydantic API 모델과 구분하기 위해 DB 모델 이름에는 Record 접미사를 사용한다.
-이번 단계에서는 테이블 정의만 하며, API Repository는 아직 메모리 기반이다.
 """
 
 from datetime import datetime

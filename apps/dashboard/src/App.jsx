@@ -1,230 +1,256 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
-const STORE_ID = 'store-001'
+import GnbHeader from './components/GnbHeader'
+import RoleBanner from './components/RoleBanner'
+import KpiSummaryBar from './components/KpiSummaryBar'
+import ZoneBreakdownTable from './components/ZoneBreakdownTable'
+import VisionMonitorPanel from './components/VisionMonitorPanel'
+import MenuListPanel from './components/MenuListPanel'
+import PolicyListPanel from './components/PolicyListPanel'
+import EmptyStorePanel from './components/EmptyStorePanel'
+import SupervisorHeadOfficeView from './components/SupervisorHeadOfficeView'
+import SettingsView from './components/SettingsView'
 
-async function getJson(path) {
-  const response = await fetch(`${API_BASE_URL}${path}`)
+/* ==========================================================================
+   1. [REAL API ENVIRONMENT & CONFIGURATION]
+   ========================================================================== */
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
+
+/* ==========================================================================
+   2. [MOCK DATA FOR DEMO & OFFLINE FALLBACK]
+   ========================================================================== */
+const MOCK_STORE_DATA = {
+  'store-001': {
+    state: {
+      visible_person_count: 24,
+      queue_count_estimate: 4,
+      quality_status: 'normal',
+      zone_counts: {
+        seating_1f: 10,
+        aisle_1f: 4,
+        counter_1f: 3,
+        staff_1f: 2,
+        seating_2f: 5,
+        aisle_2f: 2,
+        waiting_out: 4
+      }
+    },
+    eta: { estimated_wait_minutes: 12 },
+    menus: [
+      { menu_id: 'm1', name: '아메리카노', price: 4500, available: true },
+      { menu_id: 'm2', name: '카페 라떼', price: 5000, available: true },
+      { menu_id: 'm3', name: '바닐라 빈 라떼', price: 5500, available: false },
+      { menu_id: 'm4', name: '딸기 생크림 케이크', price: 6800, available: true }
+    ],
+    policies: [
+      { policy_id: 'p1', title: '📢 착석 안내', content: '주문 후 번호표 순서대로 1층 또는 2층 안내에 따라 이동해 주세요.' },
+      { policy_id: 'p2', title: '☕ 셀프 바 이용', content: '물과 냅킨은 각 층 중앙 셀프바에서 이용 가능합니다.' }
+    ]
+  },
+  'store-002': {
+    state: null,
+    eta: null,
+    menus: [],
+    policies: []
+  }
+}
+
+/* ==========================================================================
+   3. [REAL API FETCHERS]
+   ========================================================================== */
+async function fetchStoreState(storeId) {
+  const response = await fetch(`${API_BASE_URL}/api/stores/${storeId}/state`)
   if (!response.ok) {
     throw new Error(`API 요청 실패 (${response.status})`)
   }
   return response.json()
 }
 
-function App() {
-  const [dashboard, setDashboard] = useState(null)
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(true)
+async function fetchStoreEta(storeId) {
+  const response = await fetch(`${API_BASE_URL}/api/stores/${storeId}/eta`)
+  if (!response.ok) return null
+  return response.json()
+}
 
-  const loadDashboard = useCallback(async (isInitial = false) => {
-    if (isInitial) {
-        setLoading(true)
+async function fetchStoreMenus(storeId) {
+  const response = await fetch(`${API_BASE_URL}/api/stores/${storeId}/menus`)
+  if (!response.ok) return { menus: [] }
+  return response.json()
+}
+
+async function fetchStorePolicies(storeId) {
+  const response = await fetch(`${API_BASE_URL}/api/stores/${storeId}/policies`)
+  if (!response.ok) return { policies: [] }
+  return response.json()
+}
+
+function App() {
+  const [page, setPage] = useState("store-001")
+  const [dashboard, setDashboard] = useState(MOCK_STORE_DATA['store-001'])
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [isUsingMock, setIsUsingMock] = useState(false)
+
+  const lastStateJsonRef = useRef('')
+  const lastErrorRef = useRef('')
+  const isApiOfflineRef = useRef(false)
+
+  const loadStateOnly = useCallback(async (storeId, isInitial = false) => {
+    if (isApiOfflineRef.current && !isInitial) {
+      return
     }
 
+    if (isInitial) setLoading(true)
     try {
-      const [state, eta, menuData, policyData] = await Promise.all([
-        getJson(`/api/stores/${STORE_ID}/state`),
-        getJson(`/api/stores/${STORE_ID}/eta`),
-        getJson(`/api/stores/${STORE_ID}/menus`),
-        getJson(`/api/stores/${STORE_ID}/policies`),
-      ])
+      const stateData = await fetchStoreState(storeId)
+      const currentStateJson = JSON.stringify(stateData)
+      
+      isApiOfflineRef.current = false
 
-      setDashboard({
-        state,
-        eta,
-        menus: menuData.menus,
-        policies: policyData.policies,
-      })
-    } catch (requestError) {
-      setError(requestError.message)
+      if (lastStateJsonRef.current === currentStateJson) {
+        if (lastErrorRef.current !== '') {
+          setError('')
+          lastErrorRef.current = ''
+        }
+        setIsUsingMock(false)
+        return
+      }
+
+      lastStateJsonRef.current = currentStateJson
+      lastErrorRef.current = ''
+
+      setDashboard((prev) => ({
+        ...prev,
+        state: stateData,
+      }))
+      setError('')
+      setIsUsingMock(false)
+    } catch (err) {
+      isApiOfflineRef.current = true
+
+      if (lastErrorRef.current !== err.message) {
+        lastErrorRef.current = err.message
+        setError(err.message)
+      }
+      
+      setIsUsingMock(true)
+      if (MOCK_STORE_DATA[storeId]) {
+        setDashboard((prev) => ({
+          ...prev,
+          state: MOCK_STORE_DATA[storeId].state ?? prev?.state,
+          eta: MOCK_STORE_DATA[storeId].eta ?? prev?.eta,
+          menus: MOCK_STORE_DATA[storeId].menus ?? prev?.menus,
+          policies: MOCK_STORE_DATA[storeId].policies ?? prev?.policies,
+        }))
+      }
     } finally {
       setLoading(false)
     }
   }, [])
 
+  const loadStaticData = useCallback(async (storeId) => {
+    try {
+      const [menuData, policyData, etaData] = await Promise.all([
+        fetchStoreMenus(storeId),
+        fetchStorePolicies(storeId),
+        fetchStoreEta(storeId),
+      ])
+      setDashboard((prev) => ({
+        ...prev,
+        menus: menuData?.menus ?? MOCK_STORE_DATA[storeId]?.menus ?? [],
+        policies: policyData?.policies ?? MOCK_STORE_DATA[storeId]?.policies ?? [],
+        eta: etaData ?? MOCK_STORE_DATA[storeId]?.eta ?? null,
+      }))
+    } catch {
+      // Ignore static fail in mock mode
+    }
+  }, [])
+
   useEffect(() => {
-    loadDashboard(true)
+    let timerId = null
 
-    const timer = setInterval(() => {
-        loadDashboard(false)
-    }, 2000)
+    if (page === 'store-001' || page === 'store-002') {
+      const targetStore = page
+      
+      loadStaticData(targetStore)
+      loadStateOnly(targetStore, true)
 
-    return () => clearInterval(timer)
-}, [loadDashboard])
-  
+      timerId = setInterval(() => {
+        loadStateOnly(targetStore, false)
+      }, 2000)
+    } else {
+      timerId = null
+    }
+
+    return () => {
+      if (timerId) clearInterval(timerId)
+    }
+  }, [page, loadStateOnly, loadStaticData])
+
+  const soldOutCount = dashboard?.menus?.filter((menu) => !menu.available).length ?? 0;
+
   return (
     <main className="page-shell">
-      <header className="page-header">
-        <h1>AI's Eye</h1>
+      {/* 1. GNB Component */}
+      <GnbHeader 
+        page={page} 
+        setPage={setPage} 
+        loadStateOnly={loadStateOnly} 
+        loading={loading} 
+      />
 
-        <div>
-          
-          <h1>매장-현황</h1>
-          <p className="subtitle">
-            현재는 store-001의 샘플 데이터를 표시합니다.
-          </p>
-        </div>
+      {/* 2. Role Banner Component */}
+      <RoleBanner 
+        page={page} 
+        apiBaseUrl={API_BASE_URL} 
+        isUsingMock={isUsingMock} 
+        error={error} 
+        loading={loading} 
+      />
 
-        <button type="button" onClick={() => loadDashboard(true)} disabled={loading}>
-          {loading ? "불러오는 중..." : "새로고침"}
-        </button>
-      </header>
-
-      {error && (
-        <section className="notice error-notice">
-          <strong>❌ API 연결 실패</strong>
-
-          <span>
-            {error}
-            <br />
-            API 연결에 실패했습니다.
-            기존 데이터를 계속 표시합니다.
-          </span>
-        </section>
-      )}
-
-      {!error && loading && (
-        <section className="notice">
-          🔄 매장 정보를 불러오는 중입니다...
-        </section>
-      )}
-
-      {dashboard && (
+      {/* 3. [Store Manager View - Store 1] */}
+      {page === "store-001" && (
         <>
-          <section className="summary-grid" aria-label="매장 요약">
-            <article className="summary-card population-card">
-            <span>매장 인원</span>
+          {dashboard?.state?.quality_status !== "normal" && (
+            <section className="alert-banner warning-alert">
+              ⚠️ <strong>점주 알림:</strong> AI 카메라 스트림 화질 점검이 필요합니다.
+            </section>
+          )}
 
-            <strong className="population-total">
-              {dashboard.state.visible_person_count ?? 0}명
-            </strong>
+          {(dashboard?.state?.queue_count_estimate ?? 0) >= 20 && (
+            <section className="alert-banner queue-alert">
+              🚨 <strong>대기 폭주 알림:</strong> 현재 외부 대기 인원이 {dashboard?.state?.queue_count_estimate}명으로 증가했습니다. 카운터 대응을 권장합니다.
+            </section>
+          )}
 
-            <table className="zone-table">
-              <tbody>
-                <tr>
-                  <th>외부 대기 인원</th>
-                  <td>{dashboard.state.zone_counts.waiting_out ?? 0}명</td>
-                </tr>
+          <KpiSummaryBar dashboard={dashboard} soldOutCount={soldOutCount} />
 
-                <tr>
-                  <th>카운터 직원</th>
-                  <td>{dashboard.state.zone_counts.staff_1f ?? 0}명</td>
-                </tr>
+          <section className="dashboard-main-grid">
+            <div className="main-left-content">
+              <ZoneBreakdownTable zoneCounts={dashboard?.state?.zone_counts} />
+              <VisionMonitorPanel />
+            </div>
 
-                <tr>
-                  <th>카운터 손님</th>
-                  <td>{dashboard.state.zone_counts.counter_1f ?? 0}명</td>
-                </tr>
-
-                <tr>
-                  <th></th>
-                  <th>좌석</th>
-                  <th>통로</th>
-                </tr>
-
-                <tr>
-                  <th>1층</th>
-                  <td>{dashboard.state.zone_counts.seating_1f ?? 0}명</td>
-                  <td>{dashboard.state.zone_counts.aisle_1f ?? 0}명</td>
-                </tr>
-
-                <tr>
-                  <th>2층</th>
-                  <td>{dashboard.state.zone_counts.seating_2f ?? 0}명</td>
-                  <td>{dashboard.state.zone_counts.aisle_2f ?? 0}명</td>
-                </tr>
-              </tbody>
-            </table>
-          </article>
-
-            <article className="summary-card">
-              <span>대기 인원</span>
-              <strong>{dashboard.state.queue_count_estimate ?? 0}명</strong>
-            </article>
-
-            <article className="summary-card accent-card">
-              <span>예상 대기시간</span>
-              <strong>{dashboard.eta.estimated_wait_minutes ?? 0}분</strong>
-            </article>
-
-            <article className="summary-card">
-              <span>영상 상태</span>
-              <strong>
-                {dashboard.state.quality_status === "normal"
-                  ? "정상"
-                  : "확인 필요"}
-              </strong>
-            </article>
-          </section>
-
-          <section className="content-grid">
-            <article className="panel">
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">Menu</p>
-                  <h2>메뉴 및 품절 현황</h2>
-                </div>
-
-                <span>
-                  {dashboard.menus.filter((menu) => !menu.available).length}개
-                  품절
-                </span>
-              </div>
-
-              <div className="menu-list">
-                {dashboard.menus.length === 0 ? (
-                  <div className="empty-message">
-                    등록된 메뉴가 없습니다.
-                  </div>
-                ) : (
-                  dashboard.menus.map((menu) => (
-                    <div className="menu-row" key={menu.menu_id}>
-                      <div>
-                        <strong>{menu.name}</strong>
-                        <span>{menu.price.toLocaleString("ko-KR")}원</span>
-                      </div>
-
-                      <span
-                        className={
-                          menu.available
-                            ? "status available"
-                            : "status sold-out"
-                        }
-                      >
-                        {menu.available ? "판매 중" : "품절"}
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </article>
-
-            <article className="panel">
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">Policy</p>
-                  <h2>매장 안내</h2>
-                </div>
-              </div>
-
-              <div className="policy-list">
-                {dashboard.policies.length === 0 ? (
-                  <div className="empty-message">
-                    등록된 매장 정책이 없습니다.
-                  </div>
-                ) : (
-                  dashboard.policies.map((policy) => (
-                    <div className="policy-item" key={policy.policy_id}>
-                      <strong>{policy.title}</strong>
-                      <p>{policy.content}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-            </article>
+            <div className="main-right-content">
+              <MenuListPanel menus={dashboard?.menus} soldOutCount={soldOutCount} />
+              <PolicyListPanel policies={dashboard?.policies} />
+            </div>
           </section>
         </>
+      )}
+
+      {/* 4. [Store Manager View - Store 2] */}
+      {page === "store-002" && <EmptyStorePanel storeId="store-002" />}
+
+      {/* 5. [Supervisor View - Head Office] */}
+      {page === "head-office" && (
+        <SupervisorHeadOfficeView dashboard={dashboard} mockData={MOCK_STORE_DATA} />
+      )}
+
+      {/* 6. [Settings View] */}
+      {page === "setting" && (
+        <SettingsView apiBaseUrl={API_BASE_URL} setPage={setPage} />
       )}
     </main>
   )

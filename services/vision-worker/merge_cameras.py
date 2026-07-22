@@ -51,7 +51,7 @@ CAMERAS = [
         "img_dir": Path(r"D:\223.실내외 군중 특성 데이터\01-1.정식개방데이터\Training"
                         r"\01.원천데이터\TS_2.시나리오_68.Indoor_까페노아068(636)"),
         "img_fmt": "Indoor_까페노아068_{n:03d}.jpg",
-        "zones": Path(r"C:\Users\chicb\Downloads\Indoor_까페노아068_117_zones.json"),
+        "zones": Path(r"C:\Users\chicb\Downloads\Indoor_까페노아068_380_zones.json"),
     },
     {  # 071 = 2층 좌석+통로
         "camera_id": "cam-071",

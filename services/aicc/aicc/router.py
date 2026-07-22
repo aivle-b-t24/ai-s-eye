@@ -1,4 +1,5 @@
 from enum import StrEnum
+import re
 from typing import Any
 
 from .tools import StoreTools
@@ -9,10 +10,23 @@ class QuestionType(StrEnum):
     STATE = "state"
     ETA = "eta"
     POLICY = "policy"
+    ORDER = "order"
     UNKNOWN = "unknown"
 
 
 KEYWORDS: dict[QuestionType, tuple[str, ...]] = {
+    QuestionType.ORDER: (
+        "주문상태",
+        "주문어디",
+        "내주문",
+        "주문번호",
+        "주문언제",
+        "주문나와",
+        "주문됐",
+        "주문준비",
+        "픽업",
+        "order-",
+    ),
     QuestionType.ETA: (
         "대기시간",
         "얼마나기다",
@@ -153,6 +167,7 @@ KEYWORDS: dict[QuestionType, tuple[str, ...]] = {
 }
 
 PRIORITY: tuple[QuestionType, ...] = (
+    QuestionType.ORDER,
     QuestionType.ETA,
     QuestionType.POLICY,
     QuestionType.STATE,
@@ -168,6 +183,23 @@ UNKNOWN_MESSAGE = "매장 상태, 대기시간, 메뉴, 정책 외의 질문은 
 
 def _normalize(question: str) -> str:
     return "".join(question.split()).lower()
+
+
+ORDER_ID_MISSING_MESSAGE = "주문번호를 알려주시면 상태를 확인해 드리겠습니다."
+
+
+def extract_order_id(question: str) -> str | None:
+    """질문에서 주문번호를 뽑는다. 'order-001' 형태를 우선 찾고,
+    없으면 '3번'처럼 숫자만 있는 경우 order-00N으로 만든다.
+    형식이 팀에서 확정되면 이 규칙만 바꾸면 된다."""
+    text = _normalize(question)
+    match = re.search(r"order-?(\d+)", text)
+    if match:
+        return f"order-{int(match.group(1)):03d}"
+    match = re.search(r"(\d+)번", text)
+    if match:
+        return f"order-{int(match.group(1)):03d}"
+    return None
 
 
 def classify(question: str) -> QuestionType:
@@ -200,12 +232,13 @@ class QuestionRouter:
 
     def handle(self, question: str, store_id: str | None = None) -> dict[str, Any]:
         question_type = classify(question)
-        result = self._call(question_type, store_id)
+        result = self._call(question_type, question, store_id)
         return {"question": question, "question_type": question_type.value, **result}
 
     def _call(
         self,
         question_type: QuestionType,
+        question: str,
         store_id: str | None,
     ) -> dict[str, Any]:
         if question_type is QuestionType.MENU:
@@ -214,6 +247,18 @@ class QuestionRouter:
             return {"tool": "state", "result": self._tools.get_store_state(store_id)}
         if question_type is QuestionType.ETA:
             return {"tool": "eta", "result": self._tools.get_eta(store_id)}
+        if question_type is QuestionType.ORDER:
+            order_id = extract_order_id(question)
+            if order_id is None:
+                return {
+                    "tool": "order",
+                    "result": {
+                        "ok": False,
+                        "error": "order_id_missing",
+                        "message": ORDER_ID_MISSING_MESSAGE,
+                    },
+                }
+            return {"tool": "order", "result": self._tools.get_order_status(order_id)}
         if question_type is QuestionType.POLICY:
             return {
                 "tool": "policy",

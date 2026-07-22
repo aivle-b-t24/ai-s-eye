@@ -2,7 +2,7 @@ from typing import Any
 
 import pytest
 
-from aicc.router import QuestionRouter, QuestionType, classify
+from aicc.router import QuestionRouter, QuestionType, classify, extract_order_id
 from aicc.tools import StoreTools
 
 
@@ -34,6 +34,10 @@ class FakeTools(StoreTools):
     def get_policies(self, store_id: str | None = None) -> dict[str, Any]:
         self.calls.append("policies")
         return {"ok": True, "policies": []}
+
+    def get_order_status(self, order_id: str) -> dict[str, Any]:
+        self.calls.append(f"order:{order_id}")
+        return {"ok": True, "order_id": order_id, "status": "received"}
 
 
 @pytest.mark.parametrize(
@@ -139,8 +143,10 @@ def test_order_status_question_does_not_answer_with_store_state() -> None:
 
     answer = router.handle("3번 주문 어디쯤이에요?")
 
-    assert answer["result"]["ok"] is False
-    assert tools.calls == []
+    # 주문 질문은 매장 상태(state)가 아니라 주문 Tool로 가야 한다.
+    assert answer["tool"] == "order"
+    assert tools.calls == ["order:order-003"]
+    assert "state" not in tools.calls
 
 
 def test_handle_keeps_original_question_and_tool_result() -> None:
@@ -152,3 +158,67 @@ def test_handle_keeps_original_question_and_tool_result() -> None:
     assert answer["question"] == "얼마나 기다려야 해요?"
     assert answer["tool"] == "eta"
     assert answer["result"]["estimated_wait_minutes"] == 6
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "order-001 주문 상태 알려줘",
+        "내 주문 어디쯤이에요?",
+        "주문 언제 나와요?",
+        "3번 주문 준비됐어요?",
+        "주문번호 5번 상태 확인해줘",
+    ],
+)
+def test_order_questions_classified_as_order(question: str) -> None:
+    assert classify(question) == QuestionType.ORDER
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "얼마나 기다려야 해요?",
+        "아메리카노 얼마예요?",
+        "지금 사람 많나요?",
+        "주차 되나요?",
+    ],
+)
+def test_non_order_questions_not_classified_as_order(question: str) -> None:
+    assert classify(question) != QuestionType.ORDER
+
+
+@pytest.mark.parametrize(
+    ("question", "expected"),
+    [
+        ("order-001 상태", "order-001"),
+        ("order-42 어디쯤", "order-042"),
+        ("3번 주문 준비됐어요?", "order-003"),
+        ("주문 언제 나와요?", None),
+        ("내 주문 어디쯤이에요?", None),
+    ],
+)
+def test_extract_order_id(question: str, expected: str | None) -> None:
+    assert extract_order_id(question) == expected
+
+
+def test_router_calls_order_tool_with_extracted_id() -> None:
+    tools = FakeTools()
+    router = QuestionRouter(tools)
+
+    answer = router.handle("order-001 주문 상태 알려줘")
+
+    assert answer["tool"] == "order"
+    assert tools.calls == ["order:order-001"]
+    assert answer["result"]["ok"] is True
+
+
+def test_router_asks_for_order_id_when_missing() -> None:
+    tools = FakeTools()
+    router = QuestionRouter(tools)
+
+    answer = router.handle("내 주문 언제 나와요?")
+
+    assert answer["tool"] == "order"
+    assert answer["result"]["ok"] is False
+    assert answer["result"]["error"] == "order_id_missing"
+    assert tools.calls == []

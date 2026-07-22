@@ -7,6 +7,7 @@ from .config import get_settings
 from .errors import (
     ApiUnavailableError,
     InvalidRequestError,
+    OrderNotFoundError,
     SampleDataUnavailableError,
     StoreNotFoundError,
     ToolError,
@@ -15,7 +16,6 @@ from .errors import (
 
 
 STATUS_ERRORS: dict[int, type[ToolError]] = {
-    404: StoreNotFoundError,
     422: InvalidRequestError,
     503: SampleDataUnavailableError,
 }
@@ -53,12 +53,20 @@ class StoreApiClient:
     def get_policies(self, store_id: str) -> Any:
         return self._get(f"/api/stores/{quote(store_id)}/policies")
 
-    def _get(self, path: str) -> Any:
+    def get_order(self, order_id: str) -> Any:
+        return self._get(
+            f"/api/orders/{quote(order_id)}",
+            not_found=OrderNotFoundError,
+        )
+
+    def _get(self, path: str, not_found: type[ToolError] = StoreNotFoundError) -> Any:
         try:
             response = self._client.get(path)
         except httpx.RequestError as exc:
             raise ApiUnavailableError() from exc
 
+        if response.status_code == 404:
+            raise not_found()
         error = STATUS_ERRORS.get(response.status_code)
         if error is not None:
             raise error()

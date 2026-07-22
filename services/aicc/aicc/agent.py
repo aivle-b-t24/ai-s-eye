@@ -26,10 +26,16 @@ SYSTEM_PROMPT = """너는 카페 'AI's Eye 데모점'의 안내 직원이다.
 그 밖에:
 - 도구가 ok=false를 돌려주면 그 message를 고객에게 그대로 전달한다.
 - 답변은 한국어 한두 문장으로 짧고 정중하게 한다.
-- 주문 상태 조회와 직원 연결은 아직 지원하지 않는다.
+- 주문 상태는 get_order_status로 조회한다. 주문번호를 모르면 되묻는다.
+- 직원 연결은 아직 지원하지 않는다.
 """
 
 FALLBACK_NOTICE = "AI 응답에 실패해 키워드 기준으로 안내합니다."
+
+# 무한루프 방지: 질문 하나에 도구를 이 횟수까지만 자동 호출한다.
+# 우리 챗봇은 질문당 도구 1~2번이면 충분하므로 5로 제한한다(SDK 기본값은 10).
+# 이 횟수를 넘으면 도구 호출을 멈춰서, 무한정 반복하며 토큰을 소진하는 것을 막는다.
+MAX_TOOL_CALLS = 5
 
 
 class GeminiUnavailableError(RuntimeError):
@@ -104,6 +110,9 @@ class StoreAgent:
                 config=types.GenerateContentConfig(
                     system_instruction=SYSTEM_PROMPT,
                     tools=self._tool_functions(store_id),
+                    automatic_function_calling=types.AutomaticFunctionCallingConfig(
+                        maximum_remote_calls=MAX_TOOL_CALLS,
+                    ),
                 ),
             )
         except Exception as exc:
@@ -140,7 +149,24 @@ class StoreAgent:
             예약, 화장실, 흡연, 결제 수단 등 매장 이용 규칙 질문에 사용한다."""
             return tools.get_policies(target)
 
-        return [get_store_state, get_wait_time, get_menus, get_policies]
+        def get_order_status(order_id: str) -> dict[str, Any]:
+            """주문번호로 현재 주문 상태(접수/제조중/준비완료 등)를 조회한다.
+            '내 주문 언제 나와요?' 같은 주문 진행 질문에 사용한다.
+
+            Args:
+                order_id: 조회할 주문번호. 예: order-001. 고객이 '3번 주문'처럼
+                    말하면 order-003 형태로 만들어 넘긴다. 번호를 모르면 호출하지
+                    말고 고객에게 주문번호를 되묻는다.
+            """
+            return tools.get_order_status(order_id)
+
+        return [
+            get_store_state,
+            get_wait_time,
+            get_menus,
+            get_policies,
+            get_order_status,
+        ]
 
     def _fallback(
         self,

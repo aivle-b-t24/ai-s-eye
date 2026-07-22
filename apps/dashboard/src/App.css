@@ -246,3 +246,37 @@ button:disabled {
     gap: 3px;
   }
 }
+
+.population-card{
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
+
+.population-total{
+  font-size:3rem;
+  text-align:center;
+}
+
+.zone-table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:8px;
+}
+
+.zone-table th,
+.zone-table td{
+  border:1px solid #d9e7df;
+  padding:12px;
+  text-align:center;
+  font-size:15px;
+}
+
+.zone-table th{
+  background:#f7faf8;
+  font-weight:700;
+}
+
+.zone-table td{
+  font-weight:600;
+}

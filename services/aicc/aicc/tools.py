@@ -108,8 +108,47 @@ class StoreTools:
             return _failure(exc)
         return {"ok": True, "store_id": target, "policies": policies}
 
+    def get_order_status(self, order_id: str) -> dict[str, Any]:
+        try:
+            body = self._client.get_order(order_id)
+            data = _fields(body, "order_id", "status", "items")
+        except ToolError as exc:
+            return _failure(exc)
+        status = str(data["status"])
+        return {
+            "ok": True,
+            "order_id": data["order_id"],
+            "status": status,
+            "status_message": ORDER_STATUS_MESSAGE.get(status, ORDER_STATUS_UNKNOWN),
+            "items": [_order_item(item) for item in _as_list(data["items"])],
+        }
+
     def _store(self, store_id: str | None) -> str:
         return store_id or self._default_store_id
+
+
+# 주문 상태별 고객 안내 문장. 공통 API의 OrderStatus 6종을 그대로 덮는다.
+ORDER_STATUS_MESSAGE: dict[str, str] = {
+    "received": "주문이 접수되었습니다. 곧 준비를 시작합니다.",
+    "preparing": "현재 음료를 준비하고 있습니다.",
+    "ready": "주문하신 음료가 준비되었습니다. 픽업대에서 받아가 주세요.",
+    "completed": "이미 수령이 완료된 주문입니다.",
+    "cancelled": "취소된 주문입니다.",
+    "rejected": "처리되지 못한 주문입니다. 자세한 내용은 직원에게 문의해 주세요.",
+}
+ORDER_STATUS_UNKNOWN = "주문 상태를 확인할 수 없습니다. 직원에게 문의해 주세요."
+
+
+def _order_item(item: Any) -> dict[str, Any]:
+    if not isinstance(item, dict):
+        raise UnexpectedResponseError()
+    return {"name": item.get("name"), "quantity": item.get("quantity")}
+
+
+def _as_list(value: Any) -> list[Any]:
+    if not isinstance(value, list):
+        raise UnexpectedResponseError()
+    return value
 
 
 def _menu_list(body: Any) -> list[Any]:

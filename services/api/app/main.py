@@ -7,12 +7,17 @@ from fastapi.middleware.cors import CORSMiddleware
 import psycopg
 
 from .config import get_settings
+from .db_repository import DatabaseRepository
 from .models import EtaResponse, OrderEvent, StoreState
 from .repository import InMemoryRepository
 
 
 settings = get_settings()
-repository = InMemoryRepository()
+repository = (
+    DatabaseRepository()
+    if settings.database_url
+    else InMemoryRepository()
+)
 
 
 def load_json_file(filename: str) -> Any:
@@ -46,7 +51,8 @@ def database_status() -> str:
         return "unavailable"
 
 
-preload_sample_state()
+if isinstance(repository, InMemoryRepository):
+    preload_sample_state()
 
 app = FastAPI(
     title=settings.app_name,

@@ -1,7 +1,7 @@
 """PostgreSQL 연결과 SQLAlchemy 공통 기반을 정의한다.
 
-현재 API는 기존 InMemoryRepository를 그대로 사용한다. 이 파일은 이후
-PostgreSQL Repository를 추가할 때 사용할 연결과 세션 기반만 제공한다.
+DATABASE_URL이 설정된 환경에서는 DatabaseRepository가 이 연결과 세션을
+사용하고, 설정되지 않은 로컬 테스트에서는 기존 메모리 저장소를 사용한다.
 """
 
 from collections.abc import Generator

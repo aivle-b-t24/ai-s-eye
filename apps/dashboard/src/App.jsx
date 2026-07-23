@@ -1,45 +1,85 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
 
-import GnbHeader from './components/GnbHeader'
-import RoleBanner from './components/RoleBanner'
-import KpiSummaryBar from './components/KpiSummaryBar'
-import ZoneBreakdownTable from './components/ZoneBreakdownTable'
-import VisionMonitorPanel from './components/VisionMonitorPanel'
-import MenuListPanel from './components/MenuListPanel'
-import PolicyListPanel from './components/PolicyListPanel'
-import EmptyStorePanel from './components/EmptyStorePanel'
-import SupervisorHeadOfficeView from './components/SupervisorHeadOfficeView'
-import SettingsView from './components/SettingsView'
+import LoginPage from './components/user/LoginPage'
+import SignupPage from './components/user/SignupPage'
+import StoreDashboardView from './components/store/StoreDashboardView'
+import SupervisorHeadOfficeView from './components/head-office/SupervisorHeadOfficeView'
+import SettingsView from './components/settings/SettingsView'
+import GnbHeader from './components/common/GnbHeader'
+import RoleBanner from './components/common/RoleBanner'
 
-/* ==========================================================================
-   1. [REAL API ENVIRONMENT & CONFIGURATION]
-   ========================================================================== */
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
 
-/* ==========================================================================
-   2. [MOCK DATA FOR DEMO & OFFLINE FALLBACK]
-   ========================================================================== */
+const QUEUE_STORE1 = [
+  {
+    visible_person_count: 24,
+    queue_count_estimate: 4,
+    quality_status: 'normal',
+    zone_counts: { seating_1f: 10, aisle_1f: 4, counter_1f: 3, staff_1f: 2, seating_2f: 5, aisle_2f: 2, waiting_out: 4 },
+    eta: { estimated_wait_minutes: 12 }
+  },
+  {
+    visible_person_count: 26,
+    queue_count_estimate: 5,
+    quality_status: 'normal',
+    zone_counts: { seating_1f: 11, aisle_1f: 4, counter_1f: 4, staff_1f: 2, seating_2f: 5, aisle_2f: 2, waiting_out: 5 },
+    eta: { estimated_wait_minutes: 15 }
+  },
+  {
+    visible_person_count: 22,
+    queue_count_estimate: 3,
+    quality_status: 'normal',
+    zone_counts: { seating_1f: 9, aisle_1f: 3, counter_1f: 3, staff_1f: 2, seating_2f: 5, aisle_2f: 2, waiting_out: 3 },
+    eta: { estimated_wait_minutes: 9 }
+  },
+  {
+    visible_person_count: 20,
+    queue_count_estimate: 2,
+    quality_status: 'normal',
+    zone_counts: { seating_1f: 8, aisle_1f: 3, counter_1f: 2, staff_1f: 2, seating_2f: 5, aisle_2f: 2, waiting_out: 2 },
+    eta: { estimated_wait_minutes: 6 }
+  }
+]
+
+const QUEUE_STORE2 = [
+  {
+    visible_person_count: 10,
+    queue_count_estimate: 0,
+    quality_status: 'normal',
+    zone_counts: { seating_1f: 8, aisle_1f: 0, counter_1f: 2, staff_1f: 1, seating_2f: 0, aisle_2f: 0, waiting_out: 0 },
+    eta: { estimated_wait_minutes: 0 }
+  },
+  {
+    visible_person_count: 12,
+    queue_count_estimate: 1,
+    quality_status: 'normal',
+    zone_counts: { seating_1f: 9, aisle_1f: 1, counter_1f: 2, staff_1f: 1, seating_2f: 0, aisle_2f: 0, waiting_out: 1 },
+    eta: { estimated_wait_minutes: 3 }
+  },
+  {
+    visible_person_count: 14,
+    queue_count_estimate: 2,
+    quality_status: 'normal',
+    zone_counts: { seating_1f: 10, aisle_1f: 1, counter_1f: 3, staff_1f: 1, seating_2f: 0, aisle_2f: 0, waiting_out: 2 },
+    eta: { estimated_wait_minutes: 6 }
+  },
+  {
+    visible_person_count: 9,
+    queue_count_estimate: 0,
+    quality_status: 'normal',
+    zone_counts: { seating_1f: 7, aisle_1f: 0, counter_1f: 2, staff_1f: 1, seating_2f: 0, aisle_2f: 0, waiting_out: 0 },
+    eta: { estimated_wait_minutes: 0 }
+  }
+]
+
 const MOCK_STORE_DATA = {
   'store-001': {
-    state: {
-      visible_person_count: 24,
-      queue_count_estimate: 4,
-      quality_status: 'normal',
-      zone_counts: {
-        seating_1f: 10,
-        aisle_1f: 4,
-        counter_1f: 3,
-        staff_1f: 2,
-        seating_2f: 5,
-        aisle_2f: 2,
-        waiting_out: 4
-      }
-    },
-    eta: { estimated_wait_minutes: 12 },
+    state: QUEUE_STORE1[0],
+    eta: QUEUE_STORE1[0].eta,
     menus: [
-      { menu_id: 'm1', name: '아메리카노', price: 4500, available: true },
-      { menu_id: 'm2', name: '카페 라떼', price: 5000, available: true },
+      { menu_id: 'm1', name: '아메리카노', price: 4000, available: true },
+      { menu_id: 'm2', name: '카페 라떼', price: 4500, available: true },
       { menu_id: 'm3', name: '바닐라 빈 라떼', price: 5500, available: false },
       { menu_id: 'm4', name: '딸기 생크림 케이크', price: 6800, available: true }
     ],
@@ -49,16 +89,23 @@ const MOCK_STORE_DATA = {
     ]
   },
   'store-002': {
-    state: null,
-    eta: null,
-    menus: [],
-    policies: []
+    state: QUEUE_STORE2[0],
+    eta: QUEUE_STORE2[0].eta,
+    menus: [
+      { menu_id: 'm201', name: '아메리카노', price: 4000, available: true },
+      { menu_id: 'm202', name: '카페 라떼', price: 4500, available: true },
+      { menu_id: 'm203', name: '카푸치노', price: 4500, available: true },
+      { menu_id: 'm204', name: '에스프레소', price: 3500, available: true },
+      { menu_id: 'm205', name: '바닐라 빈 라떼', price: 4500, available: false }
+    ],
+    policies: [
+      { policy_id: 'p201', title: '⏰ 영업시간 안내', content: '오전 9시부터 오후 10시까지 영업합니다. (라스트 오더 21:30)' },
+      { policy_id: 'p202', title: '🪑 좌석 및 단체석', content: '최대 6인까지 이용 가능한 단체석이 준비되어 있습니다.' },
+      { policy_id: 'p203', title: '🛍️ 포장 및 테이크아웃', content: '전 메뉴 테이크아웃 가능합니다.' }
+    ]
   }
 }
 
-/* ==========================================================================
-   3. [REAL API FETCHERS]
-   ========================================================================== */
 async function fetchStoreState(storeId) {
   const response = await fetch(`${API_BASE_URL}/api/stores/${storeId}/state`)
   if (!response.ok) {
@@ -86,121 +133,171 @@ async function fetchStorePolicies(storeId) {
 }
 
 function App() {
+  const [authMode, setAuthMode] = useState('login')
+  const [currentUser, setCurrentUser] = useState(null)
+
   const [page, setPage] = useState("store-001")
-  const [dashboard, setDashboard] = useState(MOCK_STORE_DATA['store-001'])
+  const [storesData, setStoresData] = useState(MOCK_STORE_DATA)
+
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [isUsingMock, setIsUsingMock] = useState(false)
 
-  const lastStateJsonRef = useRef('')
-  const lastErrorRef = useRef('')
-  const isApiOfflineRef = useRef(false)
+  const lastStateJsonRef = useRef({})
+  const indexStore1Ref = useRef(0)
+  const indexStore2Ref = useRef(0)
 
-  const loadStateOnly = useCallback(async (storeId, isInitial = false) => {
-    if (isApiOfflineRef.current && !isInitial) {
-      return
+  const handleLoginSuccess = (userData) => {
+    setCurrentUser(userData)
+    setPage(userData.storeId ?? 'store-001')
+    setAuthMode('dashboard')
+  }
+
+  const handleLogout = () => {
+    setCurrentUser(null)
+    setAuthMode('login')
+  }
+
+  const getNextQueueState = (targetStoreId) => {
+    if (targetStoreId === 'store-002') {
+      indexStore2Ref.current = (indexStore2Ref.current + 1) % QUEUE_STORE2.length
+      const nextItem = QUEUE_STORE2[indexStore2Ref.current]
+      return {
+        state: nextItem,
+        eta: nextItem.eta
+      }
+    } else {
+      indexStore1Ref.current = (indexStore1Ref.current + 1) % QUEUE_STORE1.length
+      const nextItem = QUEUE_STORE1[indexStore1Ref.current]
+      return {
+        state: nextItem,
+        eta: nextItem.eta
+      }
     }
+  }
 
+  const loadStateOnly = useCallback(async (targetStoreId, isInitial = false) => {
     if (isInitial) setLoading(true)
-    try {
-      const stateData = await fetchStoreState(storeId)
-      const currentStateJson = JSON.stringify(stateData)
-      
-      isApiOfflineRef.current = false
 
-      if (lastStateJsonRef.current === currentStateJson) {
-        if (lastErrorRef.current !== '') {
-          setError('')
-          lastErrorRef.current = ''
-        }
+    try {
+      const stateData = await fetchStoreState(targetStoreId)
+      const currentStateJson = JSON.stringify(stateData)
+
+      if (lastStateJsonRef.current[targetStoreId] === currentStateJson) {
+        setError('')
         setIsUsingMock(false)
         return
       }
 
-      lastStateJsonRef.current = currentStateJson
-      lastErrorRef.current = ''
+      lastStateJsonRef.current[targetStoreId] = currentStateJson
 
-      setDashboard((prev) => ({
+      setStoresData((prev) => ({
         ...prev,
-        state: stateData,
+        [targetStoreId]: {
+          ...(prev[targetStoreId] ?? MOCK_STORE_DATA[targetStoreId]),
+          state: stateData,
+        }
       }))
       setError('')
       setIsUsingMock(false)
     } catch (err) {
-      isApiOfflineRef.current = true
-
-      if (lastErrorRef.current !== err.message) {
-        lastErrorRef.current = err.message
-        setError(err.message)
-      }
-      
+      setError(err.message)
       setIsUsingMock(true)
-      if (MOCK_STORE_DATA[storeId]) {
-        setDashboard((prev) => ({
-          ...prev,
-          state: MOCK_STORE_DATA[storeId].state ?? prev?.state,
-          eta: MOCK_STORE_DATA[storeId].eta ?? prev?.eta,
-          menus: MOCK_STORE_DATA[storeId].menus ?? prev?.menus,
-          policies: MOCK_STORE_DATA[storeId].policies ?? prev?.policies,
-        }))
-      }
+
+      const nextQueue = getNextQueueState(targetStoreId)
+      setStoresData((prev) => ({
+        ...prev,
+        [targetStoreId]: {
+          ...(prev[targetStoreId] ?? MOCK_STORE_DATA[targetStoreId]),
+          state: nextQueue.state,
+          eta: nextQueue.eta
+        }
+      }))
     } finally {
       setLoading(false)
     }
   }, [])
 
-  const loadStaticData = useCallback(async (storeId) => {
+  const loadStaticData = useCallback(async (targetStoreId) => {
     try {
       const [menuData, policyData, etaData] = await Promise.all([
-        fetchStoreMenus(storeId),
-        fetchStorePolicies(storeId),
-        fetchStoreEta(storeId),
+        fetchStoreMenus(targetStoreId),
+        fetchStorePolicies(targetStoreId),
+        fetchStoreEta(targetStoreId),
       ])
-      setDashboard((prev) => ({
+      setStoresData((prev) => ({
         ...prev,
-        menus: menuData?.menus ?? MOCK_STORE_DATA[storeId]?.menus ?? [],
-        policies: policyData?.policies ?? MOCK_STORE_DATA[storeId]?.policies ?? [],
-        eta: etaData ?? MOCK_STORE_DATA[storeId]?.eta ?? null,
+        [targetStoreId]: {
+          ...(prev[targetStoreId] ?? MOCK_STORE_DATA[targetStoreId]),
+          menus: menuData?.menus ?? MOCK_STORE_DATA[targetStoreId]?.menus ?? [],
+          policies: policyData?.policies ?? MOCK_STORE_DATA[targetStoreId]?.policies ?? [],
+          eta: etaData ?? MOCK_STORE_DATA[targetStoreId]?.eta ?? null,
+        }
       }))
     } catch {
-      // Ignore static fail in mock mode
+      // Mock fallback
     }
   }, [])
 
   useEffect(() => {
     let timerId = null
 
-    if (page === 'store-001' || page === 'store-002') {
-      const targetStore = page
-      
-      loadStaticData(targetStore)
-      loadStateOnly(targetStore, true)
+    if (authMode === 'dashboard') {
+      if (page === 'store-001' || page === 'store-002') {
+        lastStateJsonRef.current[page] = ''
 
-      timerId = setInterval(() => {
-        loadStateOnly(targetStore, false)
-      }, 2000)
-    } else {
-      timerId = null
+        loadStaticData(page)
+        loadStateOnly(page, true)
+
+        timerId = setInterval(() => {
+          loadStateOnly(page, false)
+        }, 2000)
+      } else if (page === 'head-office') {
+        loadStateOnly('store-001', false)
+        loadStateOnly('store-002', false)
+        timerId = null
+      } else if (page === 'setting') {
+        timerId = null
+      }
     }
 
     return () => {
       if (timerId) clearInterval(timerId)
     }
-  }, [page, loadStateOnly, loadStaticData])
+  }, [authMode, page, loadStateOnly, loadStaticData])
 
-  const soldOutCount = dashboard?.menus?.filter((menu) => !menu.available).length ?? 0;
+  const activeDashboard = storesData[page] ?? MOCK_STORE_DATA[page] ?? MOCK_STORE_DATA['store-001']
+  const soldOutCount = activeDashboard?.menus?.filter((menu) => !menu.available).length ?? 0
+
+  if (authMode === 'login') {
+    return (
+      <LoginPage 
+        onLogin={handleLoginSuccess}
+        onGoToSignup={() => setAuthMode('signup')}
+      />
+    )
+  }
+
+  if (authMode === 'signup') {
+    return (
+      <SignupPage
+        onGoToLogin={() => setAuthMode('login')}
+        onCompleteSignup={() => setAuthMode('login')}
+      />
+    )
+  }
 
   return (
     <main className="page-shell">
-      {/* 1. GNB Component */}
       <GnbHeader 
         page={page} 
         setPage={setPage} 
         loadStateOnly={loadStateOnly} 
         loading={loading} 
+        user={currentUser}
+        onLogout={handleLogout}
       />
 
-      {/* 2. Role Banner Component */}
       <RoleBanner 
         page={page} 
         apiBaseUrl={API_BASE_URL} 
@@ -209,48 +306,25 @@ function App() {
         loading={loading} 
       />
 
-      {/* 3. [Store Manager View - Store 1] */}
-      {page === "store-001" && (
-        <>
-          {dashboard?.state?.quality_status !== "normal" && (
-            <section className="alert-banner warning-alert">
-              ⚠️ <strong>점주 알림:</strong> AI 카메라 스트림 화질 점검이 필요합니다.
-            </section>
-          )}
-
-          {(dashboard?.state?.queue_count_estimate ?? 0) >= 20 && (
-            <section className="alert-banner queue-alert">
-              🚨 <strong>대기 폭주 알림:</strong> 현재 외부 대기 인원이 {dashboard?.state?.queue_count_estimate}명으로 증가했습니다. 카운터 대응을 권장합니다.
-            </section>
-          )}
-
-          <KpiSummaryBar dashboard={dashboard} soldOutCount={soldOutCount} />
-
-          <section className="dashboard-main-grid">
-            <div className="main-left-content">
-              <ZoneBreakdownTable zoneCounts={dashboard?.state?.zone_counts} />
-              <VisionMonitorPanel />
-            </div>
-
-            <div className="main-right-content">
-              <MenuListPanel menus={dashboard?.menus} soldOutCount={soldOutCount} />
-              <PolicyListPanel policies={dashboard?.policies} />
-            </div>
-          </section>
-        </>
+      {(page === "store-001" || page === "store-002") && (
+        <StoreDashboardView 
+          page={page}
+          dashboard={activeDashboard}
+          soldOutCount={soldOutCount}
+        />
       )}
 
-      {/* 4. [Store Manager View - Store 2] */}
-      {page === "store-002" && <EmptyStorePanel storeId="store-002" />}
-
-      {/* 5. [Supervisor View - Head Office] */}
       {page === "head-office" && (
-        <SupervisorHeadOfficeView dashboard={dashboard} mockData={MOCK_STORE_DATA} />
+        <SupervisorHeadOfficeView 
+          storesData={storesData} 
+        />
       )}
 
-      {/* 6. [Settings View] */}
       {page === "setting" && (
-        <SettingsView apiBaseUrl={API_BASE_URL} setPage={setPage} />
+        <SettingsView 
+          apiBaseUrl={API_BASE_URL} 
+          setPage={setPage} 
+        />
       )}
     </main>
   )

@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function GnbHeader({ page, setPage, loadStateOnly, loading }) {
+export default function GnbHeader({ page, setPage, loadStateOnly, loading, user, onLogout }) {
   return (
     <header className="gnb-header">
       <div className="brand-zone">
@@ -35,16 +35,14 @@ export default function GnbHeader({ page, setPage, loadStateOnly, loading }) {
       </nav>
 
       <div className="header-actions">
-        {(page === "store-001" || page === "store-002") && (
-          <button
-            type="button"
-            className="action-btn refresh-btn"
-            onClick={() => loadStateOnly(page, true)}
-            disabled={loading}
-          >
-            {loading ? "🔄 갱신 중..." : "🔄 새로고침"}
-          </button>
-        )}
+        <button
+          type="button"
+          className="action-btn refresh-btn"
+          onClick={() => loadStateOnly(page.startsWith("store") ? page : "store-001", true)}
+          disabled={loading}
+        >
+          {loading ? "🔄 갱신 중..." : "🔄 새로고침"}
+        </button>
 
         <button
           type="button"
@@ -53,6 +51,15 @@ export default function GnbHeader({ page, setPage, loadStateOnly, loading }) {
         >
           ⚙️ 설정
         </button>
+
+        {user && (
+          <div className="user-profile-badge">
+            <span className="user-name">{user.name}</span>
+            <button type="button" className="logout-btn" onClick={onLogout}>
+              🚪 로그아웃
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );

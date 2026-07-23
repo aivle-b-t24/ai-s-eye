@@ -20,7 +20,7 @@ import urllib.request
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_FILE = REPO_ROOT / "samples" / "merged_all_states.json"
+DEFAULT_FILE = REPO_ROOT / "samples" / "cafe_stores_states.json"
 
 
 def load_states(path: Path) -> list[dict]:

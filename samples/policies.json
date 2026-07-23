@@ -2,187 +2,666 @@
   "data_source": "mock",
   "policies": [
     {
+      "store_id": "store-001",
       "policy_id": "policy-001",
       "category": "operation",
       "title": "영업시간",
-      "content": "오전 9시부터 오후 10시까지 운영합니다. 주문은 오후 9시 30분까지 가능합니다.",
-      "keywords": ["영업시간", "마감"]
+      "content": "오전 9시부터 오후 11시까지 운영합니다. 주문은 오후 10시 30분까지 가능합니다.",
+      "keywords": [
+        "영업시간",
+        "마감"
+      ]
     },
     {
+      "store_id": "store-001",
       "policy_id": "policy-002",
       "category": "facility",
       "title": "주차",
-      "content": "매장 뒤편에 전용 주차장이 있으며 최대 6대까지 주차 가능합니다. 매장 이용 고객은 무료입니다.",
-      "keywords": ["주차", "자동차"]
+      "content": "동명점은 주차가 불가능합니다. 근처 공영주차장을 이용해주세요.",
+      "keywords": [
+        "주차",
+        "자동차"
+      ]
     },
     {
+      "store_id": "store-001",
       "policy_id": "policy-003",
       "category": "order",
       "title": "포장",
       "content": "모든 메뉴는 포장이 가능합니다.",
-      "keywords": ["포장", "테이크아웃", "픽업"]
+      "keywords": [
+        "포장",
+        "테이크아웃",
+        "픽업"
+      ]
     },
     {
+      "store_id": "store-001",
       "policy_id": "policy-004",
       "category": "order",
       "title": "환불",
       "content": "제조 시작 이후 주문 취소 및 환불은 불가합니다. 주문 오류 등은 직원에게 문의해 주세요.",
-      "keywords": ["환불", "취소", "변경", "잘못주문"]
+      "keywords": [
+        "환불",
+        "취소",
+        "변경",
+        "잘못주문"
+      ]
     },
     {
+      "store_id": "store-001",
       "policy_id": "policy-005",
       "category": "facility",
       "title": "반려동물 출입",
       "content": "실내에 반려동물 출입이 불가능합니다. 단, 안내견은 출입 가능합니다.",
-      "keywords": ["반려동물", "애완동물", "강아지", "고양이", "안내견"]
+      "keywords": [
+        "반려동물",
+        "애완동물",
+        "강아지",
+        "고양이",
+        "안내견"
+      ]
     },
     {
+      "store_id": "store-001",
       "policy_id": "policy-006",
       "category": "facility",
       "title": "와이파이",
       "content": "매장 메뉴를 주문한 고객분들은 카운터 앞쪽의 암호를 확인 후 자유롭게 사용 가능합니다.",
-      "keywords": ["와이파이", "실내인터넷"]
+      "keywords": [
+        "와이파이",
+        "실내인터넷"
+      ]
     },
     {
+      "store_id": "store-001",
       "policy_id": "policy-007",
       "category": "reservation",
       "title": "예약",
       "content": "네이버 예약이나 전화로 미리 예약 가능합니다. 단체 예약도 가능하니 방문 전 매장으로 문의해 주세요.",
-      "keywords": ["예약", "네이버예약", "단체", "단체예약"]
-    }
-     ,
+      "keywords": [
+        "예약",
+        "네이버예약",
+        "단체",
+        "단체예약"
+      ]
+    },
     {
+      "store_id": "store-001",
       "policy_id": "policy-008",
       "category": "health",
       "title": "알레르기 성분",
       "content": "일부 메뉴에는 우유, 견과류, 대두 등이 포함될 수 있습니다. 알레르기가 있으신 경우 주문 전 직원에게 문의해 주세요.",
-      "keywords": ["알레르기", "견과류", "대두", "성분"]
+      "keywords": [
+        "알레르기",
+        "견과류",
+        "대두",
+        "성분"
+      ]
     },
     {
+      "store_id": "store-001",
       "policy_id": "policy-009",
       "category": "service",
       "title": "키오스크",
       "content": "키오스크를 통해 주문 및 결제가 가능합니다. 이용이 어려우신 경우 직원이 도와드립니다.",
-      "keywords": ["키오스크", "사용법"]
+      "keywords": [
+        "키오스크",
+        "사용법"
+      ]
     },
     {
+      "store_id": "store-001",
       "policy_id": "policy-010",
       "category": "facility",
       "title": "케어 키즈 존",
       "content": "어린이 동반 입장이 가능한 케어키즈존으로 운영합니다. 보호자께서는 어린이의 안전과 질서를 함께 살펴주시길 부탁드립니다.",
-      "keywords": ["케어키즈존", "어린이", "아이", "아동", "유아", "보호"]
+      "keywords": [
+        "케어키즈존",
+        "어린이",
+        "아이",
+        "아동",
+        "유아",
+        "보호"
+      ]
     },
     {
+      "store_id": "store-001",
       "policy_id": "policy-011",
       "category": "order",
       "title": "1인 1음료",
       "content": "1인 1음료가 원칙입니다.",
-      "keywords": ["1인1음료", "인당", "한명당", "일행", "음료주문"]
+      "keywords": [
+        "1인1음료",
+        "인당",
+        "한명당",
+        "일행",
+        "음료주문"
+      ]
     },
     {
+      "store_id": "store-001",
       "policy_id": "policy-012",
       "category": "facility",
       "title": "매장 비품",
       "content": "휴지, 빨대는 셀프바에 위치해 있습니다.",
-      "keywords": ["휴지", "티슈", "화장지", "빨대", "셀프바"]
+      "keywords": [
+        "휴지",
+        "티슈",
+        "화장지",
+        "빨대",
+        "셀프바"
+      ]
     },
     {
+      "store_id": "store-001",
       "policy_id": "policy-013",
       "category": "facility",
       "title": "매장 이용시간",
       "content": "매장 이용 제한시간은 없으나 혼잡 시 2시간까지 이용 가능합니다.",
-      "keywords": ["이용시간", "이용제한", "오래앉기"]
+      "keywords": [
+        "이용시간",
+        "이용제한",
+        "오래앉기"
+      ]
     },
     {
+      "store_id": "store-001",
       "policy_id": "policy-014",
       "category": "facility",
       "title": "흡연",
       "content": "매장 내 전 구역 금연입니다. 별도의 흡연구역은 없습니다.",
-      "keywords": ["흡연", "금연", "담배", "전자담배", "흡연구역"]
+      "keywords": [
+        "흡연",
+        "금연",
+        "담배",
+        "전자담배",
+        "흡연구역"
+      ]
     },
     {
+      "store_id": "store-001",
       "policy_id": "policy-015",
       "category": "facility",
       "title": "화장실",
       "content": "화장실은 1층에 위치해 있습니다.",
-      "keywords": ["화장실", "남자화장실", "여자화장실", "세면대"]
+      "keywords": [
+        "화장실",
+        "남자화장실",
+        "여자화장실",
+        "세면대"
+      ]
     },
     {
+      "store_id": "store-001",
       "policy_id": "policy-016",
       "category": "order",
       "title": "포장 후 매장섭취",
       "content": "포장 주문 후 매장에서 드시는 경우, 포장용기는 사용할 수 없어 매장용 용기로 바꿔드립니다.",
-      "keywords": ["매장섭취", "포장했는데", "매장에서먹", "컵"]
+      "keywords": [
+        "매장섭취",
+        "포장했는데",
+        "매장에서먹",
+        "컵"
+      ]
     },
     {
+      "store_id": "store-001",
       "policy_id": "policy-017",
       "category": "service",
       "title": "분실 물품",
       "content": "분실물은 카운터에서 보관합니다. 확인 후 연락드릴 수 있도록 연락처를 남겨주세요.",
-      "keywords": ["분실", "분실물품", "두고간물건"]
+      "keywords": [
+        "분실",
+        "분실물품",
+        "두고간물건"
+      ]
     },
     {
+      "store_id": "store-001",
       "policy_id": "policy-018",
       "category": "facility",
       "title": "외부음식",
       "content": "외부 음식은 섭취 불가능합니다.",
-      "keywords": ["외부음식", "다른가게", "음식반입"]
+      "keywords": [
+        "외부음식",
+        "다른가게",
+        "음식반입"
+      ]
     },
     {
+      "store_id": "store-001",
       "policy_id": "policy-019",
       "category": "operation",
       "title": "라스트오더",
-      "content": "라스트오더 시간은 오후 9시 30분까지입니다.",
-      "keywords": ["라스트오더", "마지막주문", "주문가능시간"]
+      "content": "라스트오더 시간은 22시 30분까지입니다.",
+      "keywords": [
+        "라스트오더",
+        "마지막주문",
+        "주문가능시간"
+      ]
     },
     {
+      "store_id": "store-001",
       "policy_id": "policy-020",
       "category": "menu",
       "title": "우유 변경",
       "content": "오트밀 우유와 저당 우유로 변경 가능합니다.",
-      "keywords": ["오트밀", "저당우유", "무가당", "우유변경"]
+      "keywords": [
+        "오트밀",
+        "저당우유",
+        "무가당",
+        "우유변경"
+      ]
     },
     {
+      "store_id": "store-001",
       "policy_id": "policy-021",
       "category": "payment",
       "title": "현금영수증",
       "content": "주문 시 요청하시면 발급해 드립니다.",
-      "keywords": ["현금영수증", "영수증", "소득공제"]
+      "keywords": [
+        "현금영수증",
+        "영수증",
+        "소득공제"
+      ]
     },
     {
+      "store_id": "store-001",
       "policy_id": "policy-022",
       "category": "facility",
       "title": "유아 편의",
       "content": "유아용 의자가 준비되어 있으며 유아차 동반 입장이 가능합니다.",
-      "keywords": ["유아의자", "아기의자", "유아차", "유모차"]
+      "keywords": [
+        "유아의자",
+        "아기의자",
+        "유아차",
+        "유모차"
+      ]
     },
     {
+      "store_id": "store-001",
       "policy_id": "policy-023",
       "category": "payment",
       "title": "기프트 카드",
       "content": "매장 전용 기프트 카드는 3만원, 5만원, 10만원권이 있고 모든 메뉴에 사용 가능합니다.",
-      "keywords": ["기프트카드", "선불권", "매장카드"]
+      "keywords": [
+        "기프트카드",
+        "선불권",
+        "매장카드"
+      ]
     },
     {
+      "store_id": "store-001",
       "policy_id": "policy-024",
       "category": "facility",
       "title": "테라스",
       "content": "매장 1, 2층 모두 테라스가 있고 자유롭게 이용 가능합니다.",
-      "keywords": ["테라스", "야외", "야외좌석"]
+      "keywords": [
+        "테라스",
+        "야외",
+        "야외좌석"
+      ]
     },
     {
+      "store_id": "store-001",
       "policy_id": "policy-025",
       "category": "payment",
       "title": "결제 수단",
       "content": "카드, 현금, 간편결제(삼성페이·카카오페이), 지역화폐 모두 사용 가능합니다.",
-      "keywords": ["결제수단", "카드결제", "현금", "간편결제", "삼성페이", "카카오페이", "지역화폐"]
+      "keywords": [
+        "결제수단",
+        "카드결제",
+        "현금",
+        "간편결제",
+        "삼성페이",
+        "카카오페이",
+        "지역화폐"
+      ]
     },
     {
+      "store_id": "store-001",
       "policy_id": "policy-026",
       "category": "facility",
       "title": "콘센트",
       "content": "일부 좌석에 콘센트가 있어 노트북 이용이 가능합니다. 콘센트 좌석은 선착순입니다.",
-      "keywords": ["콘센트", "충전", "노트북", "코드"]
+      "keywords": [
+        "콘센트",
+        "충전",
+        "노트북",
+        "코드"
+      ]
+    },
+    {
+      "store_id": "store-002",
+      "policy_id": "policy-001",
+      "category": "operation",
+      "title": "영업시간",
+      "content": "오전 9시부터 오후 10시까지 운영합니다. 주문은 오후 9시 30분까지 가능합니다.",
+      "keywords": [
+        "영업시간",
+        "마감"
+      ]
+    },
+    {
+      "store_id": "store-002",
+      "policy_id": "policy-002",
+      "category": "facility",
+      "title": "주차",
+      "content": "매장 뒤편에 전용 주차장이 있으며 최대 6대까지 주차 가능합니다. 매장 이용 고객은 무료입니다.",
+      "keywords": [
+        "주차",
+        "자동차"
+      ]
+    },
+    {
+      "store_id": "store-002",
+      "policy_id": "policy-003",
+      "category": "order",
+      "title": "포장",
+      "content": "모든 메뉴는 포장이 가능합니다.",
+      "keywords": [
+        "포장",
+        "테이크아웃",
+        "픽업"
+      ]
+    },
+    {
+      "store_id": "store-002",
+      "policy_id": "policy-004",
+      "category": "order",
+      "title": "환불",
+      "content": "제조 시작 이후 주문 취소 및 환불은 불가합니다. 주문 오류 등은 직원에게 문의해 주세요.",
+      "keywords": [
+        "환불",
+        "취소",
+        "변경",
+        "잘못주문"
+      ]
+    },
+    {
+      "store_id": "store-002",
+      "policy_id": "policy-005",
+      "category": "facility",
+      "title": "반려동물 출입",
+      "content": "실내에 반려동물 출입이 불가능합니다. 단, 안내견은 출입 가능합니다.",
+      "keywords": [
+        "반려동물",
+        "애완동물",
+        "강아지",
+        "고양이",
+        "안내견"
+      ]
+    },
+    {
+      "store_id": "store-002",
+      "policy_id": "policy-006",
+      "category": "facility",
+      "title": "와이파이",
+      "content": "매장 메뉴를 주문한 고객분들은 카운터 앞쪽의 암호를 확인 후 자유롭게 사용 가능합니다.",
+      "keywords": [
+        "와이파이",
+        "실내인터넷"
+      ]
+    },
+    {
+      "store_id": "store-002",
+      "policy_id": "policy-007",
+      "category": "reservation",
+      "title": "예약",
+      "content": "네이버 예약이나 전화로 미리 예약 가능합니다. 단체 예약도 가능하니 방문 전 매장으로 문의해 주세요.",
+      "keywords": [
+        "예약",
+        "네이버예약",
+        "단체",
+        "단체예약"
+      ]
+    },
+    {
+      "store_id": "store-002",
+      "policy_id": "policy-008",
+      "category": "health",
+      "title": "알레르기 성분",
+      "content": "일부 메뉴에는 우유, 견과류, 대두 등이 포함될 수 있습니다. 알레르기가 있으신 경우 주문 전 직원에게 문의해 주세요.",
+      "keywords": [
+        "알레르기",
+        "견과류",
+        "대두",
+        "성분"
+      ]
+    },
+    {
+      "store_id": "store-002",
+      "policy_id": "policy-009",
+      "category": "service",
+      "title": "키오스크",
+      "content": "키오스크를 통해 주문 및 결제가 가능합니다. 이용이 어려우신 경우 직원이 도와드립니다.",
+      "keywords": [
+        "키오스크",
+        "사용법"
+      ]
+    },
+    {
+      "store_id": "store-002",
+      "policy_id": "policy-010",
+      "category": "facility",
+      "title": "케어 키즈 존",
+      "content": "어린이 동반 입장이 가능한 케어키즈존으로 운영합니다. 보호자께서는 어린이의 안전과 질서를 함께 살펴주시길 부탁드립니다.",
+      "keywords": [
+        "케어키즈존",
+        "어린이",
+        "아이",
+        "아동",
+        "유아",
+        "보호"
+      ]
+    },
+    {
+      "store_id": "store-002",
+      "policy_id": "policy-011",
+      "category": "order",
+      "title": "1인 1음료",
+      "content": "1인 1음료가 원칙입니다.",
+      "keywords": [
+        "1인1음료",
+        "인당",
+        "한명당",
+        "일행",
+        "음료주문"
+      ]
+    },
+    {
+      "store_id": "store-002",
+      "policy_id": "policy-012",
+      "category": "facility",
+      "title": "매장 비품",
+      "content": "휴지, 물, 물티슈는 셀프바에 위치해 있습니다.",
+      "keywords": [
+        "휴지",
+        "티슈",
+        "화장지",
+        "빨대",
+        "셀프바"
+      ]
+    },
+    {
+      "store_id": "store-002",
+      "policy_id": "policy-013",
+      "category": "facility",
+      "title": "매장 이용시간",
+      "content": "매장 이용 제한시간은 없으나 혼잡 시 2시간까지 이용 가능합니다.",
+      "keywords": [
+        "이용시간",
+        "이용제한",
+        "오래앉기"
+      ]
+    },
+    {
+      "store_id": "store-002",
+      "policy_id": "policy-014",
+      "category": "facility",
+      "title": "흡연",
+      "content": "매장 내 전 구역 금연입니다. 별도의 흡연구역은 없습니다.",
+      "keywords": [
+        "흡연",
+        "금연",
+        "담배",
+        "전자담배",
+        "흡연구역"
+      ]
+    },
+    {
+      "store_id": "store-002",
+      "policy_id": "policy-015",
+      "category": "facility",
+      "title": "화장실",
+      "content": "화장실은 1층에 위치해 있습니다.",
+      "keywords": [
+        "화장실",
+        "남자화장실",
+        "여자화장실",
+        "세면대"
+      ]
+    },
+    {
+      "store_id": "store-002",
+      "policy_id": "policy-016",
+      "category": "order",
+      "title": "포장 후 매장섭취",
+      "content": "포장 주문 후 매장에서 드시는 경우, 포장용기는 사용할 수 없어 매장용 용기로 바꿔드립니다.",
+      "keywords": [
+        "매장섭취",
+        "포장했는데",
+        "매장에서먹",
+        "컵"
+      ]
+    },
+    {
+      "store_id": "store-002",
+      "policy_id": "policy-017",
+      "category": "service",
+      "title": "분실 물품",
+      "content": "분실물은 카운터에서 보관합니다. 확인 후 연락드릴 수 있도록 연락처를 남겨주세요.",
+      "keywords": [
+        "분실",
+        "분실물품",
+        "두고간물건"
+      ]
+    },
+    {
+      "store_id": "store-002",
+      "policy_id": "policy-018",
+      "category": "facility",
+      "title": "외부음식",
+      "content": "외부 음식은 섭취 불가능합니다.",
+      "keywords": [
+        "외부음식",
+        "다른가게",
+        "음식반입"
+      ]
+    },
+    {
+      "store_id": "store-002",
+      "policy_id": "policy-019",
+      "category": "operation",
+      "title": "라스트오더",
+      "content": "라스트오더 시간은 21시 30분까지입니다.",
+      "keywords": [
+        "라스트오더",
+        "마지막주문",
+        "주문가능시간"
+      ]
+    },
+    {
+      "store_id": "store-002",
+      "policy_id": "policy-020",
+      "category": "menu",
+      "title": "우유 변경",
+      "content": "오트밀 우유와 저당 우유로 변경 가능합니다.",
+      "keywords": [
+        "오트밀",
+        "저당우유",
+        "무가당",
+        "우유변경"
+      ]
+    },
+    {
+      "store_id": "store-002",
+      "policy_id": "policy-021",
+      "category": "payment",
+      "title": "현금영수증",
+      "content": "주문 시 요청하시면 발급해 드립니다.",
+      "keywords": [
+        "현금영수증",
+        "영수증",
+        "소득공제"
+      ]
+    },
+    {
+      "store_id": "store-002",
+      "policy_id": "policy-022",
+      "category": "facility",
+      "title": "유아 편의",
+      "content": "유아용 의자가 준비되어 있으며 유아차 동반 입장이 가능합니다.",
+      "keywords": [
+        "유아의자",
+        "아기의자",
+        "유아차",
+        "유모차"
+      ]
+    },
+    {
+      "store_id": "store-002",
+      "policy_id": "policy-023",
+      "category": "payment",
+      "title": "기프트 카드",
+      "content": "매장 전용 기프트 카드는 3만원, 5만원, 10만원권이 있고 모든 메뉴에 사용 가능합니다.",
+      "keywords": [
+        "기프트카드",
+        "선불권",
+        "매장카드"
+      ]
+    },
+    {
+      "store_id": "store-002",
+      "policy_id": "policy-024",
+      "category": "facility",
+      "title": "테라스",
+      "content": "매장 1, 2층 모두 테라스가 있고 자유롭게 이용 가능합니다.",
+      "keywords": [
+        "테라스",
+        "야외",
+        "야외좌석"
+      ]
+    },
+    {
+      "store_id": "store-002",
+      "policy_id": "policy-025",
+      "category": "payment",
+      "title": "결제 수단",
+      "content": "카드, 현금, 간편결제(삼성페이·카카오페이), 지역화폐 모두 사용 가능합니다.",
+      "keywords": [
+        "결제수단",
+        "카드결제",
+        "현금",
+        "간편결제",
+        "삼성페이",
+        "카카오페이",
+        "지역화폐"
+      ]
+    },
+    {
+      "store_id": "store-002",
+      "policy_id": "policy-026",
+      "category": "facility",
+      "title": "콘센트",
+      "content": "일부 좌석에 콘센트가 있어 노트북 이용이 가능합니다. 콘센트 좌석은 선착순입니다.",
+      "keywords": [
+        "콘센트",
+        "충전",
+        "노트북",
+        "코드"
+      ]
     }
   ]
 }

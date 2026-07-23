@@ -1,17 +1,188 @@
 {
   "schema_version": "1.0",
-  "store_id": "store-001",
-  "camera_id": "cam-01",
-  "captured_at": "2026-07-15T10:30:00+09:00",
-  "visible_person_count": 5,
-  "queue_count_estimate": 2,
-  "zone_counts": {
-    "counter": 1,
-    "waiting": 2,
-    "seating": 2
-  },
-  "quality_status": "normal",
-  "source": "mock",
-  "model_version": "mock-v1"
+  "description": "두 매장의 시간대별 운영 샘플. 슈퍼바이저 화면·운영 분석 검증용. 값은 예시이며 편진솔이 조정한다.",
+  "stores": [
+    {
+      "store_id": "store-001",
+      "store_name": "동명점",
+      "type": "도심·바쁨"
+    },
+    {
+      "store_id": "store-002",
+      "store_name": "수완점",
+      "type": "한적. 베이커리 중심"
+    }
+  ],
+  "scenarios": [
+    {
+      "store_id": "store-001",
+      "name": "정상 운영",
+      "states": [
+        {
+          "schema_version": "1.0",
+          "store_id": "store-001",
+          "camera_id": "cam-01",
+          "captured_at": "2026-07-22T10:00:00+09:00",
+          "visible_person_count": 6,
+          "queue_count_estimate": 2,
+          "zone_counts": {
+            "counter": 1,
+            "waiting": 2,
+            "seating": 3
+          },
+          "quality_status": "normal",
+          "source": "mock",
+          "model_version": "mock-v1"
+        }
+      ],
+      "orders": [
+        {
+          "event_id": "event-001",
+          "order_id": "order-001",
+          "store_id": "store-001",
+          "occurred_at": "2026-07-22T10:02:00+09:00",
+          "status": "received",
+          "items": [
+            {
+              "menu_id": "menu-001",
+              "name": "아메리카노",
+              "quantity": 2
+            }
+          ]
+        }
+      ],
+      "expected_analysis": "정상 운영. 대기 2명 이하로 특이사항 없음."
+    },
+    {
+      "store_id": "store-001",
+      "name": "대기 증가",
+      "states": [
+        {
+          "schema_version": "1.0",
+          "store_id": "store-001",
+          "camera_id": "cam-01",
+          "captured_at": "2026-07-22T10:30:00+09:00",
+          "visible_person_count": 14,
+          "queue_count_estimate": 7,
+          "zone_counts": {
+            "counter": 1,
+            "waiting": 7,
+            "seating": 6
+          },
+          "quality_status": "normal",
+          "source": "mock",
+          "model_version": "mock-v1"
+        }
+      ],
+      "orders": [
+        {
+          "event_id": "event-002",
+          "order_id": "order-002",
+          "store_id": "store-001",
+          "occurred_at": "2026-07-22T10:31:00+09:00",
+          "status": "received",
+          "items": [
+            {
+              "menu_id": "menu-001",
+              "name": "아메리카노",
+              "quantity": 2
+            },
+            {
+              "menu_id": "menu-014",
+              "name": "스콘 (오리지널/초코)",
+              "quantity": 1
+            }
+          ]
+        }
+      ],
+      "expected_analysis": "대기 7명으로 급증. 혼잡 알림 대상. 30분 전 대비 대기 3.5배."
+    },
+    {
+      "store_id": "store-001",
+      "name": "카운터 대응 필요",
+      "states": [
+        {
+          "schema_version": "1.0",
+          "store_id": "store-001",
+          "camera_id": "cam-01",
+          "captured_at": "2026-07-22T11:00:00+09:00",
+          "visible_person_count": 15,
+          "queue_count_estimate": 9,
+          "zone_counts": {
+            "counter": 0,
+            "waiting": 9,
+            "seating": 6
+          },
+          "quality_status": "normal",
+          "source": "mock",
+          "model_version": "mock-v1"
+        }
+      ],
+      "orders": [],
+      "expected_analysis": "대기 9명인데 카운터 인원 0명. 응대 공백 발생, 즉시 대응 필요."
+    },
+    {
+      "store_id": "store-002",
+      "name": "정상 운영",
+      "states": [
+        {
+          "schema_version": "1.0",
+          "store_id": "store-002",
+          "camera_id": "cam-01",
+          "captured_at": "2026-07-22T10:00:00+09:00",
+          "visible_person_count": 2,
+          "queue_count_estimate": 0,
+          "zone_counts": {
+            "counter": 1,
+            "waiting": 0,
+            "seating": 1
+          },
+          "quality_status": "normal",
+          "source": "mock",
+          "model_version": "mock-v1"
+        }
+      ],
+      "orders": [
+        {
+          "event_id": "event-101",
+          "order_id": "order-001",
+          "store_id": "store-002",
+          "occurred_at": "2026-07-22T10:05:00+09:00",
+          "status": "received",
+          "items": [
+            {
+              "menu_id": "menu-001",
+              "name": "아메리카노",
+              "quantity": 1
+            }
+          ]
+        }
+      ],
+      "expected_analysis": "정상 운영. 한적함. store-001 대비 인원·대기 모두 낮음."
+    },
+    {
+      "store_id": "store-002",
+      "name": "영상 상태 이상",
+      "states": [
+        {
+          "schema_version": "1.0",
+          "store_id": "store-002",
+          "camera_id": "cam-01",
+          "captured_at": "2026-07-22T10:30:00+09:00",
+          "visible_person_count": 3,
+          "queue_count_estimate": 1,
+          "zone_counts": {
+            "counter": 1,
+            "waiting": 1,
+            "seating": 1
+          },
+          "quality_status": "stale",
+          "source": "mock",
+          "model_version": "mock-v1"
+        }
+      ],
+      "orders": [],
+      "expected_analysis": "영상 상태 stale. 데이터가 오래됨, 인원·대기 값 신뢰 낮음. 영상 수신 점검 필요."
+    }
+  ]
 }
-

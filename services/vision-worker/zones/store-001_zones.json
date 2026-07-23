@@ -1,5 +1,5 @@
 {
-  "store_id": "store-102",
+  "store_id": "store-001",
   "note": "대기(카운터 앞 손님쪽) + 직원(카운터 뒤) 2구역. 좌석은 미지정(나머지=매장 내 인원). frames_0 기준.",
   "image": "frames_0.jpg",
   "image_size": {"width": 1920, "height": 1080},

@@ -115,6 +115,9 @@ docker compose down
 
 현재 PostgreSQL은 API 연결 상태만 확인하고 있습니다. 메뉴와 주문 같은 실제 테이블은 기능을 합치는 과정에서 추가합니다. 그전까지는 `samples` 폴더의 JSON을 기준으로 개발하면 됩니다.
 
+미니PC에서 공용 API와 PostgreSQL을 운영하는 절차는
+[`docs/minipc-runbook.md`](docs/minipc-runbook.md)에 정리되어 있습니다.
+
 ## 테스트
 
 API 코드만 따로 테스트하려면 Python 가상환경을 만든 뒤 실행합니다.

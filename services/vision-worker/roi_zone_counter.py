@@ -6,7 +6,7 @@
 전송 JSON은 packages/contracts/store_state.schema.json 계약을 따른다.
 
 사용 예:
-    py services/vision-worker/roi_zone_counter.py                 # 기본값(CAFE store-102)으로 1장 실행
+    py services/vision-worker/roi_zone_counter.py                 # 기본값(CAFE store-001)으로 1장 실행
     py services/vision-worker/roi_zone_counter.py --image <경로>  # 다른 이미지
     py services/vision-worker/roi_zone_counter.py --no-show       # 창 없이 파일만 저장
 """
@@ -21,10 +21,10 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
-# --- 기본 경로 (CAFE store-102 기준, 인자로 덮어쓸 수 있음) -----------------
+# --- 기본 경로 (CAFE store-001 기준, 인자로 덮어쓸 수 있음) -----------------
 DEFAULT_IMG_DIR = Path(r"D:\Cafe_Dataset\Cafe_Dataset\Dataset\cafe\5\0\images")
 DEFAULT_IMAGE = DEFAULT_IMG_DIR / "frames_0.jpg"
-DEFAULT_ZONES = Path(__file__).resolve().parent / "zones" / "store-102_zones.json"
+DEFAULT_ZONES = Path(__file__).resolve().parent / "zones" / "store-001_zones.json"
 OUT_DIR = Path(__file__).resolve().parent / "outputs"  # .gitignore의 outputs/ 규칙으로 자동 제외
 
 # --- 구역 이름(한글) -> 전송 스키마용 영문 키 -----------------------------
@@ -252,8 +252,8 @@ def main():
     ap.add_argument("--iou", type=float, default=0.5, help="NMS IoU(낮출수록 중복 박스 병합)")
     ap.add_argument("--count-all", dest="count_in_zone_only", action="store_false",
                     help="구역 밖 탐지도 총 인원에 포함(기본: 구역 안만 집계)")
-    ap.add_argument("--store-id", default="store-102")
-    ap.add_argument("--camera-id", default="store-102-cam1")
+    ap.add_argument("--store-id", default="store-001")
+    ap.add_argument("--camera-id", default="store-001-cam1")
     ap.add_argument("--no-show", dest="show", action="store_false")
     ap.add_argument("--json-only", dest="save_image", action="store_false",
                     help="주석 이미지 저장 없이 JSON만 저장(배치용)")

@@ -14,7 +14,7 @@
 
 프로젝트 방향이 "카페노아 단일 매장" → "프랜차이즈 본점의 다매장 실내 혼잡도 관리"로
 바뀌면서, CAFE 데이터셋의 서로 다른 카페를 franchise 매장으로 보고 집계한다. 현재는
-대표 매장 2곳(`store-102`, `store-106`)을 운영한다. 배경은 [CAFE 데이터셋 적합성 검토](성능평가/CAFE_데이터셋_적합성_검토.md).
+대표 매장 2곳(`store-001`, `store-002`)을 운영한다. 배경은 [CAFE 데이터셋 적합성 검토](성능평가/CAFE_데이터셋_적합성_검토.md).
 
 - 모델: CAFE로 파인튜닝한 `yolo11s`(전신 라벨 → 발 위치 산출). 가중치 경로는
   `AISEYE_CAFE_MODEL`, 데이터 경로는 `AISEYE_CAFE_ROOT` 환경변수로 지정.
@@ -78,8 +78,8 @@ python services/vision-worker/replay_states.py --interval 0.5 --loop
 전송한 값은 다음으로 확인한다.
 
 ```bash
-curl http://localhost:8000/api/stores/store-102/state
-curl http://localhost:8000/api/stores/store-102/eta
+curl http://localhost:8000/api/stores/store-001/state
+curl http://localhost:8000/api/stores/store-001/eta
 ```
 
 대시보드는 화면을 열 때 값을 한 번 읽어오므로, 재생 중 값이 바뀌는 것을 보려면
@@ -88,7 +88,7 @@ curl http://localhost:8000/api/stores/store-102/eta
 ## 분석 결과 데이터
 
 `samples/cafe_stores_states.json`은 CAFE 데이터셋의 서로 다른 카페를 프랜차이즈
-매장으로 보고 집계한 결과다. 현재는 `store-102`, `store-106` 2곳이다.
+매장으로 보고 집계한 결과다. 현재는 `store-001`, `store-002` 2곳이다.
 
 | 키 | 뜻 |
 |---|---|

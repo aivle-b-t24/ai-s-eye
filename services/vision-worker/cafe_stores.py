@@ -1,6 +1,6 @@
 """CAFE 다매장(프랜차이즈) 인원·대기·직원 집계 → 매장별 StoreState 시계열.
 
-현재 프로젝트는 대표 매장 2곳(store-102, store-106)만 운영한다.
+현재 프로젝트는 대표 매장 2곳(store-001, store-002)만 운영한다.
 매장을 늘리려면 STORES에 항목을 추가하고 zones/<store_id>_zones.json 을 그린 뒤 다시 실행.
 
 집계 방식(최신):
@@ -50,8 +50,8 @@ INTERVAL = 0.5     # 합성 시각 간격(초)
 
 # 운영 매장. 늘리려면 여기에 추가 + zones/<store_id>_zones.json 작성.
 STORES = [
-    {"store_id": "store-102", "name": "2호점(CAFE 7g1)", "clip": "5"},
-    {"store_id": "store-106", "name": "6호점",          "clip": "21"},
+    {"store_id": "store-001", "name": "1호점(CAFE 7g1)", "clip": "5"},
+    {"store_id": "store-002", "name": "2호점",          "clip": "21"},
 ]
 
 
@@ -183,7 +183,7 @@ def main():
     out = Path(__file__).resolve().parents[2] / "samples" / "cafe_stores_states.json"
     out.parent.mkdir(exist_ok=True)
     doc = {
-        "note": ("CAFE 다매장(현재 store-102·106) 집계. 인원=파인튜닝 탐지-직원, "
+        "note": ("CAFE 다매장(현재 store-001·002) 집계. 인원=파인튜닝 탐지-직원, "
                  "대기=대기구역+서있음+체류(ByteTrack), 직원=직원구역. "
                  "captured_at은 합성 시각(실측 아님)."),
         "stores": [{"store_id": s["store_id"], "name": s["name"], "clip": s["clip"]}

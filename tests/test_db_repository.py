@@ -39,10 +39,14 @@ def database_repository() -> tuple[DatabaseRepository, sessionmaker[Session], st
     finally:
         with session_factory() as session:
             session.execute(
-                delete(OrderEventRecord).where(OrderEventRecord.order_id == test_id)
+                delete(OrderEventRecord).where(
+                    OrderEventRecord.event_id.like(f"{test_id}%")
+                )
             )
             session.execute(
-                delete(StoreStateRecord).where(StoreStateRecord.store_id == test_id)
+                delete(StoreStateRecord).where(
+                    StoreStateRecord.store_id.like(f"{test_id}%")
+                )
             )
             session.commit()
         engine.dispose()
@@ -169,3 +173,86 @@ def test_same_order_id_is_read_separately_by_store(
     assert store_two_result is not None
     assert store_two_result.store_id == "store-002"
     assert store_two_result.status == OrderStatus.READY
+
+
+def test_store_summary_uses_period_and_separates_stores(
+    database_repository: tuple[DatabaseRepository, sessionmaker[Session], str],
+) -> None:
+    repository, _, test_id = database_repository
+    store_one = f"{test_id}-store-001"
+    store_two = f"{test_id}-store-002"
+    start_at = datetime(2026, 7, 22, 0, 0, tzinfo=timezone.utc)
+    end_at = start_at + timedelta(days=1)
+
+    for store_id, hour, person_count, queue_count in (
+        (store_one, 1, 8, 1),
+        (store_one, 3, 28, 9),
+        (store_two, 1, 10, 0),
+        (store_two, 5, 22, 4),
+    ):
+        repository.save_store_state(
+            StoreState(
+                store_id=store_id,
+                camera_id="cam-summary",
+                captured_at=start_at + timedelta(hours=hour),
+                visible_person_count=person_count,
+                queue_count_estimate=queue_count,
+                zone_counts={"waiting": queue_count},
+                quality_status=QualityStatus.NORMAL,
+                source="pytest",
+                model_version="test-v1",
+            )
+        )
+
+    received_event = OrderEvent(
+        event_id=f"{test_id}-summary-received",
+        order_id=f"{test_id}-order-001",
+        store_id=store_one,
+        occurred_at=start_at + timedelta(hours=2),
+        status=OrderStatus.RECEIVED,
+        items=[OrderItem(menu_id="menu-001", name="아메리카노", quantity=2)],
+    )
+    ready_event = received_event.model_copy(
+        update={
+            "event_id": f"{test_id}-summary-ready",
+            "occurred_at": start_at + timedelta(hours=4),
+            "status": OrderStatus.READY,
+        }
+    )
+    store_two_event = OrderEvent(
+        event_id=f"{test_id}-summary-store-002",
+        order_id=f"{test_id}-order-002",
+        store_id=store_two,
+        occurred_at=start_at + timedelta(hours=6),
+        status=OrderStatus.COMPLETED,
+        items=[OrderItem(menu_id="menu-021", name="크루아상", quantity=3)],
+    )
+    repository.save_order_event(received_event)
+    repository.save_order_event(ready_event)
+    repository.save_order_event(store_two_event)
+
+    response = repository.get_store_summary(start_at=start_at, end_at=end_at)
+    stores = {store.store_id: store for store in response.stores}
+
+    assert set(stores) == {store_one, store_two}
+    assert stores[store_one].traffic_summary is not None
+    assert stores[store_one].traffic_summary.average_visible_person_count == 18
+    assert stores[store_one].traffic_summary.peak_queue_count_estimate == 9
+    assert stores[store_one].order_summary.total_order_count == 1
+    assert stores[store_one].order_summary.order_event_count == 2
+    assert stores[store_one].order_summary.latest_status_counts.ready == 1
+    assert stores[store_one].order_summary.top_menu_items[0].quantity == 2
+    assert stores[store_two].traffic_summary is not None
+    assert stores[store_two].traffic_summary.peak_visible_person_count == 22
+    assert stores[store_two].order_summary.total_order_count == 1
+    assert stores[store_two].order_summary.top_menu_items[0].menu_id == "menu-021"
+
+    filtered = repository.get_store_summary(
+        start_at=start_at + timedelta(hours=3, minutes=30),
+        end_at=end_at,
+    )
+    filtered_stores = {store.store_id: store for store in filtered.stores}
+
+    assert filtered_stores[store_one].traffic_summary is None
+    assert filtered_stores[store_one].order_summary.total_order_count == 1
+    assert filtered_stores[store_one].order_summary.order_event_count == 1

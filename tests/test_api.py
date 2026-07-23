@@ -208,6 +208,40 @@ def test_missing_store_order_pair_returns_404(client: TestClient) -> None:
     assert response.json()["detail"] == "Order not found"
 
 
+def test_store_summary_requires_postgresql(client: TestClient) -> None:
+    response = client.get("/api/stores/summary")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "PostgreSQL is required for store summary"
+
+
+def test_store_summary_period_requires_both_boundaries(
+    client: TestClient,
+) -> None:
+    response = client.get(
+        "/api/stores/summary",
+        params={"start_at": "2026-07-22T00:00:00+09:00"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == (
+        "start_at and end_at must be provided together"
+    )
+
+
+def test_store_summary_rejects_reversed_period(client: TestClient) -> None:
+    response = client.get(
+        "/api/stores/summary",
+        params={
+            "start_at": "2026-07-22T12:00:00+09:00",
+            "end_at": "2026-07-22T10:00:00+09:00",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "start_at must be earlier than end_at"
+
+
 def test_invalid_order_status_is_rejected(client: TestClient) -> None:
     payload = {
         "event_id": "event-invalid",

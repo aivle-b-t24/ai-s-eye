@@ -47,6 +47,7 @@ class OrderEventRecord(Base):
     __tablename__ = "order_events"
     __table_args__ = (
         sa.Index("ix_order_events_order_id_occurred_at", "order_id", "occurred_at"),
+        sa.Index("ix_order_events_store_id_occurred_at", "store_id", "occurred_at"),
     )
 
     event_id: Mapped[str] = mapped_column(sa.String(100), primary_key=True)

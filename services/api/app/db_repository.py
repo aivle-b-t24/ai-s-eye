@@ -1,6 +1,7 @@
 """PostgreSQL에 매장 상태와 주문 이벤트를 저장하는 Repository."""
 
 from collections.abc import Callable
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -8,7 +9,8 @@ from sqlalchemy.orm import Session, selectinload
 
 from .database import get_session_factory
 from .db_models import OrderEventRecord, OrderItemRecord, StoreStateRecord
-from .models import OrderEvent, OrderItem, StoreState
+from .models import OrderEvent, OrderItem, StoreState, StoreSummaryResponse
+from .summary import build_store_summary
 
 
 SessionFactory = Callable[[], Session]
@@ -137,6 +139,55 @@ class DatabaseRepository:
             if record is None:
                 return None
             return _order_event_from_record(record)
+
+    def get_store_summary(
+        self,
+        start_at: datetime | None = None,
+        end_at: datetime | None = None,
+    ) -> StoreSummaryResponse:
+        """기간에 포함된 상태와 주문 이력을 매장별로 집계한다."""
+        state_statement = select(StoreStateRecord).order_by(
+            StoreStateRecord.store_id,
+            StoreStateRecord.captured_at,
+            StoreStateRecord.id,
+        )
+        order_statement = (
+            select(OrderEventRecord)
+            .options(selectinload(OrderEventRecord.items))
+            .order_by(
+                OrderEventRecord.store_id,
+                OrderEventRecord.occurred_at,
+                OrderEventRecord.event_id,
+            )
+        )
+
+        if start_at is not None:
+            state_statement = state_statement.where(
+                StoreStateRecord.captured_at >= start_at
+            )
+            order_statement = order_statement.where(
+                OrderEventRecord.occurred_at >= start_at
+            )
+        if end_at is not None:
+            state_statement = state_statement.where(
+                StoreStateRecord.captured_at <= end_at
+            )
+            order_statement = order_statement.where(
+                OrderEventRecord.occurred_at <= end_at
+            )
+
+        with self._session_factory() as session:
+            state_records = list(session.scalars(state_statement))
+            order_records = list(session.scalars(order_statement))
+            states = [_store_state_from_record(record) for record in state_records]
+            orders = [_order_event_from_record(record) for record in order_records]
+
+        return build_store_summary(
+            states,
+            orders,
+            start_at=start_at,
+            end_at=end_at,
+        )
 
 
 def _get_order_event_record(

@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -8,7 +9,7 @@ import psycopg
 
 from .config import get_settings
 from .db_repository import DatabaseRepository
-from .models import EtaResponse, OrderEvent, StoreState
+from .models import EtaResponse, OrderEvent, StoreState, StoreSummaryResponse
 from .repository import InMemoryRepository
 
 
@@ -120,6 +121,39 @@ def get_store_order_status(store_id: str, order_id: str) -> OrderEvent:
     if event is None:
         raise HTTPException(status_code=404, detail="Order not found")
     return event
+
+
+@app.get(
+    "/api/stores/summary",
+    response_model=StoreSummaryResponse,
+    tags=["stores"],
+)
+def get_stores_summary(
+    start_at: datetime | None = None,
+    end_at: datetime | None = None,
+) -> StoreSummaryResponse:
+    if (start_at is None) != (end_at is None):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="start_at and end_at must be provided together",
+        )
+    if start_at is not None and end_at is not None:
+        if start_at.tzinfo is None or end_at.tzinfo is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="start_at and end_at must include a timezone",
+            )
+        if start_at >= end_at:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="start_at must be earlier than end_at",
+            )
+    if not isinstance(repository, DatabaseRepository):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="PostgreSQL is required for store summary",
+        )
+    return repository.get_store_summary(start_at=start_at, end_at=end_at)
 
 
 @app.get(

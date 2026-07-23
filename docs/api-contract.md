@@ -117,7 +117,7 @@ POS/KDS 또는 주문 시뮬레이터가 주문 상태 변경을 전송한다.
 
 ## GET /api/stores/{store_id}/menus
 
-`samples/menus.json`의 mock 메뉴를 반환한다.
+`samples/menus.json`에서 해당 매장의 mock 메뉴만 반환한다.
 
 응답에는 다음 필드가 포함된다.
 
@@ -125,11 +125,14 @@ POS/KDS 또는 주문 시뮬레이터가 주문 상태 변경을 전송한다.
 - `data_source`
 - `menus`
 
+해당 매장의 메뉴가 없으면 `menus`는 빈 목록이다.
+
 ## GET /api/stores/{store_id}/policies
 
-`samples/policies.json`의 mock 정책을 반환한다.
+`samples/policies.json`에서 해당 매장의 mock 정책만 반환한다.
 
 현재 정책 범위는 영업시간, 주차, 주문 취소·환불, 포장, 반려동물이다.
+해당 매장의 정책이 없으면 `policies`는 빈 목록이다.
 
 ## 오류 처리
 

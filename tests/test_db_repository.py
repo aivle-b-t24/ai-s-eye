@@ -127,3 +127,45 @@ def test_duplicate_order_event_is_ignored_and_latest_event_is_returned(
     assert latest_event.event_id == ready_event.event_id
     assert latest_event.status == OrderStatus.READY
     assert latest_event.items == ready_event.items
+
+
+def test_same_order_id_is_read_separately_by_store(
+    database_repository: tuple[DatabaseRepository, sessionmaker[Session], str],
+) -> None:
+    repository, _, test_id = database_repository
+    occurred_at = datetime(2026, 7, 22, 9, 0, tzinfo=timezone.utc)
+    store_one_event = OrderEvent(
+        event_id=f"{test_id}-store-001",
+        order_id=test_id,
+        store_id="store-001",
+        occurred_at=occurred_at,
+        status=OrderStatus.RECEIVED,
+        items=[OrderItem(menu_id="menu-test", name="테스트 메뉴", quantity=1)],
+    )
+    store_two_event = store_one_event.model_copy(
+        update={
+            "event_id": f"{test_id}-store-002",
+            "store_id": "store-002",
+            "occurred_at": occurred_at + timedelta(minutes=3),
+            "status": OrderStatus.READY,
+        }
+    )
+
+    repository.save_order_event(store_one_event)
+    repository.save_order_event(store_two_event)
+
+    store_one_result = repository.get_latest_store_order_event(
+        "store-001",
+        test_id,
+    )
+    store_two_result = repository.get_latest_store_order_event(
+        "store-002",
+        test_id,
+    )
+
+    assert store_one_result is not None
+    assert store_one_result.store_id == "store-001"
+    assert store_one_result.status == OrderStatus.RECEIVED
+    assert store_two_result is not None
+    assert store_two_result.store_id == "store-002"
+    assert store_two_result.status == OrderStatus.READY

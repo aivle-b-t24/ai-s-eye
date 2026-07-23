@@ -87,6 +87,39 @@ def test_latest_store_state_is_returned(
     assert saved_state.queue_count_estimate == 3
 
 
+def test_same_store_state_payload_is_not_saved_twice(
+    database_repository: tuple[DatabaseRepository, sessionmaker[Session], str],
+) -> None:
+    repository, session_factory, test_id = database_repository
+    state = StoreState(
+        store_id=test_id,
+        camera_id="cam-idempotent",
+        captured_at=datetime(2026, 7, 22, 9, 0, tzinfo=timezone.utc),
+        visible_person_count=8,
+        queue_count_estimate=2,
+        zone_counts={"waiting": 2, "seating": 6},
+        quality_status=QualityStatus.NORMAL,
+        source="scenario-test",
+        model_version="test-v1",
+    )
+
+    repository.save_store_state(state)
+    repository.save_store_state(state)
+
+    with session_factory() as session:
+        state_count = session.scalar(
+            select(func.count())
+            .select_from(StoreStateRecord)
+            .where(
+                StoreStateRecord.store_id == state.store_id,
+                StoreStateRecord.camera_id == state.camera_id,
+                StoreStateRecord.captured_at == state.captured_at,
+            )
+        )
+
+    assert state_count == 1
+
+
 def test_duplicate_order_event_is_ignored_and_latest_event_is_returned(
     database_repository: tuple[DatabaseRepository, sessionmaker[Session], str],
 ) -> None:
@@ -181,7 +214,10 @@ def test_store_summary_uses_period_and_separates_stores(
     repository, _, test_id = database_repository
     store_one = f"{test_id}-store-001"
     store_two = f"{test_id}-store-002"
-    start_at = datetime(2026, 7, 22, 0, 0, tzinfo=timezone.utc)
+    unique_offset = int(test_id[-12:], 16)
+    start_at = datetime(2200, 1, 1, tzinfo=timezone.utc) + timedelta(
+        microseconds=unique_offset
+    )
     end_at = start_at + timedelta(days=1)
 
     for store_id, hour, person_count, queue_count in (

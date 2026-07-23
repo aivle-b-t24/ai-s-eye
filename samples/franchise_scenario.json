@@ -30,7 +30,8 @@
         "seating": 5
       },
       "quality_status": "normal",
-      "model_version": "mock-v1"
+      "model_version": "mock-v1",
+      "source": "mock"
     },
     {
       "store_id": "store-001",
@@ -44,7 +45,8 @@
         "seating": 12
       },
       "quality_status": "normal",
-      "model_version": "mock-v1"
+      "model_version": "mock-v1",
+      "source": "mock"
     },
     {
       "store_id": "store-001",
@@ -58,7 +60,8 @@
         "seating": 11
       },
       "quality_status": "normal",
-      "model_version": "mock-v1"
+      "model_version": "mock-v1",
+      "source": "mock"
     },
     {
       "store_id": "store-001",
@@ -72,7 +75,8 @@
         "seating": 8
       },
       "quality_status": "normal",
-      "model_version": "mock-v1"
+      "model_version": "mock-v1",
+      "source": "mock"
     },
     {
       "store_id": "store-002",
@@ -86,7 +90,8 @@
         "seating": 8
       },
       "quality_status": "normal",
-      "model_version": "mock-v1"
+      "model_version": "mock-v1",
+      "source": "mock"
     },
     {
       "store_id": "store-002",
@@ -100,7 +105,8 @@
         "seating": 10
       },
       "quality_status": "normal",
-      "model_version": "mock-v1"
+      "model_version": "mock-v1",
+      "source": "mock"
     },
     {
       "store_id": "store-002",
@@ -114,7 +120,8 @@
         "seating": 13
       },
       "quality_status": "normal",
-      "model_version": "mock-v1"
+      "model_version": "mock-v1",
+      "source": "mock"
     },
     {
       "store_id": "store-002",
@@ -128,7 +135,8 @@
         "seating": 14
       },
       "quality_status": "normal",
-      "model_version": "mock-v1"
+      "model_version": "mock-v1",
+      "source": "mock"
     }
   ],
   "orders": [

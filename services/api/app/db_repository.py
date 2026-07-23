@@ -1,6 +1,7 @@
 """PostgreSQL에 매장 상태와 주문 이벤트를 저장하는 Repository."""
 
 from collections.abc import Callable
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -8,7 +9,8 @@ from sqlalchemy.orm import Session, selectinload
 
 from .database import get_session_factory
 from .db_models import OrderEventRecord, OrderItemRecord, StoreStateRecord
-from .models import OrderEvent, OrderItem, StoreState
+from .models import OrderEvent, OrderItem, StoreState, StoreSummaryResponse
+from .summary import build_store_summary
 
 
 SessionFactory = Callable[[], Session]
@@ -21,20 +23,28 @@ class DatabaseRepository:
         self._session_factory = session_factory or get_session_factory()
 
     def save_store_state(self, state: StoreState) -> StoreState:
-        """매장 상태를 이력으로 추가한다."""
-        record = StoreStateRecord(
-            store_id=state.store_id,
-            camera_id=state.camera_id,
-            captured_at=state.captured_at,
-            visible_person_count=state.visible_person_count,
-            queue_count_estimate=state.queue_count_estimate,
-            zone_counts=state.zone_counts,
-            quality_status=state.quality_status.value,
-            source=state.source,
-            model_version=state.model_version,
-        )
-
+        """매장 상태를 이력으로 추가하되 같은 측정값은 중복 저장하지 않는다."""
         with self._session_factory() as session:
+            existing_statement = select(StoreStateRecord).where(
+                StoreStateRecord.store_id == state.store_id,
+                StoreStateRecord.camera_id == state.camera_id,
+                StoreStateRecord.captured_at == state.captured_at,
+            )
+            for existing in session.scalars(existing_statement):
+                if _store_state_from_record(existing) == state:
+                    return state
+
+            record = StoreStateRecord(
+                store_id=state.store_id,
+                camera_id=state.camera_id,
+                captured_at=state.captured_at,
+                visible_person_count=state.visible_person_count,
+                queue_count_estimate=state.queue_count_estimate,
+                zone_counts=state.zone_counts,
+                quality_status=state.quality_status.value,
+                source=state.source,
+                model_version=state.model_version,
+            )
             session.add(record)
             session.commit()
 
@@ -110,6 +120,82 @@ class DatabaseRepository:
             if record is None:
                 return None
             return _order_event_from_record(record)
+
+    def get_latest_store_order_event(
+        self,
+        store_id: str,
+        order_id: str,
+    ) -> OrderEvent | None:
+        """매장과 주문번호가 모두 일치하는 가장 최근 이벤트를 반환한다."""
+        statement = (
+            select(OrderEventRecord)
+            .options(selectinload(OrderEventRecord.items))
+            .where(
+                OrderEventRecord.store_id == store_id,
+                OrderEventRecord.order_id == order_id,
+            )
+            .order_by(
+                OrderEventRecord.occurred_at.desc(),
+                OrderEventRecord.created_at.desc(),
+                OrderEventRecord.event_id.desc(),
+            )
+            .limit(1)
+        )
+
+        with self._session_factory() as session:
+            record = session.scalar(statement)
+            if record is None:
+                return None
+            return _order_event_from_record(record)
+
+    def get_store_summary(
+        self,
+        start_at: datetime | None = None,
+        end_at: datetime | None = None,
+    ) -> StoreSummaryResponse:
+        """기간에 포함된 상태와 주문 이력을 매장별로 집계한다."""
+        state_statement = select(StoreStateRecord).order_by(
+            StoreStateRecord.store_id,
+            StoreStateRecord.captured_at,
+            StoreStateRecord.id,
+        )
+        order_statement = (
+            select(OrderEventRecord)
+            .options(selectinload(OrderEventRecord.items))
+            .order_by(
+                OrderEventRecord.store_id,
+                OrderEventRecord.occurred_at,
+                OrderEventRecord.event_id,
+            )
+        )
+
+        if start_at is not None:
+            state_statement = state_statement.where(
+                StoreStateRecord.captured_at >= start_at
+            )
+            order_statement = order_statement.where(
+                OrderEventRecord.occurred_at >= start_at
+            )
+        if end_at is not None:
+            state_statement = state_statement.where(
+                StoreStateRecord.captured_at <= end_at
+            )
+            order_statement = order_statement.where(
+                OrderEventRecord.occurred_at <= end_at
+            )
+
+        with self._session_factory() as session:
+            state_records = list(session.scalars(state_statement))
+            order_records = list(session.scalars(order_statement))
+            states = [_store_state_from_record(record) for record in state_records]
+            orders = [_order_event_from_record(record) for record in order_records]
+
+        return build_store_summary(
+            states,
+            orders,
+            start_at=start_at,
+            end_at=end_at,
+        )
 
 
 def _get_order_event_record(

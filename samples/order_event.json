@@ -1,124 +1,19 @@
 {
-  "stores": [
+  "event_id": "event-001",
+  "order_id": "order-001",
+  "store_id": "store-001",
+  "occurred_at": "2026-07-20T10:31:00+09:00",
+  "status": "received",
+  "items": [
     {
-      "store_id": "store-001",
-      "store_name": "AI's Eye 동명점",
-      "type": "도심·바쁨"
+      "menu_id": "menu-001",
+      "name": "아메리카노",
+      "quantity": 2
     },
     {
-      "store_id": "store-002",
-      "store_name": "AI's Eye 수완점",
-      "type": "주택가·한적"
-    }
-  ],
-  "orders": [
-    {
-      "order_id": "order-001",
-      "store_id": "store-001",
-      "occurred_at": "2026-07-22T10:31:00+09:00",
-      "status": "received",
-      "items": [
-        {
-          "menu_id": "menu-001",
-          "name": "아메리카노",
-          "quantity": 2
-        },
-        {
-          "menu_id": "menu-014",
-          "name": "스콘 (오리지널/초코)",
-          "quantity": 1
-        }
-      ]
-    },
-    {
-      "order_id": "order-001",
-      "store_id": "store-001",
-      "occurred_at": "2026-07-22T10:34:00+09:00",
-      "status": "preparing",
-      "items": [
-        {
-          "menu_id": "menu-001",
-          "name": "아메리카노",
-          "quantity": 2
-        },
-        {
-          "menu_id": "menu-014",
-          "name": "스콘 (오리지널/초코)",
-          "quantity": 1
-        }
-      ]
-    },
-    {
-      "order_id": "order-001",
-      "store_id": "store-001",
-      "occurred_at": "2026-07-22T10:39:00+09:00",
-      "status": "ready",
-      "items": [
-        {
-          "menu_id": "menu-001",
-          "name": "아메리카노",
-          "quantity": 2
-        },
-        {
-          "menu_id": "menu-014",
-          "name": "스콘 (오리지널/초코)",
-          "quantity": 1
-        }
-      ]
-    },
-    {
-      "order_id": "order-001",
-      "store_id": "store-002",
-      "occurred_at": "2026-07-22T10:35:00+09:00",
-      "status": "received",
-      "items": [
-        {
-          "menu_id": "menu-001",
-          "name": "아메리카노",
-          "quantity": 1
-        },
-        {
-          "menu_id": "menu-021",
-          "name": "크루아상",
-          "quantity": 1
-        }
-      ]
-    },
-    {
-      "order_id": "order-001",
-      "store_id": "store-002",
-      "occurred_at": "2026-07-22T10:38:00+09:00",
-      "status": "preparing",
-      "items": [
-        {
-          "menu_id": "menu-001",
-          "name": "아메리카노",
-          "quantity": 1
-        },
-        {
-          "menu_id": "menu-021",
-          "name": "크루아상",
-          "quantity": 1
-        }
-      ]
-    },
-    {
-      "order_id": "order-001",
-      "store_id": "store-002",
-      "occurred_at": "2026-07-22T10:42:00+09:00",
-      "status": "ready",
-      "items": [
-        {
-          "menu_id": "menu-001",
-          "name": "아메리카노",
-          "quantity": 1
-        },
-        {
-          "menu_id": "menu-021",
-          "name": "크루아상",
-          "quantity": 1
-        }
-      ]
+      "menu_id": "menu-014",
+      "name": "스콘 (오리지널/초코)",
+      "quantity": 1
     }
   ]
 }

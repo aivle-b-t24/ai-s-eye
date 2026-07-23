@@ -66,6 +66,56 @@ def test_policy_sample_has_five_items(client: TestClient) -> None:
     assert len(response.json()["policies"]) >= 5
 
 
+def test_menus_are_filtered_by_store(client: TestClient) -> None:
+    store_one_response = client.get("/api/stores/store-001/menus")
+    store_two_response = client.get("/api/stores/store-002/menus")
+
+    assert store_one_response.status_code == 200
+    assert store_two_response.status_code == 200
+    assert store_one_response.json()["menus"]
+    assert store_two_response.json()["menus"]
+    assert all(
+        menu["store_id"] == "store-001"
+        for menu in store_one_response.json()["menus"]
+    )
+    assert all(
+        menu["store_id"] == "store-002"
+        for menu in store_two_response.json()["menus"]
+    )
+
+
+def test_policies_are_filtered_by_store(client: TestClient) -> None:
+    store_one_response = client.get("/api/stores/store-001/policies")
+    store_two_response = client.get("/api/stores/store-002/policies")
+
+    assert store_one_response.status_code == 200
+    assert store_two_response.status_code == 200
+    assert store_one_response.json()["policies"]
+    assert store_two_response.json()["policies"]
+    assert all(
+        policy["store_id"] == "store-001"
+        for policy in store_one_response.json()["policies"]
+    )
+    assert all(
+        policy["store_id"] == "store-002"
+        for policy in store_two_response.json()["policies"]
+    )
+
+
+def test_unknown_store_has_empty_menu_and_policy_lists(
+    client: TestClient,
+) -> None:
+    menu_response = client.get("/api/stores/store-does-not-exist/menus")
+    policy_response = client.get(
+        "/api/stores/store-does-not-exist/policies"
+    )
+
+    assert menu_response.status_code == 200
+    assert menu_response.json()["menus"] == []
+    assert policy_response.status_code == 200
+    assert policy_response.json()["policies"] == []
+
+
 def test_order_event_is_accepted(client: TestClient) -> None:
     payload = {
         "event_id": "event-test",

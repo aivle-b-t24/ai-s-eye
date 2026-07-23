@@ -155,10 +155,20 @@ def get_store_eta(store_id: str) -> EtaResponse:
 @app.get("/api/stores/{store_id}/menus", tags=["stores"])
 def get_store_menus(store_id: str) -> dict[str, Any]:
     menu_data = load_json_file("menus.json")
-    return {**menu_data, "store_id": store_id}
+    menus = [
+        menu
+        for menu in menu_data.get("menus", [])
+        if menu.get("store_id") == store_id
+    ]
+    return {**menu_data, "store_id": store_id, "menus": menus}
 
 
 @app.get("/api/stores/{store_id}/policies", tags=["stores"])
 def get_store_policies(store_id: str) -> dict[str, Any]:
     policy_data = load_json_file("policies.json")
-    return {**policy_data, "store_id": store_id}
+    policies = [
+        policy
+        for policy in policy_data.get("policies", [])
+        if policy.get("store_id") == store_id
+    ]
+    return {**policy_data, "store_id": store_id, "policies": policies}

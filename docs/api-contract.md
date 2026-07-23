@@ -34,6 +34,8 @@ API와 PostgreSQL 연결 상태를 확인한다.
 - `quality_status`는 `normal`, `low`, `stale`, `unknown` 중 하나다.
 
 성공 상태 코드는 `201 Created`다.
+매장·카메라·측정 시각과 나머지 값까지 모두 같은 상태를 다시 보내면
+PostgreSQL에 중복 이력을 추가하지 않는다.
 
 ## POST /internal/order-events
 
@@ -158,6 +160,24 @@ DB에 저장된 전체 기간을 집계한다.
 취소되거나 거절된 주문은 인기 메뉴 수량에서 제외한다.
 
 PostgreSQL이 설정되지 않은 환경에서는 `503`을 반환한다.
+
+## 두 매장 데모 시나리오 적재
+
+Docker의 API와 PostgreSQL을 빌드해 실행한 뒤 다음 명령으로
+`samples/franchise_scenario.json`의 상태 8건과 주문 6건을 적재한다.
+
+```bash
+docker compose up -d --build db api
+docker compose exec api alembic upgrade head
+docker compose exec api python -m app.scenario_loader
+```
+
+도구는 파일 전체를 공통 모델로 먼저 검증하고, 기존 내부 API를 통해 데이터를
+전송한다. 전송 후에는 같은 기간의 집계 API를 확인해 매장별 최대 인원과
+최대 대기 인원을 출력한다.
+
+동일한 시나리오를 다시 실행해도 같은 상태와 주문 이벤트는 중복 저장하지 않는다.
+`expected_insights`는 AI 결과 검증용이므로 PostgreSQL에 넣지 않는다.
 
 ## 오류 처리
 

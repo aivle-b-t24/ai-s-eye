@@ -23,20 +23,28 @@ class DatabaseRepository:
         self._session_factory = session_factory or get_session_factory()
 
     def save_store_state(self, state: StoreState) -> StoreState:
-        """매장 상태를 이력으로 추가한다."""
-        record = StoreStateRecord(
-            store_id=state.store_id,
-            camera_id=state.camera_id,
-            captured_at=state.captured_at,
-            visible_person_count=state.visible_person_count,
-            queue_count_estimate=state.queue_count_estimate,
-            zone_counts=state.zone_counts,
-            quality_status=state.quality_status.value,
-            source=state.source,
-            model_version=state.model_version,
-        )
-
+        """매장 상태를 이력으로 추가하되 같은 측정값은 중복 저장하지 않는다."""
         with self._session_factory() as session:
+            existing_statement = select(StoreStateRecord).where(
+                StoreStateRecord.store_id == state.store_id,
+                StoreStateRecord.camera_id == state.camera_id,
+                StoreStateRecord.captured_at == state.captured_at,
+            )
+            for existing in session.scalars(existing_statement):
+                if _store_state_from_record(existing) == state:
+                    return state
+
+            record = StoreStateRecord(
+                store_id=state.store_id,
+                camera_id=state.camera_id,
+                captured_at=state.captured_at,
+                visible_person_count=state.visible_person_count,
+                queue_count_estimate=state.queue_count_estimate,
+                zone_counts=state.zone_counts,
+                quality_status=state.quality_status.value,
+                source=state.source,
+                model_version=state.model_version,
+            )
             session.add(record)
             session.commit()
 

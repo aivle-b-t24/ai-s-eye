@@ -111,6 +111,18 @@ def get_order_status(order_id: str) -> OrderEvent:
 
 
 @app.get(
+    "/api/stores/{store_id}/orders/{order_id}",
+    response_model=OrderEvent,
+    tags=["orders"],
+)
+def get_store_order_status(store_id: str, order_id: str) -> OrderEvent:
+    event = repository.get_latest_store_order_event(store_id, order_id)
+    if event is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return event
+
+
+@app.get(
     "/api/stores/{store_id}/state",
     response_model=StoreState,
     tags=["stores"],

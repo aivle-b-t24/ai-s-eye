@@ -111,6 +111,33 @@ class DatabaseRepository:
                 return None
             return _order_event_from_record(record)
 
+    def get_latest_store_order_event(
+        self,
+        store_id: str,
+        order_id: str,
+    ) -> OrderEvent | None:
+        """매장과 주문번호가 모두 일치하는 가장 최근 이벤트를 반환한다."""
+        statement = (
+            select(OrderEventRecord)
+            .options(selectinload(OrderEventRecord.items))
+            .where(
+                OrderEventRecord.store_id == store_id,
+                OrderEventRecord.order_id == order_id,
+            )
+            .order_by(
+                OrderEventRecord.occurred_at.desc(),
+                OrderEventRecord.created_at.desc(),
+                OrderEventRecord.event_id.desc(),
+            )
+            .limit(1)
+        )
+
+        with self._session_factory() as session:
+            record = session.scalar(statement)
+            if record is None:
+                return None
+            return _order_event_from_record(record)
+
 
 def _get_order_event_record(
     session: Session,

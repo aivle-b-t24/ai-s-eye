@@ -114,6 +114,50 @@ def test_missing_order_returns_404(client: TestClient) -> None:
     assert response.json()["detail"] == "Order not found"
 
 
+def test_same_order_id_is_read_separately_by_store(client: TestClient) -> None:
+    store_one_event = {
+        "event_id": "event-shared-order-store-001",
+        "order_id": "shared-order",
+        "store_id": "store-001",
+        "occurred_at": "2026-07-20T11:00:00+09:00",
+        "status": "received",
+        "items": [{"menu_id": "menu-001", "quantity": 1}],
+    }
+    store_two_event = {
+        **store_one_event,
+        "event_id": "event-shared-order-store-002",
+        "store_id": "store-002",
+        "occurred_at": "2026-07-20T11:05:00+09:00",
+        "status": "ready",
+    }
+
+    client.post("/internal/order-events", json=store_one_event)
+    client.post("/internal/order-events", json=store_two_event)
+
+    store_one_response = client.get(
+        "/api/stores/store-001/orders/shared-order"
+    )
+    store_two_response = client.get(
+        "/api/stores/store-002/orders/shared-order"
+    )
+
+    assert store_one_response.status_code == 200
+    assert store_one_response.json()["store_id"] == "store-001"
+    assert store_one_response.json()["status"] == "received"
+    assert store_two_response.status_code == 200
+    assert store_two_response.json()["store_id"] == "store-002"
+    assert store_two_response.json()["status"] == "ready"
+
+
+def test_missing_store_order_pair_returns_404(client: TestClient) -> None:
+    response = client.get(
+        "/api/stores/store-does-not-exist/orders/order-does-not-exist"
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Order not found"
+
+
 def test_invalid_order_status_is_rejected(client: TestClient) -> None:
     payload = {
         "event_id": "event-invalid",

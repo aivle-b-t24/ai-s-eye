@@ -78,6 +78,8 @@ services:
   vision-replay:
     image: python:3.12-slim
     restart: unless-stopped
+    environment:
+      PYTHONUNBUFFERED: "1"
     profiles:
       - demo
     command:

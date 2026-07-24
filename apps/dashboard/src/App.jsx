@@ -8,6 +8,8 @@ import SupervisorHeadOfficeView from './components/head-office/SupervisorHeadOff
 import SettingsView from './components/settings/SettingsView'
 import GnbHeader from './components/common/GnbHeader'
 import RoleBanner from './components/common/RoleBanner'
+import HeroSection from './components/HeroSection'
+import Sidebar from './components/Sidebar'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
 
@@ -138,6 +140,7 @@ function App() {
 
   const [page, setPage] = useState("store-001")
   const [storesData, setStoresData] = useState(MOCK_STORE_DATA)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -288,46 +291,65 @@ function App() {
   }
 
   return (
-    <main className="page-shell">
-      <GnbHeader 
-        page={page} 
-        setPage={setPage} 
-        loadStateOnly={loadStateOnly} 
-        loading={loading} 
+  <main className="page-shell">
+    {(page === 'store-001' || page === 'store-002') && (
+      <>
+        <HeroSection
+          dashboard={activeDashboard}
+          onMenuOpen={() => setIsSidebarOpen(true)}
+        />
+
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          page={page}
+          setPage={setPage}
+        />
+      </>
+    )}
+
+    <section id="dashboard" className="dashboard-content">
+      <GnbHeader
+        page={page}
+        setPage={setPage}
+        loadStateOnly={loadStateOnly}
+        loading={loading}
         user={currentUser}
         onLogout={handleLogout}
       />
 
-      <RoleBanner 
-        page={page} 
-        apiBaseUrl={API_BASE_URL} 
-        isUsingMock={isUsingMock} 
-        error={error} 
-        loading={loading} 
+      <RoleBanner
+        page={page}
+        apiBaseUrl={API_BASE_URL}
+        isUsingMock={isUsingMock}
+        error={error}
+        loading={loading}
       />
 
-      {(page === "store-001" || page === "store-002") && (
-        <StoreDashboardView 
+      {(page === 'store-001' || page === 'store-002') && (
+        <StoreDashboardView
           page={page}
           dashboard={activeDashboard}
           soldOutCount={soldOutCount}
         />
       )}
 
-      {page === "head-office" && (
-        <SupervisorHeadOfficeView 
-          storesData={storesData} 
+      {page === 'head-office' && (
+        <SupervisorHeadOfficeView
+          storesData={storesData}
         />
       )}
 
-      {page === "setting" && (
-        <SettingsView 
-          apiBaseUrl={API_BASE_URL} 
-          setPage={setPage} 
+      {page === 'setting' && (
+        <SettingsView
+          apiBaseUrl={API_BASE_URL}
+          setPage={setPage}
         />
       )}
-    </main>
-  )
+    </section>
+  </main>
+)
+  
 }
 
 export default App

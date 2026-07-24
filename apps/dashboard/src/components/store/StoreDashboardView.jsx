@@ -1,44 +1,80 @@
-import React from 'react';
+import React from 'react'
 
-import KpiSummaryBar from './KpiSummaryBar';
-import ZoneBreakdownTable from './ZoneBreakdownTable';
-import VisionMonitorPanel from './VisionMonitorPanel';
-import MenuListPanel from './MenuListPanel';
-import PolicyListPanel from './PolicyListPanel';
-import EmptyStorePanel from './EmptyStorePanel';
+import KpiSummaryBar from './KpiSummaryBar'
+import ZoneBreakdownTable from './ZoneBreakdownTable'
+import VisionMonitorPanel from './VisionMonitorPanel'
+import MenuListPanel from './MenuListPanel'
+import PolicyListPanel from './PolicyListPanel'
+import EmptyStorePanel from './EmptyStorePanel'
 
-export default function StoreDashboardView({ page, dashboard, soldOutCount }) {
+export default function StoreDashboardView({
+  page,
+  dashboard,
+  soldOutCount,
+}) {
   if (page === 'store-002' && !dashboard?.state) {
-    return <EmptyStorePanel storeId="store-002" />;
+    return <EmptyStorePanel storeId="store-002" />
   }
 
   return (
-    <>
-      {dashboard?.state?.quality_status !== "normal" && (
+    <section className="store-dashboard-view">
+      {dashboard?.state?.quality_status !== 'normal' && (
         <section className="alert-banner warning-alert">
-          ⚠️ <strong>점주 알림:</strong> AI 카메라 스트림 화질 점검이 필요합니다.
+          ⚠️ <strong>점주 알림:</strong> AI 카메라 스트림 화질 점검이
+          필요합니다.
         </section>
       )}
 
       {(dashboard?.state?.queue_count_estimate ?? 0) >= 20 && (
         <section className="alert-banner queue-alert">
-          🚨 <strong>대기 폭주 알림:</strong> 현재 외부 대기 인원이 {dashboard?.state?.queue_count_estimate}명으로 증가했습니다. 카운터 대응을 권장합니다.
+          🚨 <strong>대기 폭주 알림:</strong> 현재 외부 대기 인원이{' '}
+          {dashboard?.state?.queue_count_estimate}명으로 증가했습니다.
+          카운터 대응을 권장합니다.
         </section>
       )}
 
-      <KpiSummaryBar dashboard={dashboard} soldOutCount={soldOutCount} />
+      <section className="dashboard-section">
+        <div className="dashboard-section-heading">
+          <div>
+            <p className="dashboard-section-eyebrow">LIVE OVERVIEW</p>
+            <h2>현재 매장 운영 현황</h2>
+          </div>
 
-      <section className="dashboard-main-grid">
-        <div className="main-left-content">
-          <ZoneBreakdownTable zoneCounts={dashboard?.state?.zone_counts} />
+          <span className="dashboard-section-status">
+            실시간 업데이트
+          </span>
+        </div>
+
+        <KpiSummaryBar
+          dashboard={dashboard}
+          soldOutCount={soldOutCount}
+        />
+      </section>
+
+      <section className="dashboard-feature-grid">
+        <div className="dashboard-feature dashboard-feature-large">
+          <ZoneBreakdownTable
+            zoneCounts={dashboard?.state?.zone_counts}
+          />
+        </div>
+
+        <div className="dashboard-feature">
           <VisionMonitorPanel storeId={page} />
         </div>
+      </section>
 
-        <div className="main-right-content">
-          <MenuListPanel menus={dashboard?.menus} soldOutCount={soldOutCount} />
+      <section className="dashboard-bottom-grid">
+        <div className="dashboard-feature">
           <PolicyListPanel policies={dashboard?.policies} />
         </div>
+
+        <div className="dashboard-feature">
+          <MenuListPanel
+            menus={dashboard?.menus}
+            soldOutCount={soldOutCount}
+          />
+        </div>
       </section>
-    </>
-  );
+    </section>
+  )
 }

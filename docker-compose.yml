@@ -75,6 +75,28 @@ services:
       retries: 5
       start_period: 15s
 
+  vision-replay:
+    image: python:3.12-slim
+    restart: unless-stopped
+    profiles:
+      - demo
+    command:
+      - python
+      - /workspace/services/vision-worker/replay_states.py
+      - --file
+      - /workspace/samples/cafe_stores_states.json
+      - --api
+      - http://api:8000
+      - --interval
+      - ${VISION_REPLAY_INTERVAL:-2}
+      - --loop
+    volumes:
+      - ./services/vision-worker:/workspace/services/vision-worker:ro
+      - ./samples:/workspace/samples:ro
+    depends_on:
+      api:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   dashboard_node_modules:

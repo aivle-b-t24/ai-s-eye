@@ -57,6 +57,7 @@ python services/vision-worker/replay_states.py    # 기본: samples/cafe_stores_
 | `--interval` | 전송 간격(초) | `2` |
 | `--limit` | 앞에서 N건만 전송 | 전체 |
 | `--loop` | 끝나면 처음부터 반복 | 꺼짐 |
+| `--preserve-timestamps` | JSON의 원본 측정 시각 유지 | 꺼짐 |
 
 상황별 실행 예시:
 
@@ -72,8 +73,31 @@ python services/vision-worker/replay_states.py --interval 2 --loop
 
 # 시연용 - 원본 촬영 속도(2fps)와 동일, 약 5분 20초마다 반복
 python services/vision-worker/replay_states.py --interval 0.5 --loop
+```
 
 중단은 `Ctrl+C`.
+
+재생할 때는 PostgreSQL에서 매번 최신 상태가 되도록 `captured_at`을 현재 UTC 시각으로
+바꿔 전송한다. 과거 시각을 유지한 채 자료를 적재해야 할 때만
+`--preserve-timestamps`를 사용한다. 이 옵션을 사용한 반복 재생은 첫 바퀴 이후
+대시보드의 최신 상태를 바꾸지 못할 수 있다.
+
+미니PC에서 시연하는 동안 계속 재생하려면 Docker의 `demo` 프로필을 사용한다.
+
+```bash
+# 백그라운드 반복 재생 시작
+docker compose --profile demo up -d vision-replay
+
+# 재생 상태와 로그 확인
+docker compose --profile demo ps
+docker compose --profile demo logs -f vision-replay
+
+# 재생만 종료
+docker compose --profile demo stop vision-replay
+```
+
+`vision-replay`는 상태를 보낼 때마다 PostgreSQL에 이력을 추가한다. 팀원 여러 명이
+동시에 실행하지 않고 시연 담당자 한 명만 실행하며, 시연이 끝나면 중지한다.
 
 전송한 값은 다음으로 확인한다.
 
@@ -82,8 +106,8 @@ curl http://localhost:8000/api/stores/store-001/state
 curl http://localhost:8000/api/stores/store-001/eta
 ```
 
-대시보드는 화면을 열 때 값을 한 번 읽어오므로, 재생 중 값이 바뀌는 것을 보려면
-새로고침하거나 대시보드에 주기적 재조회를 넣어야 한다.
+대시보드는 매장 화면에서 상태를 2초마다 다시 조회하므로 재생 중 값이 바뀐다.
+현재 ETA와 본사 화면의 갱신 방식은 대시보드 이슈 #57에서 함께 정리한다.
 
 ## 분석 결과 데이터
 

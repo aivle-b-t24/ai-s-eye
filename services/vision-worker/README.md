@@ -34,12 +34,46 @@ py services/vision-worker/cafe_stores.py --limit 60  # 앞 60세그만(빠른 �
 > 참고: CAFE엔 촬영 시각이 없어 `captured_at`은 세그먼트 간격(0.5초)만큼 증가시킨
 > 합성값이다. 대기는 서있음+체류라 추적(ByteTrack)이 필요해 전체 생성에 시간이 걸린다.
 
+## MVP 제공 값 / 미지원 값
+
+대시보드가 참고하도록, 현재 Vision 모델이 **실제로 제공하는 값**과 **아직 제공하지
+못하는 값**을 구분한다. StoreState에는 아래 "제공 값"만 채우고, 미지원 값은 넣지 않는다.
+
+**제공 값 (안정적)**
+
+| 값 | StoreState 필드 | 산출 |
+|---|---|---|
+| 전체(손님) 인원 | `visible_person_count` | 파인튜닝 탐지 − 직원 |
+| 직원 인원 | `zone_counts.staff` | 직원 구역(카운터 뒤) 탐지 |
+| 대기 인원 | `queue_count_estimate` = `zone_counts.waiting` | 대기 구역 + 서있음 + 체류 |
+
+**미지원 값 (현재 제공 못 함 — StoreState에 넣지 않음)**
+
+- 좌석 점유(테이블별), 통로 인원, 카운터 주문 세부, **입·퇴장 이벤트**
+- 대시보드에 이런 항목이 보이면 Vision 산출값이 아니라 UI 표현/목업이다.
+
+**quality_status 기준** — "사람 0명"과 "영상 이상"을 구분한다.
+
+- `normal`: 정상 프레임. **사람이 0명이어도 정상**(빈 매장).
+- `low`: 프레임 디코드 실패 또는 거의 검은 화면(카메라 꺼짐·가림) = 영상 이상.
+
+**ROI 기준** — 매장별 `zones/<store_id>_zones.json`에 지정.
+
+- **대기** = 대기 구역(카운터 앞) 안에서 서있고 N프레임 이상 체류한 사람.
+- **직원** = 직원 구역(카운터 뒤) 탐지(손님 수에서 제외).
+
+**모델·가중치**
+
+- 모델: `yolo11s-cafe-ft`(탐지) + `yolo11s-pose`(서있음/추적). `model_version` 필드에 기록.
+- 가중치(`best.pt`)와 원본 이미지·영상은 **GitHub에 올리지 않는다**(드라이브 공유).
+  경로는 `AISEYE_CAFE_MODEL`(가중치) / `AISEYE_CAFE_ROOT`(이미지) 환경변수로 지정.
+
 ## 팀원용: 영상 없이 매장 상태 재생하기
 
 영상·YOLO·GPU 없이도 실제 분석 결과를 API에 흘려보낼 수 있다. 대시보드나 AICC를
 개발할 때 매장 인원이 계속 변하는 상황을 만들 수 있다.
 
-미리 분석해 둔 결과(`samples/cafe_stores_states.json`, CAFE 다매장 6개 매장)를
+미리 분석해 둔 결과(`samples/cafe_stores_states.json`, CAFE 다매장 2개 매장)를
 `replay_states.py`가 순서대로 API에 전송한다.
 파이썬 표준 라이브러리만 사용하므로 따로 설치할 패키지가 없다.
 

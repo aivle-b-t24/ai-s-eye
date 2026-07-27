@@ -6,30 +6,6 @@ export default function VisionMonitorPanel({ storeId }) {
   const cameraName = isStore2 ? 'CAM 02' : 'CAM 01'
   const storeName = isStore2 ? '매장 2' : '매장 1'
 
-  const events = [
-    {
-      id: 1,
-      type: 'entry',
-      label: '입장 감지',
-      value: '+3명',
-      time: '09:43:10',
-    },
-    {
-      id: 2,
-      type: 'exit',
-      label: '퇴장 감지',
-      value: '-1명',
-      time: '09:42:58',
-    },
-    {
-      id: 3,
-      type: 'waiting',
-      label: '대기열 증가',
-      value: '+2명',
-      time: '09:42:45',
-    },
-  ]
-
   return (
     <article className="vision-card">
       <header className="vision-card-header">
@@ -73,37 +49,6 @@ export default function VisionMonitorPanel({ storeId }) {
           <strong>{storeName} 실시간 분석 중</strong>
         </div>
       </div>
-
-      <section className="vision-events">
-        <div className="vision-events-heading">
-          <strong>최근 감지 이벤트</strong>
-          <span>최근 30초</span>
-        </div>
-
-        <div className="vision-event-list">
-          {events.map((event) => (
-            <div
-              key={event.id}
-              className={`vision-event vision-event-${event.type}`}
-            >
-              <span className="vision-event-icon">
-                {event.type === 'entry'
-                  ? '↑'
-                  : event.type === 'exit'
-                    ? '↓'
-                    : '○'}
-              </span>
-
-              <span className="vision-event-label">
-                {event.label}
-              </span>
-
-              <strong>{event.value}</strong>
-              <time>{event.time}</time>
-            </div>
-          ))}
-        </div>
-      </section>
     </article>
   )
 }

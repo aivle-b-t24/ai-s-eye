@@ -12,22 +12,21 @@ export default function StoreDashboardView({
   dashboard,
   soldOutCount,
 }) {
-  const [isBottomExpanded, setIsBottomExpanded] = useState(false)
+  const [isPolicyExpanded, setIsPolicyExpanded] = useState(false)
+  const [isMenuExpanded, setIsMenuExpanded] = useState(false)
+
+  const isAnyExpanded = isPolicyExpanded || isMenuExpanded
 
   useEffect(() => {
     const dashContent = document.querySelector('.dashboard-content')
     if (dashContent) {
-      if (isBottomExpanded) {
+      if (isAnyExpanded) {
         dashContent.classList.add('is-expanded')
       } else {
         dashContent.classList.remove('is-expanded')
       }
     }
-  }, [isBottomExpanded])
-
-  const handleToggleExpand = () => {
-    setIsBottomExpanded((prev) => !prev)
-  }
+  }, [isAnyExpanded])
 
   return (
 
@@ -81,8 +80,8 @@ export default function StoreDashboardView({
         <div className="dashboard-feature">
           <PolicyListPanel
             policies={dashboard?.policies}
-            isExpanded={isBottomExpanded}
-            onToggleExpand={handleToggleExpand}
+            isExpanded={isPolicyExpanded}
+            onToggleExpand={() => setIsPolicyExpanded((prev) => !prev)}
           />
         </div>
 
@@ -90,11 +89,12 @@ export default function StoreDashboardView({
           <MenuListPanel
             menus={dashboard?.menus}
             soldOutCount={soldOutCount}
-            isExpanded={isBottomExpanded}
-            onToggleExpand={handleToggleExpand}
+            isExpanded={isMenuExpanded}
+            onToggleExpand={() => setIsMenuExpanded((prev) => !prev)}
           />
         </div>
       </section>
+
     </section>
   )
 }

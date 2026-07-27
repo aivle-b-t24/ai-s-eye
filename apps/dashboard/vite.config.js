@@ -14,6 +14,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: '0.0.0.0',
+    allowedHosts: [
+      'chant-gab-tricolor.ngrok-free.dev',
+    ],
     watch: {
       usePolling: true,
       interval: 100,

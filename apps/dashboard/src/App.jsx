@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import './App.css'
 
 import LoginPage from './components/user/LoginPage'
 import SignupPage from './components/user/SignupPage'
 import StoreDashboardView from './components/store/StoreDashboardView'
 import SupervisorHeadOfficeView from './components/head-office/SupervisorHeadOfficeView'
+import LegacySupervisorHeadOfficeView from './components/head-office/LegacySupervisorHeadOfficeView'
+import HeadOfficeHeader from './components/head-office/HeadOfficeHeader'
 import SettingsView from './components/settings/SettingsView'
 import GnbHeader from './components/common/GnbHeader'
 import RoleBanner from './components/common/RoleBanner'
@@ -12,6 +14,7 @@ import HeroSection from './components/HeroSection'
 import Sidebar from './components/Sidebar'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
+const AICC_BASE_URL = import.meta.env.VITE_AICC_BASE_URL ?? 'http://localhost:8100'
 
 const DEFAULT_STORE_DATA = {
   'store-001': {
@@ -65,16 +68,25 @@ function App() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [isUsingMock, setIsUsingMock] = useState(false)
+  const isDedicatedHeadOffice =
+    page === 'head-office' && window.location.pathname === '/hq'
 
   const handleLoginSuccess = (userData) => {
+    const nextPage = userData.storeId ?? 'store-001'
     setCurrentUser(userData)
-    setPage(userData.storeId ?? 'store-001')
+    setPage(nextPage)
     setAuthMode('dashboard')
+    window.history.replaceState(
+      {},
+      '',
+      nextPage === 'head-office' ? '/hq' : `/store/${nextPage}`,
+    )
   }
 
   const handleLogout = () => {
     setCurrentUser(null)
     setAuthMode('login')
+    window.history.replaceState({}, '', '/')
   }
 
   const loadStateOnly = useCallback(async (targetStoreId, isInitial = false) => {
@@ -137,11 +149,11 @@ function App() {
         timerId = setInterval(() => {
           loadStateOnly(page, false)
         }, 2000)
-      } else if (page === 'head-office') {
+      } else if (page === 'head-office' && !isDedicatedHeadOffice) {
         loadStateOnly('store-001', false)
         loadStateOnly('store-002', false)
         timerId = null
-      } else if (page === 'setting') {
+      } else if (page === 'head-office' || page === 'setting') {
         timerId = null
       }
     }
@@ -149,7 +161,13 @@ function App() {
     return () => {
       if (timerId) clearInterval(timerId)
     }
-  }, [authMode, page, loadStateOnly, loadStaticData])
+  }, [
+    authMode,
+    page,
+    isDedicatedHeadOffice,
+    loadStateOnly,
+    loadStaticData,
+  ])
 
   const activeDashboard =
     storesData[page] ??
@@ -160,9 +178,19 @@ function App() {
     activeDashboard?.menus?.filter((menu) => !menu.available).length ?? 0
 
   return (
-    <main className={`page-shell ${authMode === 'dashboard' ? 'has-hero' : ''}`}>
-      {authMode === 'dashboard' && (
-        <div className="top-global-nav is-overlay">
+    <main
+      className={[
+        'page-shell',
+        authMode === 'dashboard' && !isDedicatedHeadOffice ? 'has-hero' : '',
+        authMode === 'dashboard' && isDedicatedHeadOffice
+          ? 'supervisor-shell no-hero'
+          : '',
+      ].filter(Boolean).join(' ')}
+    >
+      {authMode === 'dashboard' && !isDedicatedHeadOffice && (
+        <div
+          className="top-global-nav is-overlay"
+        >
           <GnbHeader
             page={page}
             setPage={setPage}
@@ -174,19 +202,30 @@ function App() {
         </div>
       )}
 
-      <HeroSection
-        page={page}
-        authMode={authMode}
-        dashboard={activeDashboard}
-        onMenuOpen={() => setIsSidebarOpen(true)}
-      />
+      {authMode === 'dashboard' && isDedicatedHeadOffice && (
+        <HeadOfficeHeader
+          user={currentUser}
+          onLogout={handleLogout}
+        />
+      )}
 
-      <Sidebar
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-        page={page}
-        setPage={setPage}
-      />
+      {!isDedicatedHeadOffice && (
+        <HeroSection
+          page={page}
+          authMode={authMode}
+          dashboard={activeDashboard}
+          onMenuOpen={() => setIsSidebarOpen(true)}
+        />
+      )}
+
+      {!isDedicatedHeadOffice && (
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          page={page}
+          setPage={setPage}
+        />
+      )}
 
       {(authMode === 'login' || authMode === 'signup') && (
         <div className="auth-modal-overlay">
@@ -212,13 +251,15 @@ function App() {
         <section id="dashboard" className="dashboard-content">
           
 
-          <RoleBanner
-            page={page}
-            apiBaseUrl={API_BASE_URL}
-            isUsingMock={isUsingMock}
-            error={error}
-            loading={loading}
-          />
+          {!isDedicatedHeadOffice && (
+            <RoleBanner
+              page={page}
+              apiBaseUrl={API_BASE_URL}
+              isUsingMock={isUsingMock}
+              error={error}
+              loading={loading}
+            />
+          )}
 
           {(page === 'store-001' || page === 'store-002') && (
             <StoreDashboardView
@@ -228,9 +269,14 @@ function App() {
             />
           )}
 
-          {page === 'head-office' && (
+          {page === 'head-office' && !isDedicatedHeadOffice && (
+            <LegacySupervisorHeadOfficeView storesData={storesData} />
+          )}
+
+          {isDedicatedHeadOffice && (
             <SupervisorHeadOfficeView
-              storesData={storesData}
+              apiBaseUrl={API_BASE_URL}
+              aiccBaseUrl={AICC_BASE_URL}
             />
           )}
 

@@ -1,4 +1,8 @@
+from datetime import datetime, timedelta, timezone
+
 from fastapi.testclient import TestClient
+
+from app.main import default_summary_period
 
 
 def valid_store_state(store_id: str = "store-test") -> dict:
@@ -213,6 +217,15 @@ def test_store_summary_requires_postgresql(client: TestClient) -> None:
 
     assert response.status_code == 503
     assert response.json()["detail"] == "PostgreSQL is required for store summary"
+
+
+def test_default_store_summary_period_is_recent_24_hours() -> None:
+    now = datetime(2026, 7, 27, 1, 0, tzinfo=timezone.utc)
+
+    start_at, end_at = default_summary_period(now)
+
+    assert end_at == now
+    assert end_at - start_at == timedelta(hours=24)
 
 
 def test_store_summary_period_requires_both_boundaries(

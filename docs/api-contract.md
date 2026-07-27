@@ -54,6 +54,23 @@ POS/KDS 또는 주문 시뮬레이터가 주문 상태 변경을 전송한다.
 
 성공 상태 코드는 `202 Accepted`다.
 
+## POST /internal/stores/{store_id}/vision-snapshot
+
+Vision Worker가 사람 탐지 박스와 ROI를 표시한 최신 분석 이미지를 전송한다.
+요청은 `multipart/form-data`이며 `image` 필드에 JPEG 또는 PNG 파일을 넣는다.
+
+기본 지원 매장은 `store-001`, `store-002`이고 파일 최대 크기는 5MB다. 새 이미지를
+받으면 해당 매장의 기존 최신 이미지를 교체한다. 이미지 파일은 PostgreSQL에
+저장하지 않는다.
+
+성공 상태 코드는 `201 Created`다.
+
+## GET /api/stores/{store_id}/vision/latest
+
+해당 매장의 가장 최근 Vision 분석 이미지를 반환한다. 아직 업로드된 이미지가
+없으면 `404`를 반환한다. 브라우저 캐시로 이전 이미지가 계속 보이지 않도록
+응답에 `Cache-Control: no-store`를 포함한다.
+
 ## GET /api/stores/{store_id}/orders/{order_id}
 
 매장 ID와 주문번호가 모두 일치하는 가장 최근 주문 상태를 반환한다.

@@ -3,14 +3,21 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, File, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 import psycopg
 
 from .config import get_settings
 from .db_repository import DatabaseRepository
 from .models import EtaResponse, OrderEvent, StoreState, StoreSummaryResponse
 from .repository import InMemoryRepository
+from .vision_snapshots import (
+    InvalidImageError,
+    detect_image_media_type,
+    save_snapshot,
+    snapshot_path,
+)
 
 
 settings = get_settings()
@@ -61,6 +68,29 @@ def default_summary_period(
     return end_at - DEFAULT_SUMMARY_WINDOW, end_at
 
 
+def validate_vision_store_id(store_id: str) -> None:
+    if store_id not in settings.vision_store_ids:
+        raise HTTPException(status_code=404, detail="Store not found")
+
+
+async def read_snapshot_upload(image: UploadFile) -> bytes:
+    content = await image.read(settings.vision_snapshot_max_bytes + 1)
+    await image.close()
+    if len(content) > settings.vision_snapshot_max_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail="Image is too large",
+        )
+    try:
+        detect_image_media_type(content)
+    except InvalidImageError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=str(exc),
+        ) from exc
+    return content
+
+
 if isinstance(repository, InMemoryRepository):
     preload_sample_state()
 
@@ -106,6 +136,53 @@ def save_store_state(state: StoreState) -> dict[str, Any]:
 def save_order_event(event: OrderEvent) -> dict[str, Any]:
     saved = repository.save_order_event(event)
     return {"accepted": True, "event": saved.model_dump(mode="json")}
+
+
+@app.post(
+    "/internal/stores/{store_id}/vision-snapshot",
+    status_code=status.HTTP_201_CREATED,
+    tags=["internal"],
+)
+async def save_vision_snapshot(
+    store_id: str,
+    image: UploadFile = File(...),
+) -> dict[str, Any]:
+    validate_vision_store_id(store_id)
+    content = await read_snapshot_upload(image)
+    media_type = detect_image_media_type(content)
+    save_snapshot(settings.vision_snapshot_dir, store_id, content)
+    return {
+        "saved": True,
+        "store_id": store_id,
+        "content_type": media_type,
+        "size_bytes": len(content),
+        "image_url": f"/api/stores/{store_id}/vision/latest",
+    }
+
+
+@app.get(
+    "/api/stores/{store_id}/vision/latest",
+    response_class=FileResponse,
+    tags=["stores"],
+)
+def get_latest_vision_snapshot(store_id: str) -> FileResponse:
+    validate_vision_store_id(store_id)
+    path = snapshot_path(settings.vision_snapshot_dir, store_id)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Vision snapshot not found")
+    try:
+        with path.open("rb") as image_file:
+            media_type = detect_image_media_type(image_file.read(8))
+    except InvalidImageError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Stored vision snapshot is invalid",
+        ) from exc
+    return FileResponse(
+        path,
+        media_type=media_type,
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.get(

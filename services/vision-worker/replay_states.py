@@ -44,6 +44,26 @@ def post_state(url: str, state: dict, timeout: float = 5.0) -> int:
         return resp.status
 
 
+def post_snapshot(api: str, store_id: str, image_bytes: bytes,
+                  timeout: float = 10.0) -> int:
+    """분석 이미지를 API에 업로드(multipart). 백엔드 계약(#85):
+    POST /internal/stores/{store_id}/vision-snapshot (form field 'image')."""
+    boundary = "----visionsnapshotboundary"
+    body = (
+        f"--{boundary}\r\n".encode()
+        + b'Content-Disposition: form-data; name="image"; filename="snapshot.jpg"\r\n'
+        + b"Content-Type: image/jpeg\r\n\r\n"
+        + image_bytes
+        + f"\r\n--{boundary}--\r\n".encode()
+    )
+    url = api.rstrip("/") + f"/internal/stores/{store_id}/vision-snapshot"
+    req = urllib.request.Request(
+        url, data=body, method="POST",
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return resp.status
+
+
 def prepare_state(
     state: dict,
     *,
@@ -75,6 +95,13 @@ def main():
         action="store_true",
         help="실시간 재생 대신 JSON의 원본 captured_at을 유지",
     )
+    ap.add_argument(
+        "--frames-dir",
+        type=Path,
+        default=None,
+        help="상태별 분석 이미지 폴더(frames/{i:04d}.jpg). 지정 시 전송마다 해당 "
+             "이미지를 API로 업로드(POST /internal/stores/{id}/vision-snapshot) → 이미지·숫자 동기",
+    )
     args = ap.parse_args()
 
     if not args.file.exists():
@@ -96,6 +123,14 @@ def main():
                     state,
                     preserve_timestamp=args.preserve_timestamps,
                 )
+                # 상태별 분석 이미지를 API로 업로드(이미지·숫자 동기)
+                if args.frames_dir:
+                    src = args.frames_dir / f"{i - 1:04d}.jpg"
+                    if src.exists():
+                        try:
+                            post_snapshot(args.api, state["store_id"], src.read_bytes())
+                        except urllib.error.URLError as exc:
+                            print(f"  [{i}] 이미지 업로드 실패: {exc.reason}")
                 try:
                     post_state(url, outgoing)
                     sent += 1

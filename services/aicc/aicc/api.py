@@ -13,9 +13,11 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, model_validator
 
 from .client import StoreApiClient
+from .config import get_settings
 from .errors import ToolError
 from .franchise_insights import InsightsUnavailableError, generate_insights
 
@@ -62,6 +64,13 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="AICC Insights API", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=get_settings().cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/healthz", tags=["health"])

@@ -84,6 +84,19 @@ Tool은 예외를 던지지 않고 `ok: False` 결과를 돌려준다. LLM이 �
 
 ### 실행
 
+Docker Compose로 공통 API와 함께 실행하는 방법을 권장한다.
+
+```bash
+cp .env.example .env
+docker compose up -d --build api aicc
+curl http://localhost:8100/healthz
+```
+
+컨테이너 안의 AICC는 공통 API를 `http://api:8000`으로 호출한다. 호스트 주소나
+Tailscale 주소를 컨테이너 설정에 직접 넣을 필요가 없다.
+
+Docker를 쓰지 않고 개발할 때는 다음과 같이 실행한다.
+
 ```bash
 pip install -r services/aicc/requirements.txt
 uvicorn aicc.api:app --app-dir services/aicc --port 8100
@@ -94,12 +107,38 @@ uvicorn aicc.api:app --app-dir services/aicc --port 8100
 | 환경변수 | 설명 | 기본값 |
 |---|---|---|
 | `AICC_API_BASE_URL` | 공통 API 주소 (집계 호출 대상) | `http://localhost:8000` |
+| `AICC_CORS_ORIGINS` | 브라우저 호출을 허용할 대시보드 주소. 여러 개는 쉼표로 구분 | `http://localhost:5173` |
 | `AICC_VERTEX_PROJECT` | 팀 크레딧 Vertex 프로젝트. 있으면 Vertex 사용 | (없음) |
 | `AICC_VERTEX_LOCATION` | Vertex 리전 | `us-central1` |
 | `AICC_GEMINI_MODEL` | Gemini 모델 | `gemini-2.5-flash` |
 | `GOOGLE_API_KEY` | Vertex 대신 무료 등급을 쓸 때만 | (없음) |
 
 키·인증정보는 코드에 넣지 않고 위 환경변수와 `gcloud` 인증으로 읽는다.
+
+### Docker에서 Vertex 인증
+
+호스트에서 ADC 로그인을 한 뒤 `.env`에 생성된 파일의 절대 경로를 지정한다.
+
+```bash
+gcloud auth application-default login
+```
+
+```env
+GOOGLE_APPLICATION_CREDENTIALS_HOST_PATH=/home/user/.config/gcloud/application_default_credentials.json
+```
+
+Compose는 이 파일을 `/run/secrets/google_adc.json`에 읽기 전용으로 연결한다.
+인증 JSON을 프로젝트 폴더로 복사하거나 Docker 이미지에 넣지 않는다. ADC를 지정하지
+않아도 AICC 컨테이너와 `/healthz`는 실행되지만 Vertex를 호출하는 `/insights`는
+정상 동작하지 않는다.
+
+실행 상태와 로그는 다음 명령으로 확인한다.
+
+```bash
+docker compose ps aicc
+docker compose logs --tail=100 aicc
+curl http://localhost:8100/healthz
+```
 
 ### 엔드포인트
 

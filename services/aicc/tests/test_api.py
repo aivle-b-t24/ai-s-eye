@@ -153,3 +153,16 @@ def test_bad_period_returns_422(monkeypatch) -> None:
 def test_healthz() -> None:
     tc = TestClient(api.app)
     assert tc.get("/healthz").json() == {"status": "ok"}
+
+
+def test_insights_cors_preflight() -> None:
+    tc = TestClient(api.app)
+    response = tc.options(
+        "/insights",
+        headers={
+            "Origin": "http://localhost:5173",
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:5173"

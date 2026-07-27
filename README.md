@@ -4,7 +4,7 @@
 
 영상 분석 결과로 매장 인원과 대기 인원을 파악하고, 이 정보를 대시보드와 AICC에서 같이 사용하는 것을 목표로 하고 있습니다.
 
-지금은 팀원들이 각자 기능 개발을 시작할 수 있도록 React, FastAPI, PostgreSQL, 샘플 데이터까지 기본 구성을 만들어 둔 상태입니다. 실제 YOLO 모델과 AICC는 각 담당자가 작업하면서 연결합니다.
+React, FastAPI, PostgreSQL, AICC와 샘플 데이터를 Docker Compose로 함께 실행할 수 있습니다. 실제 YOLO 모델은 Vision 담당 영역에서 연결합니다.
 
 ## 폴더 구성
 
@@ -30,7 +30,7 @@ ai-s-eye/
 │   │   ├── Dockerfile
 │   │   └── requirements.txt
 │   ├── vision-worker/             # YOLO 담당 작업 영역
-│   └── aicc/                      # AICC 담당 작업 영역
+│   └── aicc/                      # 슈퍼바이저 AI 인사이트 API
 ├── packages/
 │   └── contracts/                 # 공통 JSON Schema
 ├── samples/                       # 메뉴·정책·상태·주문 샘플
@@ -44,7 +44,7 @@ ai-s-eye/
 
 `vision-worker`는 담당자가 작업을 시작할 위치만 준비되어 있습니다. 실제 YOLO 모델은 아직 들어 있지 않습니다.
 
-`aicc`에는 공통 API를 호출하는 Tool과 질문 유형 분기가 들어 있습니다. LLM과 RAG는 아직 연결하지 않았습니다. 자세한 내용은 `services/aicc/README.md`를 참고하세요.
+`aicc`에는 공통 API를 호출하는 Tool과 Vertex AI 기반 슈퍼바이저 인사이트 API가 들어 있습니다. 자세한 내용은 `services/aicc/README.md`를 참고하세요.
 
 ## 실행 방법
 
@@ -67,17 +67,19 @@ docker compose up --build -d
 ```bash
 docker compose ps
 curl http://localhost:8000/health
+curl http://localhost:8100/healthz
 ```
 
 브라우저에서 대시보드와 API 문서를 확인할 수 있습니다.
 
 - 대시보드: [http://localhost:5173](http://localhost:5173)
 - API 문서: [http://localhost:8000/docs](http://localhost:8000/docs)
+- AICC 문서: [http://localhost:8100/docs](http://localhost:8100/docs)
 
 작업 중 API 로그를 보고 싶을 때는 아래 명령어를 사용합니다.
 
 ```bash
-docker compose logs -f api
+docker compose logs -f api aicc
 ```
 
 실행을 끝낼 때는 다음과 같이 종료합니다.
@@ -100,8 +102,9 @@ docker compose down
 | 예상 대기시간 | 대기 인원 1명당 3분으로 임시 계산 |
 | 메뉴와 품절 여부 | 샘플 메뉴 10개 중 2개 품절 처리 |
 | 매장 정책 | 샘플 정책 5개 조회 가능 |
-| 영상 분석 결과 받기 | YOLO가 나중에 보낼 JSON 형식만 준비 |
+| 영상 분석 결과 받기 | StoreState JSON과 매장별 최신 분석 이미지 업로드·조회 API 준비 |
 | 주문 이벤트 받기 | 주문 시스템이 나중에 보낼 JSON 형식만 준비 |
+| 슈퍼바이저 AI 인사이트 | 두 매장 집계 결과를 Vertex AI로 분석하는 API 준비 |
 
 서버를 실행한 뒤 [http://localhost:8000/docs](http://localhost:8000/docs)에 들어가면 위 기능을 직접 눌러서 확인할 수 있습니다.
 
@@ -117,6 +120,25 @@ docker compose down
 
 미니PC에서 공용 API와 PostgreSQL을 운영하는 절차는
 [`docs/minipc-runbook.md`](docs/minipc-runbook.md)에 정리되어 있습니다.
+
+## AICC에서 Vertex AI 사용
+
+AICC 컨테이너는 공통 API를 Docker 내부 주소 `http://api:8000`으로 호출합니다.
+Vertex AI를 사용하려면 먼저 호스트에서 ADC 로그인을 하고 `.env`에 인증 파일의
+절대 경로를 지정합니다.
+
+```bash
+gcloud auth application-default login
+```
+
+```env
+GOOGLE_APPLICATION_CREDENTIALS_HOST_PATH=/home/user/.config/gcloud/application_default_credentials.json
+```
+
+인증 파일은 컨테이너에 읽기 전용으로 연결되며 이미지나 GitHub에는 들어가지 않습니다.
+설정 후 `docker compose up -d --build aicc`로 실행하고
+`http://localhost:8100/healthz`에서 상태를 확인합니다. 인증 설정이 없더라도
+컨테이너와 상태 확인 API는 실행되지만 실제 `/insights` 호출은 실패합니다.
 
 ## 테스트
 

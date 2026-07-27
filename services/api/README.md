@@ -8,6 +8,28 @@ FastAPI 기반 공통 백엔드다.
 
 API 문서는 서버 실행 후 `http://localhost:8000/docs`에서 확인한다.
 
+## Vision 분석 이미지
+
+Vision Worker는 분석이 끝난 JPEG 또는 PNG 한 장을 매장별 업로드 API로 보낸다.
+서버는 이 이미지를 PostgreSQL에 넣지 않고 매장별 최신 파일 하나로 관리한다.
+
+```bash
+curl -X POST \
+  -F "image=@annotated.jpg" \
+  http://localhost:8000/internal/stores/store-001/vision-snapshot
+```
+
+대시보드는 아래 주소를 이미지 `src`로 사용한다.
+
+```text
+http://localhost:8000/api/stores/store-001/vision/latest
+```
+
+기본 지원 매장은 `store-001`, `store-002`이며 한 파일의 최대 크기는 5MB다.
+Docker에서는 `vision_snapshot_data` 볼륨에 최신 파일을 저장하므로 API 컨테이너를
+다시 만들어도 유지된다. 새 이미지가 들어오면 이전 이미지는 교체하며 이력을
+쌓지는 않는다.
+
 ## PostgreSQL 마이그레이션
 
 프로젝트 루트에서 API와 DB를 먼저 실행한다.

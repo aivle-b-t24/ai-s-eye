@@ -58,7 +58,7 @@ export default function SupervisorHeadOfficeView({ storesData }) {
             </div>
             <div className="metric-row">
               <span>대기 인원 / ETA</span>
-              <strong>{store1State?.queue_count_estimate ?? 0}명 ({store1Eta?.estimated_wait_minutes ?? 0}분)</strong>
+              <strong style={{ color: '#2563eb' }}>{store1State?.queue_count_estimate ?? 0}명 ({store1Eta?.estimated_wait_minutes ?? 0}분)</strong>
             </div>
             <div className="metric-row">
               <span>AI 비전 카메라 피드</span>
@@ -79,7 +79,7 @@ export default function SupervisorHeadOfficeView({ storesData }) {
             </div>
             <div className="metric-row">
               <span>대기 인원 / ETA</span>
-              <strong>{store2State?.queue_count_estimate ?? 0}명 ({store2Eta?.estimated_wait_minutes ?? 0}분)</strong>
+              <strong style={{ color: '#2563eb' }}>{store2State?.queue_count_estimate ?? 0}명 ({store2Eta?.estimated_wait_minutes ?? 0}분)</strong>
             </div>
             <div className="metric-row">
               <span>AI 비전 카메라 피드</span>

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 
 import KpiSummaryBar from './KpiSummaryBar'
 import ZoneBreakdownTable from './ZoneBreakdownTable'
@@ -12,11 +12,25 @@ export default function StoreDashboardView({
   dashboard,
   soldOutCount,
 }) {
-  if (page === 'store-002' && !dashboard?.state) {
-    return <EmptyStorePanel storeId="store-002" />
+  const [isBottomExpanded, setIsBottomExpanded] = useState(false)
+
+  useEffect(() => {
+    const dashContent = document.querySelector('.dashboard-content')
+    if (dashContent) {
+      if (isBottomExpanded) {
+        dashContent.classList.add('is-expanded')
+      } else {
+        dashContent.classList.remove('is-expanded')
+      }
+    }
+  }, [isBottomExpanded])
+
+  const handleToggleExpand = () => {
+    setIsBottomExpanded((prev) => !prev)
   }
 
   return (
+
     <section className="store-dashboard-view">
       {dashboard?.state?.quality_status !== 'normal' && (
         <section className="alert-banner warning-alert">
@@ -65,13 +79,19 @@ export default function StoreDashboardView({
 
       <section className="dashboard-bottom-grid">
         <div className="dashboard-feature">
-          <PolicyListPanel policies={dashboard?.policies} />
+          <PolicyListPanel
+            policies={dashboard?.policies}
+            isExpanded={isBottomExpanded}
+            onToggleExpand={handleToggleExpand}
+          />
         </div>
 
         <div className="dashboard-feature">
           <MenuListPanel
             menus={dashboard?.menus}
             soldOutCount={soldOutCount}
+            isExpanded={isBottomExpanded}
+            onToggleExpand={handleToggleExpand}
           />
         </div>
       </section>

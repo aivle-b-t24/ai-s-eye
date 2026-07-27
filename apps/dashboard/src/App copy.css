@@ -5816,28 +5816,6 @@ html {
     linear-gradient(
       180deg,
       #020504 0%,
-      #061310 15%,
-      #0a201a 35%,
-      #143a30 55%,
-      #285f50 70%,
-      #73ad9a 80%,
-      #c8ded6 84%,
-      #ffffff 88%,
-      #c8ded6 92%,
-      #285f50 96%,
-      #020504 100%
-    ) !important;
-  background-repeat: no-repeat !important;
-  background-size: 100% 100% !important;
-  background-attachment: scroll !important;
-}
-
-
-.dashboard-content.is-expanded {
-  background:
-    linear-gradient(
-      180deg,
-      #020504 0%,
       #07100e 7%,
       #102a23 15%,
       #285f50 24%,
@@ -5853,8 +5831,10 @@ html {
       #07100e 95%,
       #020504 100%
     ) !important;
+  background-repeat: no-repeat !important;
+  background-size: 100% 100% !important;
+  background-attachment: scroll !important;
 }
-
 
 .dashboard-content::before {
   display: none !important;
@@ -11880,124 +11860,3 @@ html {
     color: #17342d;
   }
 }
-
-/* KPI Card Font Size Adjustments */
-.dashboard-content .kpi-card-minimal .kpi-label,
-.kpi-card-minimal .kpi-label,
-.kpi-label {
-  font-size: 15px !important;
-}
-
-.dashboard-content .kpi-card-minimal .kpi-subtext,
-.kpi-card-minimal .kpi-subtext,
-.kpi-subtext {
-  font-size: 14px !important;
-}
-
-/* AI Camera Vision Monitor Panel Font Size Adjustments (Min 13px, Max 15px) */
-.vision-card .eyebrow {
-  font-size: 14px !important;
-}
-
-.vision-more-button {
-  font-size: 13px !important;
-}
-
-.vision-camera-name,
-.vision-camera-status {
-  font-size: 13px !important;
-}
-
-.vision-detection span {
-  font-size: 12px !important;
-}
-
-.vision-feed-footer {
-  font-size: 13px !important;
-}
-
-.vision-feed-footer span {
-  font-size: 13px !important;
-}
-
-.vision-feed-footer strong {
-  font-size: 14px !important;
-}
-
-.vision-events-heading strong {
-  font-size: 15px !important;
-}
-
-.vision-events-heading span {
-  font-size: 13px !important;
-}
-
-.vision-event {
-  font-size: 14px !important;
-}
-
-.vision-event-icon {
-  font-size: 14px !important;
-}
-
-.vision-event strong {
-  font-size: 15px !important;
-}
-
-.vision-event time {
-  font-size: 13px !important;
-}
-
-/* Fix dashboard-content min-height to expanded height so 52% white center gradient position never shifts on expand/collapse */
-.dashboard-content {
-  min-height: 1800px !important;
-}
-
-/* Clean, Modern Header & Card Border Styling (Professional SaaS, Non-AI Sci-Fi) */
-.dashboard-content .gnb-header,
-.dashboard-content .role-banner-container,
-.gnb-header,
-.role-banner-container {
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  border-radius: 12px !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
-}
-
-.dashboard-content .gnb-header .tab-btn.active,
-.dashboard-content .gnb-header .supervisor-tab.active,
-.gnb-header .tab-btn.active {
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  border-radius: 8px !important;
-  background: rgba(255, 255, 255, 0.1) !important;
-  box-shadow: none !important;
-}
-
-.dashboard-content .role-banner,
-.role-banner-container .role-banner {
-  border-radius: 8px !important;
-}
-
-/* Policy & Menu Panel Font Size Upgrades (20px) */
-.dashboard-content .dashboard-bottom-grid .policy-item strong,
-.dashboard-content .dashboard-bottom-grid .menu-info strong,
-.policy-item strong,
-.menu-info strong {
-  font-size: 20px !important;
-}
-
-.dashboard-content .dashboard-bottom-grid .policy-item p,
-.dashboard-content .dashboard-bottom-grid .menu-price,
-.policy-item p,
-.menu-price {
-  font-size: 16px !important;
-}
-
-
-
-
-
-
-
-
-
-

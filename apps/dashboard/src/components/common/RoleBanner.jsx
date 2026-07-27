@@ -23,11 +23,7 @@ export default function RoleBanner({ page, apiBaseUrl, isUsingMock, error, loadi
         )}
       </div>
 
-      {isUsingMock && (
-        <section className="notice mock-notice">
-          <strong>💡 [개발용 임시 데이터 가동 중]</strong> 백엔드 API({apiBaseUrl}) 미연결 상태이므로 정의된 샘플 데이터로 화면을 표시합니다. (F12 네트워크 탭에 <code>/state</code> 단일 요청 기록)
-        </section>
-      )}
+
 
       {error && !isUsingMock && (
         <section className="notice error-notice">

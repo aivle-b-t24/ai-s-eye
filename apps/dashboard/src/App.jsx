@@ -191,9 +191,11 @@ function App() {
     {(page === 'store-001' || page === 'store-002' || page === 'head-office') && (
       <>
         <HeroSection
+          page={page}
           dashboard={activeDashboard}
           onMenuOpen={() => setIsSidebarOpen(true)}
         />
+
 
         <Sidebar
           isOpen={isSidebarOpen}

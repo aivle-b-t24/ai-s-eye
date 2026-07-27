@@ -151,10 +151,13 @@ function App() {
     }
   }, [authMode, page, loadStateOnly, loadStaticData])
 
+  const activeDashboard =
+    storesData[page] ??
+    DEFAULT_STORE_DATA[page] ??
+    DEFAULT_STORE_DATA['store-001']
 
-  const activeDashboard = storesData[page] ?? DEFAULT_STORE_DATA[page] ?? DEFAULT_STORE_DATA['store-001']
-  const soldOutCount = activeDashboard?.menus?.filter((menu) => !menu.available).length ?? 0
-
+  const soldOutCount =
+    activeDashboard?.menus?.filter((menu) => !menu.available).length ?? 0
 
   return (
     <main className="page-shell">
@@ -164,7 +167,6 @@ function App() {
         dashboard={activeDashboard}
         onMenuOpen={() => setIsSidebarOpen(true)}
       />
-
 
       <Sidebar
         isOpen={isSidebarOpen}
@@ -233,8 +235,6 @@ function App() {
       )}
     </main>
   )
-
-  
 }
 
 export default App

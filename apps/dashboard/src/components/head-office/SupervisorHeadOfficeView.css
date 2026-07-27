@@ -73,11 +73,11 @@
   outline-offset: -2px;
 }
 
-.head-office-navigation a:first-child {
+.head-office-navigation a.is-active {
   color: #ffffff;
 }
 
-.head-office-navigation a:first-child::after {
+.head-office-navigation a.is-active::after {
   position: absolute;
   right: 16px;
   bottom: 0;

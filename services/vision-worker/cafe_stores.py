@@ -166,7 +166,7 @@ def run(limit=None, gen_images=True):
         FRAMES_DIR.mkdir(parents=True, exist_ok=True)
 
     states = []
-    i = 0
+    store_k = {s["store_id"]: 0 for s in STORES}  # 매장별 프레임 인덱스
     for t in range(n):
         for store in STORES:
             seg = seg_map[store["store_id"]][t]
@@ -181,8 +181,12 @@ def run(limit=None, gen_images=True):
             state["model_version"] = MODEL_VERSION
             states.append(state)
             if gen_images:
-                cv2.imencode(".jpg", img)[1].tofile(str(FRAMES_DIR / f"{i:04d}.jpg"))
-            i += 1
+                # 매장별 폴더에 매장별 인덱스로 저장: frames/<store_id>/{k:04d}.jpg
+                sdir = FRAMES_DIR / store["store_id"]
+                sdir.mkdir(parents=True, exist_ok=True)
+                k = store_k[store["store_id"]]
+                cv2.imencode(".jpg", img)[1].tofile(str(sdir / f"{k:04d}.jpg"))
+            store_k[store["store_id"]] += 1
         if t % 10 == 0 or t == n - 1:
             print(f"  세그 {t + 1}/{n} (states {len(states)}"
                   f"{', 이미지 저장' if gen_images else ''})")

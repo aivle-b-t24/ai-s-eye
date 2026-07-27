@@ -84,7 +84,7 @@ py services/vision-worker/cafe_stores.py --limit 60  # 앞 60세그만(빠른 �
 # 1) GPU 머신에서 상태 + 분석 이미지 배치 생성 (1회)
 py services/vision-worker/cafe_stores.py
 #    → samples/cafe_stores_states.json          (상태 시계열)
-#    → outputs/snapshots/frames/{i:04d}.jpg      (상태와 같은 순서의 분석 이미지)
+#    → outputs/snapshots/frames/<store_id>/{i:04d}.jpg  (매장별 폴더, 매장별 순서의 분석 이미지)
 
 # 2) 재생: 상태 POST + 해당 이미지를 API로 업로드
 python services/vision-worker/replay_states.py \

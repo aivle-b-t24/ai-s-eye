@@ -194,16 +194,19 @@ function App() {
             <LoginPage
               onLogin={handleLoginSuccess}
               onGoToSignup={() => setAuthMode('signup')}
+              onClose={() => setAuthMode('dashboard')}
             />
           )}
           {authMode === 'signup' && (
             <SignupPage
               onGoToLogin={() => setAuthMode('login')}
               onCompleteSignup={() => setAuthMode('login')}
+              onClose={() => setAuthMode('dashboard')}
             />
           )}
         </div>
       )}
+
 
       {authMode === 'dashboard' && (
         <section id="dashboard" className="dashboard-content">

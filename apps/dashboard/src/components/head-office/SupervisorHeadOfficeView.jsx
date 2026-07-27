@@ -39,7 +39,7 @@ export default function SupervisorHeadOfficeView({ storesData }) {
           <h4
             style={{
               margin: 0,
-              fontSize: '15px',
+              fontSize: '15.5px',
               color: '#10b981',
               fontWeight: '700',
             }}
@@ -50,7 +50,7 @@ export default function SupervisorHeadOfficeView({ storesData }) {
           <p
             style={{
               margin: '2px 0 0 0',
-              fontSize: '13px',
+              fontSize: '15.5px',
               color: '#64748b',
             }}
           >
@@ -60,10 +60,11 @@ export default function SupervisorHeadOfficeView({ storesData }) {
 
         <span
           className="status-tag active"
-          style={{ fontSize: '12px', padding: '6px 12px' }}
+          style={{ fontSize: '15.5px', padding: '6px 12px' }}
         >
           본사-매장 실시간 동기화 완료
         </span>
+
       </section>
 
       <div className="head-office-grid">

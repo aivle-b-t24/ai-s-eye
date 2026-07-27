@@ -122,10 +122,64 @@ def build_prompt(summary: Any) -> str:
     return "\n".join(lines)
 
 
+# 관리자가 JSON 대신 바로 읽는 문장(display_text)에 쓰는 표시용 라벨.
+INSIGHT_TYPE_LABEL = {
+    "congestion": "혼잡",
+    "afternoon_demand": "오후 수요 증가",
+    "video_issue": "영상 이상",
+}
+SEVERITY_LABEL = {"high": "높음", "medium": "보통", "low": "낮음", "info": "참고"}
+SEVERITY_EMOJI = {"high": "🔴", "medium": "🟠", "low": "🟡", "info": "ℹ️"}
+
+
+def _insight_display_text(insight: dict[str, Any], store_name: str | None = None) -> str:
+    """인사이트 하나를 관리자가 바로 읽는 한 문단으로 만든다."""
+    store = store_name or insight.get("store_id", "")
+    itype = insight.get("insight_type")
+    type_label = INSIGHT_TYPE_LABEL.get(itype, itype or "특이사항")
+    sev = insight.get("severity")
+    sev_label = SEVERITY_LABEL.get(sev, sev or "")
+    emoji = SEVERITY_EMOJI.get(sev, "📊")
+
+    header = f"{emoji} {store} — {type_label}"
+    if sev_label:
+        header += f" ({sev_label})"
+    body = " ".join(
+        part for part in (insight.get("summary"), insight.get("recommendation")) if part
+    )
+    return f"{header}\n{body}" if body else header
+
+
+def attach_display_text(
+    result: dict[str, Any],
+    store_names: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """인사이트/비교 각 항목에 사람이 읽는 display_text를 붙인다.
+
+    store_names로 store_id -> 매장명을 주면 이름을 쓰고, 없으면 store_id를 쓴다.
+    기존 필드는 그대로 두고 새 필드만 추가하므로 대시보드가 쓰는 형식은 안 깨진다.
+    """
+    names = store_names or {}
+    for insight in result.get("insights", []):
+        if isinstance(insight, dict):
+            insight["display_text"] = _insight_display_text(
+                insight, names.get(insight.get("store_id"))
+            )
+    comparison = result.get("comparison")
+    if isinstance(comparison, dict):
+        body = " ".join(
+            part
+            for part in (comparison.get("summary"), comparison.get("recommendation"))
+            if part
+        )
+        comparison["display_text"] = f"📊 매장 비교\n{body}" if body else "📊 매장 비교"
+    return result
+
+
 def generate_insights(summary: Any, client: Any | None = None) -> dict[str, Any]:
     """집계 데이터를 Gemini로 분석해 인사이트를 돌려준다.
 
-    반환: {"insights": [...], "comparison": {...}}
+    반환: {"insights": [...], "comparison": {...}}. 각 항목에 사람이 읽는 display_text 포함.
     집계 형식이 이상하거나 Gemini를 못 쓰면 InsightsUnavailableError를 던진다.
     """
     # 집계 응답이 예상 형식(딕셔너리 + stores 리스트)인지 먼저 확인한다.
@@ -159,4 +213,4 @@ def generate_insights(summary: Any, client: Any | None = None) -> dict[str, Any]
         raise InsightsUnavailableError(f"Gemini 응답이 JSON이 아닙니다: {text[:100]}") from exc
     if not isinstance(data, dict) or "insights" not in data:
         raise InsightsUnavailableError("Gemini 응답에 insights가 없습니다.")
-    return data
+    return attach_display_text(data)

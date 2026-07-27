@@ -42,11 +42,13 @@ class Insight(BaseModel):
     summary: str | None = None
     evidence: dict[str, Any] = Field(default_factory=dict)
     recommendation: str | None = None
+    display_text: str | None = Field(default=None, description="관리자가 바로 읽는 문장")
 
 
 class Comparison(BaseModel):
     summary: str | None = None
     recommendation: str | None = None
+    display_text: str | None = Field(default=None, description="관리자가 바로 읽는 문장")
 
 
 class InsightsResponse(BaseModel):

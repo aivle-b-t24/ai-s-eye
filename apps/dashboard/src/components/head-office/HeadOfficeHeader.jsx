@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const NAVIGATION_ITEMS = [
   { id: 'hq-overview', label: '운영 개요' },
@@ -7,15 +7,59 @@ const NAVIGATION_ITEMS = [
 ]
 
 const HEADER_SCROLL_OFFSET = 96
+const PAGE_BOTTOM_THRESHOLD = 8
+const SCROLL_SELECTION_HOLD_MS = 900
+
+function getSectionFromHash() {
+  if (typeof window === 'undefined') {
+    return NAVIGATION_ITEMS[0].id
+  }
+
+  const hashSection = window.location.hash.replace('#', '')
+  return NAVIGATION_ITEMS.some(({ id }) => id === hashSection)
+    ? hashSection
+    : NAVIGATION_ITEMS[0].id
+}
 
 export default function HeadOfficeHeader({ user, onLogout }) {
-  const [activeSection, setActiveSection] = useState('hq-overview')
+  const [activeSection, setActiveSection] = useState(getSectionFromHash)
+  const navigationTargetRef = useRef(null)
+  const selectionTimerRef = useRef(null)
+
+  const holdActiveSection = (sectionId) => {
+    navigationTargetRef.current = sectionId
+    setActiveSection(sectionId)
+
+    if (selectionTimerRef.current !== null) {
+      window.clearTimeout(selectionTimerRef.current)
+    }
+
+    selectionTimerRef.current = window.setTimeout(() => {
+      navigationTargetRef.current = null
+      selectionTimerRef.current = null
+    }, SCROLL_SELECTION_HOLD_MS)
+  }
 
   useEffect(() => {
     let animationFrameId = null
 
     const updateActiveSection = () => {
       animationFrameId = null
+      if (navigationTargetRef.current) {
+        setActiveSection(navigationTargetRef.current)
+        return
+      }
+
+      const scrollHeight = document.documentElement.scrollHeight
+      const maxScrollTop = scrollHeight - window.innerHeight
+      const isAtPageBottom = maxScrollTop > 0
+        && window.scrollY >= maxScrollTop - PAGE_BOTTOM_THRESHOLD
+
+      if (isAtPageBottom) {
+        setActiveSection(NAVIGATION_ITEMS.at(-1).id)
+        return
+      }
+
       const marker = window.scrollY + HEADER_SCROLL_OFFSET
       let currentSection = NAVIGATION_ITEMS[0].id
 
@@ -40,6 +84,15 @@ export default function HeadOfficeHeader({ user, onLogout }) {
       }
     }
 
+    const hashSection = getSectionFromHash()
+    if (window.location.hash) {
+      navigationTargetRef.current = hashSection
+      selectionTimerRef.current = window.setTimeout(() => {
+        navigationTargetRef.current = null
+        selectionTimerRef.current = null
+      }, SCROLL_SELECTION_HOLD_MS)
+    }
+
     updateActiveSection()
     window.addEventListener('scroll', scheduleUpdate, { passive: true })
     window.addEventListener('resize', scheduleUpdate)
@@ -50,13 +103,20 @@ export default function HeadOfficeHeader({ user, onLogout }) {
       if (animationFrameId !== null) {
         window.cancelAnimationFrame(animationFrameId)
       }
+      if (selectionTimerRef.current !== null) {
+        window.clearTimeout(selectionTimerRef.current)
+      }
     }
   }, [])
 
   return (
     <header className="head-office-header">
       <div className="head-office-header-inner">
-        <a className="head-office-brand" href="#hq-overview">
+        <a
+          className="head-office-brand"
+          href="#hq-overview"
+          onClick={() => holdActiveSection('hq-overview')}
+        >
           <span>AI&apos;s Eye</span>
           <strong>HQ OPERATIONS</strong>
         </a>
@@ -71,7 +131,7 @@ export default function HeadOfficeHeader({ user, onLogout }) {
                 href={`#${id}`}
                 className={isActive ? 'is-active' : ''}
                 aria-current={isActive ? 'location' : undefined}
-                onClick={() => setActiveSection(id)}
+                onClick={() => holdActiveSection(id)}
               >
                 {label}
               </a>

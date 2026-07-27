@@ -77,6 +77,60 @@ Tool은 예외를 던지지 않고 `ok: False` 결과를 돌려준다. LLM이 �
 
 앞의 세 가지는 `docs/api-contract.md`의 오류 규격을 따른다.
 
+## 슈퍼바이저 인사이트 API
+
+집계 결과를 Gemini로 분석해 슈퍼바이저용 인사이트를 HTTP로 돌려준다. 대시보드 등 다른
+서비스가 `franchise_insights.py`를 파이썬으로 직접 부르지 않고 HTTP로 쓸 수 있게 한다.
+
+### 실행
+
+```bash
+pip install -r services/aicc/requirements.txt
+uvicorn aicc.api:app --app-dir services/aicc --port 8100
+```
+
+### 필요한 환경변수
+
+| 환경변수 | 설명 | 기본값 |
+|---|---|---|
+| `AICC_API_BASE_URL` | 공통 API 주소 (집계 호출 대상) | `http://localhost:8000` |
+| `AICC_VERTEX_PROJECT` | 팀 크레딧 Vertex 프로젝트. 있으면 Vertex 사용 | (없음) |
+| `AICC_VERTEX_LOCATION` | Vertex 리전 | `us-central1` |
+| `AICC_GEMINI_MODEL` | Gemini 모델 | `gemini-2.5-flash` |
+| `GOOGLE_API_KEY` | Vertex 대신 무료 등급을 쓸 때만 | (없음) |
+
+키·인증정보는 코드에 넣지 않고 위 환경변수와 `gcloud` 인증으로 읽는다.
+
+### 엔드포인트
+
+`POST /insights` — 기간을 받아 집계를 분석한다.
+
+요청(기간은 선택, 주면 시작<끝):
+```json
+{ "start_at": "2026-07-21T15:00:00Z", "end_at": "2026-07-22T14:59:59Z" }
+```
+
+응답:
+```json
+{
+  "insights": [
+    { "store_id": "store-001", "insight_type": "congestion", "severity": "high",
+      "summary": "...", "evidence": { "peak_visible_person_count": 28 }, "recommendation": "..." }
+  ],
+  "comparison": { "summary": "...", "recommendation": "..." }
+}
+```
+
+`GET /healthz` — 상태 확인.
+
+### 오류 구분
+
+| 상태 | error | 언제 |
+|---|---|---|
+| `422` | (검증) | 기간 형식 오류, start_at ≥ end_at |
+| `502` | `store_api_error` | 공통(집계) API 호출 실패 |
+| `503` | `insights_unavailable` | Gemini 분석 실패 |
+
 ## 테스트
 
 ```bash
@@ -84,7 +138,7 @@ pip install -r services/aicc/requirements.txt
 pytest services/aicc/tests
 ```
 
-공통 API를 띄우지 않아도 된다. HTTP 호출은 테스트에서 가짜 응답으로 대신한다.
+공통 API나 Gemini를 띄우지 않아도 된다. HTTP·Gemini 호출은 테스트에서 가짜 응답으로 대신한다.
 
 ## 다음 작업
 

@@ -46,59 +46,96 @@ const ZoneIcon = ({ type }) => {
 }
 
 export default function ZoneBreakdownTable({ zoneCounts }) {
-  const zones = [
-    {
-      id: 'seating-1f',
-      label: '1층 좌석',
-      english: 'Seating · 1F',
-      value: zoneCounts?.seating_1f ?? 0,
-      type: 'seating',
-      status: '좌석 이용 중',
-    },
-    {
-      id: 'aisle-1f',
-      label: '1층 통로',
-      english: 'Aisle · 1F',
-      value: zoneCounts?.aisle_1f ?? 0,
-      type: 'aisle',
-      status: '이동 감지',
-    },
-    {
-      id: 'counter',
-      label: '카운터',
-      english: 'Counter',
-      value: zoneCounts?.counter_1f ?? 0,
-      type: 'counter',
-      status: '주문 및 픽업',
-    },
-    {
-      id: 'seating-2f',
-      label: '2층 좌석',
-      english: 'Seating · 2F',
-      value: zoneCounts?.seating_2f ?? 0,
-      type: 'seating',
-      status: '좌석 이용 중',
-    },
+  const allZones = [
     {
       id: 'staff',
-      label: '직원',
-      english: 'Staff',
-      value: zoneCounts?.staff_1f ?? 0,
+      keyMatch: ['staff', 'staff_1f'],
+      label: '근무 직원',
+      english: 'Staff Zone',
       type: 'staff',
-      status: '근무 인원',
+      status: '근무 인원 감지',
+      getValue: (zc) => zc?.staff ?? zc?.staff_1f,
     },
     {
       id: 'waiting',
-      label: '외부 대기',
-      english: 'Outdoor Waiting',
-      value: zoneCounts?.waiting_out ?? 0,
+      keyMatch: ['waiting', 'waiting_out'],
+      label: '대기열 구역',
+      english: 'Waiting Zone',
       type: 'waiting',
       status: '웨이팅 존',
-      danger: (zoneCounts?.waiting_out ?? 0) >= 5,
+      getValue: (zc) => zc?.waiting ?? zc?.waiting_out,
+      getDanger: (val) => val >= 5,
+    },
+    {
+      id: 'counter',
+      keyMatch: ['counter', 'counter_1f'],
+      label: '카운터 구역',
+      english: 'Counter Zone',
+      type: 'counter',
+      status: '주문 및 픽업',
+      getValue: (zc) => zc?.counter ?? zc?.counter_1f,
+    },
+    {
+      id: 'seating',
+      keyMatch: ['seating', 'seating_1f', 'seating_2f'],
+      label: '매장 좌석',
+      english: 'Seating Zone',
+      type: 'seating',
+      status: '좌석 이용 중',
+      getValue: (zc) => zc?.seating ?? (zc?.seating_1f != null || zc?.seating_2f != null ? (zc?.seating_1f ?? 0) + (zc?.seating_2f ?? 0) : undefined),
+    },
+    {
+      id: 'aisle',
+      keyMatch: ['aisle', 'aisle_1f'],
+      label: '이동 통로',
+      english: 'Aisle Zone',
+      type: 'aisle',
+      status: '이동 감지',
+      getValue: (zc) => zc?.aisle ?? zc?.aisle_1f,
     },
   ]
 
-  const totalZoneCount = zones.reduce(
+  const activeZoneKeys = zoneCounts ? Object.keys(zoneCounts) : []
+
+  const filteredZones = allZones
+    .map((z) => {
+      const val = z.getValue(zoneCounts)
+      const isPresent = val !== undefined || z.keyMatch.some((k) => activeZoneKeys.includes(k))
+      return {
+        id: z.id,
+        label: z.label,
+        english: z.english,
+        type: z.type,
+        status: z.status,
+        value: val ?? 0,
+        isPresent,
+        danger: z.getDanger ? z.getDanger(val ?? 0) : false,
+      }
+    })
+    .filter((z) => z.isPresent)
+
+  const displayZones = filteredZones.length > 0 ? filteredZones : [
+    {
+      id: 'staff',
+      label: '근무 직원',
+      english: 'Staff Zone',
+      type: 'staff',
+      status: '근무 인원 감지',
+      value: zoneCounts?.staff ?? 0,
+      danger: false,
+    },
+    {
+      id: 'waiting',
+      label: '대기열 구역',
+      english: 'Waiting Zone',
+      type: 'waiting',
+      status: '웨이팅 존',
+      value: zoneCounts?.waiting ?? 0,
+      danger: (zoneCounts?.waiting ?? 0) >= 5,
+    },
+  ]
+
+  const totalZoneCount = displayZones.reduce(
     (sum, zone) => sum + zone.value,
     0
   )
@@ -127,41 +164,52 @@ export default function ZoneBreakdownTable({ zoneCounts }) {
         <div className="zone-map-preview" aria-hidden="true">
           <div className="zone-map-grid" />
 
-          <span className="map-zone map-zone-seating-1">
-            <i />
-            1F 좌석
-          </span>
+          {displayZones.some((z) => z.id === 'staff') && (
+            <span className="map-zone map-zone-counter">
+              <i />
+              직원 구역
+            </span>
+          )}
 
-          <span className="map-zone map-zone-counter">
-            <i />
-            카운터
-          </span>
+          {displayZones.some((z) => z.id === 'waiting') && (
+            <span className="map-zone map-zone-waiting">
+              <i />
+              대기 구역
+            </span>
+          )}
 
-          <span className="map-zone map-zone-aisle">
-            <i />
-            통로
-          </span>
+          {displayZones.some((z) => z.id === 'counter') && (
+            <span className="map-zone map-zone-counter">
+              <i />
+              카운터
+            </span>
+          )}
 
-          <span className="map-zone map-zone-seating-2">
-            <i />
-            2F 좌석
-          </span>
+          {displayZones.some((z) => z.id === 'seating') && (
+            <span className="map-zone map-zone-seating-1">
+              <i />
+              좌석
+            </span>
+          )}
 
-          <span className="map-zone map-zone-waiting">
-            <i />
-            대기
-          </span>
+          {displayZones.some((z) => z.id === 'aisle') && (
+            <span className="map-zone map-zone-aisle">
+              <i />
+              통로
+            </span>
+          )}
 
           <div className="map-entry">ENTRANCE</div>
         </div>
 
-        <div className="zone-card-grid">
-          {zones.map((zone) => (
+        <div className="zone-card-grid" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {displayZones.map((zone) => (
             <article
               key={zone.id}
               className={`zone-status-card ${
                 zone.danger ? 'zone-status-card-danger' : ''
               }`}
+              style={{ width: '100%', padding: '20px 24px' }}
             >
               <div className="zone-status-top">
                 <span className="zone-status-icon">
@@ -178,17 +226,25 @@ export default function ZoneBreakdownTable({ zoneCounts }) {
               </div>
 
               <div className="zone-status-copy">
-                <span>{zone.english}</span>
-                <strong>{zone.label}</strong>
+                <span style={{ fontSize: '0.9rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  {zone.english}
+                </span>
+
+                <h4 style={{ margin: '6px 0 0 0', fontSize: '1.3rem', fontWeight: '700', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '1.3rem', fontWeight: '700', color: '#ffffff' }}>
+                    {zone.label}
+                  </span>
+                  <span style={{ fontSize: '1.85rem', fontWeight: '800', color: '#38bdf8', lineHeight: 1 }}>
+                    {zone.value}
+                    <small style={{ fontSize: '1rem', marginLeft: '4px', color: '#38bdf8', fontWeight: '700' }}>명</small>
+                  </span>
+                </h4>
               </div>
 
-              <div className="zone-status-bottom">
-                <strong>
-                  {zone.value}
-                  <small>명</small>
-                </strong>
-
-                <span>{zone.status}</span>
+              <div className="zone-status-bottom" style={{ marginTop: '10px' }}>
+                <p style={{ margin: 0, fontSize: '0.95rem', fontWeight: '500', color: '#cbd5e1' }}>
+                  {zone.status}
+                </p>
               </div>
             </article>
           ))}

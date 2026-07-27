@@ -44,7 +44,7 @@ function Sidebar({ isOpen, onClose, page, setPage }) {
               type="button"
               className={
                 item.id === 'dashboard' &&
-                (page === 'store-001' || page === 'store-002')
+                (page === 'store-001' || page === 'store-002' || page === 'head-office')
                   ? 'active'
                   : ''
               }

@@ -68,6 +68,40 @@ py services/vision-worker/cafe_stores.py --limit 60  # 앞 60세그만(빠른 �
 - 가중치(`best.pt`)와 원본 이미지·영상은 **GitHub에 올리지 않는다**(드라이브 공유).
   경로는 `AISEYE_CAFE_MODEL`(가중치) / `AISEYE_CAFE_ROOT`(이미지) 환경변수로 지정.
 
+## 대시보드용 분석 이미지(스냅샷)
+
+대시보드 카메라 영역에 목업 대신 **실제 분석 이미지**(사람 탐지 + 직원/대기 ROI)를 띄운다.
+백엔드 이미지 API(#85)와 연동한다.
+
+**API 계약(백엔드 #85)**
+
+- 업로드(vision → 서버): `POST /internal/stores/{store_id}/vision-snapshot` (multipart, form field `image`)
+- 조회(대시보드): `GET /api/stores/{store_id}/vision/latest` → `image/jpeg`
+- 매장별 **최신 1장만** 보관(이력 없음), 최대 5MB.
+
+**생성 + 재생(이미지·숫자 동기)** — 미리 생성해 두고 재생하며 업로드(재생엔 GPU 불필요):
+```bash
+# 1) GPU 머신에서 상태 + 분석 이미지 배치 생성 (1회)
+py services/vision-worker/cafe_stores.py
+#    → samples/cafe_stores_states.json          (상태 시계열)
+#    → outputs/snapshots/frames/{i:04d}.jpg      (상태와 같은 순서의 분석 이미지)
+
+# 2) 재생: 상태 POST + 해당 이미지를 API로 업로드
+python services/vision-worker/replay_states.py \
+    --frames-dir services/vision-worker/outputs/snapshots/frames --loop
+```
+- replay가 상태를 보낼 때마다 **그 인덱스의 이미지를 `POST .../vision-snapshot`로 업로드** → 이미지·숫자 동기.
+- 대시보드: `<img src="{API}/api/stores/store-001/vision/latest">` (매장별 store_id).
+- `--frames-dir` 없이 재생하면 **숫자만**(이미지 없이).
+
+**실시간(`--live`)** — 모델·GPU·데이터 있는 머신에서 세그먼트마다 생성+상태 POST+이미지 업로드:
+```bash
+py services/vision-worker/cafe_stores.py --live --post http://localhost:8000 --interval 3
+```
+
+> **주의:** 분석 이미지는 CAFE 원본 프레임을 포함하므로 **GitHub에 올리지 않는다**(원본·가중치 미업로드).
+> `frames/`는 데모 머신/드라이브로 옮기고, replay가 API로 업로드한다. (`--snapshot`은 로컬 1장 빠른 확인용.)
+
 ## 팀원용: 영상 없이 매장 상태 재생하기
 
 영상·YOLO·GPU 없이도 실제 분석 결과를 API에 흘려보낼 수 있다. 대시보드나 AICC를

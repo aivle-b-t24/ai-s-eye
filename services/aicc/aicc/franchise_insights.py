@@ -126,8 +126,13 @@ def generate_insights(summary: Any, client: Any | None = None) -> dict[str, Any]
     """집계 데이터를 Gemini로 분석해 인사이트를 돌려준다.
 
     반환: {"insights": [...], "comparison": {...}}
-    Gemini를 못 쓰면 InsightsUnavailableError를 던진다.
+    집계 형식이 이상하거나 Gemini를 못 쓰면 InsightsUnavailableError를 던진다.
     """
+    # 집계 응답이 예상 형식(딕셔너리 + stores 리스트)인지 먼저 확인한다.
+    # 공통 API가 오류를 200으로 주거나 형식을 바꿔도 500으로 터지지 않게 막는다.
+    if not isinstance(summary, dict) or not isinstance(summary.get("stores"), list):
+        raise InsightsUnavailableError("집계 응답 형식이 올바르지 않습니다(stores 목록 없음).")
+
     client = client if client is not None else build_client()
     if client is None:
         raise InsightsUnavailableError("Gemini 클라이언트를 만들지 못했습니다.")

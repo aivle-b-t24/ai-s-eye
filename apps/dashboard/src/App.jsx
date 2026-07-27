@@ -58,15 +58,13 @@ function App() {
   const [authMode, setAuthMode] = useState('login')
   const [currentUser, setCurrentUser] = useState(null)
 
-  const [page, setPage] = useState('store-001')
+  const [page, setPage] = useState("store-001")
   const [storesData, setStoresData] = useState(DEFAULT_STORE_DATA)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [isUsingMock, setIsUsingMock] = useState(false)
-
-  const lastStateJsonRef = useRef({})
 
   const handleLoginSuccess = (userData) => {
     setCurrentUser(userData)
@@ -87,15 +85,6 @@ function App() {
         fetchStoreState(targetStoreId),
         fetchStoreEta(targetStoreId),
       ])
-      const currentStateJson = JSON.stringify({ stateData, etaData })
-
-      if (lastStateJsonRef.current[targetStoreId] === currentStateJson) {
-        setError('')
-        setIsUsingMock(false)
-        return
-      }
-
-      lastStateJsonRef.current[targetStoreId] = currentStateJson
 
       setStoresData((prev) => ({
         ...prev,
@@ -114,6 +103,7 @@ function App() {
       setLoading(false)
     }
   }, [])
+
 
   const loadStaticData = useCallback(async (targetStoreId) => {
     try {
@@ -141,8 +131,6 @@ function App() {
 
     if (authMode === 'dashboard') {
       if (page === 'store-001' || page === 'store-002') {
-        lastStateJsonRef.current[page] = ''
-
         loadStaticData(page)
         loadStateOnly(page, true)
 
@@ -152,6 +140,9 @@ function App() {
       } else if (page === 'head-office') {
         loadStateOnly('store-001', false)
         loadStateOnly('store-002', false)
+        timerId = null
+      } else if (page === 'setting') {
+        timerId = null
       }
     }
 
@@ -168,87 +159,86 @@ function App() {
   const soldOutCount =
     activeDashboard?.menus?.filter((menu) => !menu.available).length ?? 0
 
-  if (authMode === 'login') {
-    return (
-      <LoginPage
-        onLogin={handleLoginSuccess}
-        onGoToSignup={() => setAuthMode('signup')}
-      />
-    )
-  }
-
-  if (authMode === 'signup') {
-    return (
-      <SignupPage
-        onGoToLogin={() => setAuthMode('login')}
-        onCompleteSignup={() => setAuthMode('login')}
-      />
-    )
-  }
-
-  const hasHero =
-    page === 'store-001' ||
-    page === 'store-002' ||
-    page === 'head-office'
-
   return (
-    <main className={`page-shell ${hasHero ? 'has-hero' : 'no-hero'}`}>
-      <div className={`top-global-nav ${hasHero ? 'is-overlay' : 'is-solid'}`}>
-        <GnbHeader
-          page={page}
-          setPage={setPage}
-          loadStateOnly={loadStateOnly}
-          loading={loading}
-          user={currentUser}
-          onLogout={handleLogout}
-        />
-      </div>
-
-      {hasHero && (
-        <>
-          <HeroSection
-            page={page}
-            dashboard={activeDashboard}
-            onMenuOpen={() => setIsSidebarOpen(true)}
-          />
-
-          <Sidebar
-            isOpen={isSidebarOpen}
-            onClose={() => setIsSidebarOpen(false)}
+    <main className={`page-shell ${authMode === 'dashboard' ? 'has-hero' : ''}`}>
+      {authMode === 'dashboard' && (
+        <div className="top-global-nav is-overlay">
+          <GnbHeader
             page={page}
             setPage={setPage}
+            loadStateOnly={loadStateOnly}
+            loading={loading}
+            user={currentUser}
+            onLogout={handleLogout}
           />
-        </>
+        </div>
       )}
 
-      <section id="dashboard" className="dashboard-content">
-        <RoleBanner
-          page={page}
-          apiBaseUrl={API_BASE_URL}
-          isUsingMock={isUsingMock}
-          error={error}
-          loading={loading}
-        />
+      <HeroSection
+        page={page}
+        authMode={authMode}
+        dashboard={activeDashboard}
+        onMenuOpen={() => setIsSidebarOpen(true)}
+      />
 
-        {(page === 'store-001' || page === 'store-002') && (
-          <StoreDashboardView
+      <Sidebar
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        page={page}
+        setPage={setPage}
+      />
+
+      {(authMode === 'login' || authMode === 'signup') && (
+        <div className="auth-modal-overlay">
+          {authMode === 'login' && (
+            <LoginPage
+              onLogin={handleLoginSuccess}
+              onGoToSignup={() => setAuthMode('signup')}
+            />
+          )}
+          {authMode === 'signup' && (
+            <SignupPage
+              onGoToLogin={() => setAuthMode('login')}
+              onCompleteSignup={() => setAuthMode('login')}
+            />
+          )}
+        </div>
+      )}
+
+      {authMode === 'dashboard' && (
+        <section id="dashboard" className="dashboard-content">
+          
+
+          <RoleBanner
             page={page}
-            dashboard={activeDashboard}
-            soldOutCount={soldOutCount}
-          />
-        )}
-
-        {page === 'head-office' && (
-          <SupervisorHeadOfficeView storesData={storesData} />
-        )}
-
-        {page === 'setting' && (
-          <SettingsView
             apiBaseUrl={API_BASE_URL}
-            setPage={setPage}
+            isUsingMock={isUsingMock}
+            error={error}
+            loading={loading}
           />
-        )}
-      </section>
+
+          {(page === 'store-001' || page === 'store-002') && (
+            <StoreDashboardView
+              page={page}
+              dashboard={activeDashboard}
+              soldOutCount={soldOutCount}
+            />
+          )}
+
+          {page === 'head-office' && (
+            <SupervisorHeadOfficeView
+              storesData={storesData}
+            />
+          )}
+
+          {page === 'setting' && (
+            <SettingsView
+              apiBaseUrl={API_BASE_URL}
+              setPage={setPage}
+            />
+          )}
+        </section>
+      )}
     </main>
   )
 }

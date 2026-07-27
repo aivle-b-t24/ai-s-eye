@@ -58,7 +58,7 @@ function App() {
   const [authMode, setAuthMode] = useState('login')
   const [currentUser, setCurrentUser] = useState(null)
 
-  const [page, setPage] = useState("store-001")
+  const [page, setPage] = useState('store-001')
   const [storesData, setStoresData] = useState(DEFAULT_STORE_DATA)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
@@ -115,7 +115,6 @@ function App() {
     }
   }, [])
 
-
   const loadStaticData = useCallback(async (targetStoreId) => {
     try {
       const [menuData, policyData, etaData] = await Promise.all([
@@ -153,9 +152,6 @@ function App() {
       } else if (page === 'head-office') {
         loadStateOnly('store-001', false)
         loadStateOnly('store-002', false)
-        timerId = null
-      } else if (page === 'setting') {
-        timerId = null
       }
     }
 
@@ -164,13 +160,17 @@ function App() {
     }
   }, [authMode, page, loadStateOnly, loadStaticData])
 
-  const activeDashboard = storesData[page] ?? DEFAULT_STORE_DATA[page] ?? DEFAULT_STORE_DATA['store-001']
-  const soldOutCount = activeDashboard?.menus?.filter((menu) => !menu.available).length ?? 0
+  const activeDashboard =
+    storesData[page] ??
+    DEFAULT_STORE_DATA[page] ??
+    DEFAULT_STORE_DATA['store-001']
 
+  const soldOutCount =
+    activeDashboard?.menus?.filter((menu) => !menu.available).length ?? 0
 
   if (authMode === 'login') {
     return (
-      <LoginPage 
+      <LoginPage
         onLogin={handleLoginSuccess}
         onGoToSignup={() => setAuthMode('signup')}
       />
@@ -186,69 +186,71 @@ function App() {
     )
   }
 
+  const hasHero =
+    page === 'store-001' ||
+    page === 'store-002' ||
+    page === 'head-office'
+
   return (
-  <main className="page-shell">
-    {(page === 'store-001' || page === 'store-002' || page === 'head-office') && (
-      <>
-        <HeroSection
-          page={page}
-          dashboard={activeDashboard}
-          onMenuOpen={() => setIsSidebarOpen(true)}
-        />
-
-
-        <Sidebar
-          isOpen={isSidebarOpen}
-          onClose={() => setIsSidebarOpen(false)}
+    <main className={`page-shell ${hasHero ? 'has-hero' : 'no-hero'}`}>
+      <div className={`top-global-nav ${hasHero ? 'is-overlay' : 'is-solid'}`}>
+        <GnbHeader
           page={page}
           setPage={setPage}
+          loadStateOnly={loadStateOnly}
+          loading={loading}
+          user={currentUser}
+          onLogout={handleLogout}
         />
-      </>
-    )}
+      </div>
 
+      {hasHero && (
+        <>
+          <HeroSection
+            page={page}
+            dashboard={activeDashboard}
+            onMenuOpen={() => setIsSidebarOpen(true)}
+          />
 
-    <section id="dashboard" className="dashboard-content">
-      <GnbHeader
-        page={page}
-        setPage={setPage}
-        loadStateOnly={loadStateOnly}
-        loading={loading}
-        user={currentUser}
-        onLogout={handleLogout}
-      />
+          <Sidebar
+            isOpen={isSidebarOpen}
+            onClose={() => setIsSidebarOpen(false)}
+            page={page}
+            setPage={setPage}
+          />
+        </>
+      )}
 
-      <RoleBanner
-        page={page}
-        apiBaseUrl={API_BASE_URL}
-        isUsingMock={isUsingMock}
-        error={error}
-        loading={loading}
-      />
-
-      {(page === 'store-001' || page === 'store-002') && (
-        <StoreDashboardView
+      <section id="dashboard" className="dashboard-content">
+        <RoleBanner
           page={page}
-          dashboard={activeDashboard}
-          soldOutCount={soldOutCount}
-        />
-      )}
-
-      {page === 'head-office' && (
-        <SupervisorHeadOfficeView
-          storesData={storesData}
-        />
-      )}
-
-      {page === 'setting' && (
-        <SettingsView
           apiBaseUrl={API_BASE_URL}
-          setPage={setPage}
+          isUsingMock={isUsingMock}
+          error={error}
+          loading={loading}
         />
-      )}
-    </section>
-  </main>
-)
-  
+
+        {(page === 'store-001' || page === 'store-002') && (
+          <StoreDashboardView
+            page={page}
+            dashboard={activeDashboard}
+            soldOutCount={soldOutCount}
+          />
+        )}
+
+        {page === 'head-office' && (
+          <SupervisorHeadOfficeView storesData={storesData} />
+        )}
+
+        {page === 'setting' && (
+          <SettingsView
+            apiBaseUrl={API_BASE_URL}
+            setPage={setPage}
+          />
+        )}
+      </section>
+    </main>
+  )
 }
 
 export default App

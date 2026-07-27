@@ -118,39 +118,38 @@ function HeroSection({ page, authMode, dashboard, onMenuOpen }) {
 
                 <div className="camera-bottom-label">
                   <span>{isHeadOffice ? 'SUPERVISOR CONTROL MODE' : 'AI OBJECT DETECTION'}</span>
-                  {!hideMetrics && <strong>{peopleCount}명 감지</strong>}
+                  <strong className={hideMetrics ? 'is-hidden' : ''}>{peopleCount}명 감지</strong>
                 </div>
               </div>
 
-              {!hideMetrics && (
-                <div className="hero-metrics-row">
-                  <div className="hero-inline-metric">
-                    <div className="hero-inline-title">
-                      <span className="metric-icon">●</span>
-                      현재 혼잡도
-                    </div>
-
-                    <div className="hero-inline-value">
-                      <strong>{congestionRate}%</strong>
-                      <span>{congestionLabel}</span>
-                    </div>
+              <div className={`hero-metrics-row ${hideMetrics ? 'is-hidden' : ''}`}>
+                <div className="hero-inline-metric">
+                  <div className="hero-inline-title">
+                    <span className="metric-icon">●</span>
+                    현재 혼잡도
                   </div>
 
-                  <div className="hero-metric-divider" />
-
-                  <div className="hero-inline-metric">
-                    <div className="hero-inline-title">
-                      <span className="metric-icon">◷</span>
-                      대기 현황
-                    </div>
-
-                    <div className="hero-inline-value">
-                      <strong>{queueCount}팀</strong>
-                      <span>예상 대기 {waitMinutes}분</span>
-                    </div>
+                  <div className="hero-inline-value">
+                    <strong>{congestionRate}%</strong>
+                    <span>{congestionLabel}</span>
                   </div>
                 </div>
-              )}
+
+                <div className="hero-metric-divider" />
+
+                <div className="hero-inline-metric">
+                  <div className="hero-inline-title">
+                    <span className="metric-icon">◷</span>
+                    대기 현황
+                  </div>
+
+                  <div className="hero-inline-value">
+                    <strong>{queueCount}팀</strong>
+                    <span>예상 대기 {waitMinutes}분</span>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
 

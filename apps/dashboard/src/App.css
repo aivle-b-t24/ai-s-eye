@@ -1050,14 +1050,16 @@ background-size: cover;
 transform: scale(1.02);
 }
 .hero-gradient {
-position: absolute;
-inset: 0;
-z-index: -2;
-background:
-radial-gradient(circle at 74% 44%, rgba(38, 160, 111, 0.1), transparent 34%),
-linear-gradient(90deg, rgba(3, 11, 10, 0.98) 0%, rgba(4, 13, 12, 0.92) 35%, rgba(4, 12, 11, 0.54) 68%, rgba(3, 9, 9, 0.82) 100%),
-linear-gradient(180deg, rgba(2, 8, 8, 0.34), rgba(2, 8, 8, 0.16) 52%, rgba(2, 8, 8, 0.9));
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(circle at 25% 40%, rgba(52, 211, 153, 0.14), transparent 50%),
+    radial-gradient(circle at 74% 44%, rgba(38, 160, 111, 0.12), transparent 45%),
+    linear-gradient(90deg, rgba(3, 13, 11, 0.78) 0%, rgba(5, 18, 15, 0.68) 35%, rgba(4, 14, 12, 0.45) 68%, rgba(3, 11, 10, 0.62) 100%),
+    linear-gradient(180deg, rgba(2, 8, 8, 0.25), rgba(2, 8, 8, 0.15) 52%, rgba(2, 8, 8, 0.65));
 }
+
 .hero-header {
 position: absolute;
 inset: 0 0 auto;
@@ -3255,4 +3257,12 @@ font-size: 16px !important;
     min-height: auto !important;
     padding: 18px !important;
   }
+}
+
+/* Maintain identical camera window vertical position and zero height shift on Head Office view */
+.camera-bottom-label strong.is-hidden,
+.hero-metrics-row.is-hidden {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }

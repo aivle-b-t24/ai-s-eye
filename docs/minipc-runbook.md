@@ -1,12 +1,15 @@
 # 미니PC 공용 테스트 서버 운영
 
-미니PC에서 PostgreSQL과 공통 API를 함께 실행하고, 팀원은 Tailscale을 통해
-API에만 접속한다. PostgreSQL 포트는 팀원 PC나 외부 인터넷에 직접 공개하지 않는다.
+미니PC에서 PostgreSQL, 공통 API와 AICC를 함께 실행하고, 팀원은 Tailscale을 통해
+API와 AICC에 접속한다. PostgreSQL 포트는 팀원 PC나 외부 인터넷에 직접 공개하지 않는다.
 
 ```text
 팀원 PC
-  └─ Tailscale → 미니PC API:8000
-                    └─ Docker 내부망 → PostgreSQL:5432
+  └─ Tailscale
+       ├─ 미니PC API:8000 → PostgreSQL:5432
+       └─ 미니PC AICC:8100
+            ├─ Docker 내부망 → API:8000
+            └─ 읽기 전용 ADC → Vertex AI
 ```
 
 ## 적용 시점
@@ -76,12 +79,24 @@ POSTGRES_PASSWORD=충분히_긴_개발용_비밀번호
 POSTGRES_DB=store
 
 CORS_ORIGINS=http://localhost:5173,http://100.x.x.x:5173
+
+AICC_BIND_HOST=100.x.x.x
+AICC_PORT=8100
+AICC_CORS_ORIGINS=http://localhost:5173,http://100.x.x.x:5173
+AICC_VERTEX_PROJECT=project-511b6816-d61a-47ab-b67
+AICC_VERTEX_LOCATION=us-central1
+AICC_GEMINI_MODEL=gemini-2.5-flash
+GOOGLE_APPLICATION_CREDENTIALS_HOST_PATH=/home/ubuntu/.config/gcloud/application_default_credentials.json
 ```
 
 `100.x.x.x`는 실제 Tailscale IPv4 주소로 바꾼다. `.env`는 GitHub에 올리지 않는다.
 
 `docker-compose.yml`에서 PostgreSQL은 항상 `127.0.0.1`에만 연결된다.
 팀원에게 DB 주소나 5432 포트를 공유하지 않는다.
+
+`GOOGLE_APPLICATION_CREDENTIALS_HOST_PATH`에는 미니PC에서
+`gcloud auth application-default login`으로 만든 ADC 파일의 절대 경로를 넣는다.
+파일은 AICC 컨테이너에 읽기 전용으로 연결되며 GitHub에 올리지 않는다.
 
 ## 3. 최초 실행
 
@@ -123,12 +138,15 @@ docker compose up -d --build dashboard
 ```text
 http://100.x.x.x:8000/health
 http://100.x.x.x:8000/docs
+http://100.x.x.x:8100/docs
 ```
 
-AICC 환경변수는 다음과 같이 지정한다.
+AICC도 미니PC에서 운영할 때 실행한다. Compose가 내부 API 주소
+`http://api:8000`을 자동으로 지정하므로 외부 API 주소를 따로 넣지 않는다.
 
-```env
-AICC_API_BASE_URL=http://100.x.x.x:8000
+```bash
+docker compose up -d --build aicc
+curl http://100.x.x.x:8100/healthz
 ```
 
 브라우저 대시보드는 `VITE_API_BASE_URL`을 같은 API 주소로 지정해 실행한다.
@@ -143,7 +161,7 @@ Tailscale에 연결하지 않은 PC, 일반 LAN 주소, 외부 인터넷에서�
 ```bash
 git switch develop
 git pull --ff-only origin develop
-docker compose up -d --build db api
+docker compose up -d --build db api aicc
 docker compose exec api alembic upgrade head
 docker compose ps
 ```
@@ -182,16 +200,17 @@ Docker 서비스와 컨테이너에는 자동 재시작 설정이 적용돼 있�
 
 ```bash
 docker compose ps
-docker compose logs --tail=100 api
+docker compose logs --tail=100 api aicc
 curl http://100.x.x.x:8000/health
+curl http://100.x.x.x:8100/healthz
 ```
 
 API가 열리지 않으면 다음 순서로 확인한다.
 
 1. `tailscale status`에서 미니PC가 연결돼 있는지 확인
 2. `.env`의 `API_BIND_HOST`가 현재 Tailscale IPv4와 같은지 확인
-3. `docker compose ps`에서 DB와 API 상태 확인
-4. `docker compose logs --tail=100 db api`로 오류 확인
+3. `docker compose ps`에서 DB, API와 AICC 상태 확인
+4. `docker compose logs --tail=100 db api aicc`로 오류 확인
 5. 마이그레이션이 필요한지 확인
 
 ## 운영 원칙

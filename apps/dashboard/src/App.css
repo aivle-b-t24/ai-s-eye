@@ -2738,8 +2738,7 @@ html {
   }
 }
 
-라이브러리
-/
+
 App_cleaned.css
 html {
   overflow-y: scroll;
@@ -5948,8 +5947,7 @@ html {
   }
 }
 
-라이브러리
-/
+
 App_final_gradient.css
 html {
   overflow-y: scroll;
@@ -8691,8 +8689,7 @@ html {
   }
 }
 
-라이브러리
-/
+
 App_cleaned.css
 html {
   overflow-y: scroll;
@@ -11991,6 +11988,161 @@ html {
 .menu-price {
   font-size: 16px !important;
 }
+
+/* Zone Breakdown & Vision Monitor Panel Text Color Upgrades (Dark Tones Close to Black) */
+.dashboard-content .zone-overview-panel .panel-heading h2,
+.dashboard-content .vision-card .vision-card-header h2,
+.zone-overview-panel .panel-heading h2,
+.vision-card .vision-card-header h2 {
+  color: #091512 !important;
+}
+
+.dashboard-content .zone-overview-panel .eyebrow,
+.dashboard-content .vision-card .eyebrow,
+.zone-overview-panel .eyebrow,
+.vision-card .eyebrow {
+  color: #064e3b !important;
+}
+
+.dashboard-content .zone-overview-description,
+.dashboard-content .vision-events-heading strong,
+.zone-overview-description,
+.vision-events-heading strong {
+  color: #0f172a !important;
+}
+
+.dashboard-content .vision-events-heading span,
+.vision-events-heading span {
+  color: #334155 !important;
+}
+
+.dashboard-content .vision-more-button,
+.vision-more-button {
+  color: #0f172a !important;
+}
+
+.dashboard-content .vision-event,
+.vision-event {
+  color: #1e293b !important;
+}
+
+.dashboard-content .vision-event strong,
+.vision-event strong {
+  color: #091512 !important;
+}
+
+.dashboard-content .vision-event time,
+.vision-event time {
+  color: #334155 !important;
+}
+
+.dashboard-content .map-zone,
+.map-zone {
+  color: #38bdf8 !important;
+  background: rgba(15, 23, 42, 0.88) !important;
+  border: 1px solid rgba(56, 189, 248, 0.4) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35) !important;
+}
+
+/* Option 2: Deep Navy / Charcoal Slate Map Lines & Borders (#1e293b) */
+.dashboard-content .zone-map-preview::before,
+.dashboard-content .zone-map-preview::after,
+.zone-map-preview::before,
+.zone-map-preview::after {
+  border: 2px solid rgba(30, 41, 59, 0.55) !important;
+}
+
+.dashboard-content .zone-map-grid,
+.zone-map-grid {
+  opacity: 0.35 !important;
+  background-image:
+    linear-gradient(rgba(30, 41, 59, 0.45) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30, 41, 59, 0.45) 1px, transparent 1px) !important;
+}
+
+.dashboard-content .map-entry,
+.map-entry {
+  color: #1e293b !important;
+  font-weight: 800 !important;
+}
+
+/* 본사 관제 상단 영역 및 카드 헤더: 다크 배경용 원본 밝은 흰색/에메랄드 색상 유지 */
+.dashboard-content .head-office-view .panel-heading-large h2,
+.dashboard-content .head-office-grid .card-header h3,
+.head-office-view .panel-heading-large h2,
+.head-office-grid .card-header h3 {
+  color: #ffffff !important;
+}
+
+.dashboard-content .head-office-view .panel-heading-large .eyebrow,
+.head-office-view .panel-heading-large .eyebrow {
+  color: #34d399 !important;
+}
+
+.dashboard-content .head-office-view .panel-heading-large .subtitle,
+.head-office-view .panel-heading-large .subtitle {
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+
+.dashboard-content .head-office-view .live-sync-banner h4,
+.head-office-view .live-sync-banner h4 {
+  color: #34d399 !important;
+}
+
+.dashboard-content .head-office-view .live-sync-banner p,
+.head-office-view .live-sync-banner p {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* 본사 관제 하단 하얀색 본문 영역: 검은색/다크 톤 (#091512 / #1e293b) */
+.dashboard-content .head-office-details .panel h2,
+.dashboard-content .head-office-details .panel strong,
+.head-office-details .panel h2,
+.head-office-details .panel strong {
+  color: #091512 !important;
+}
+
+.dashboard-content .head-office-details .panel .eyebrow,
+.head-office-details .panel .eyebrow {
+  color: #064e3b !important;
+}
+
+.dashboard-content .head-office-grid .metric-row span,
+.dashboard-content .head-office-details .panel p,
+.head-office-grid .metric-row span,
+.head-office-details .panel p {
+  color: #1e293b !important;
+}
+
+.dashboard-content .head-office-grid .metric-row strong,
+.head-office-grid .metric-row strong {
+  color: #0284c7 !important;
+}
+
+/* Zone Breakdown Panel Font Size Upgrades (20px & Scaled Status Badges) */
+.dashboard-content .zone-overview-panel .panel-heading h2,
+.zone-overview-panel .panel-heading h2 {
+  font-size: 20px !important;
+}
+
+.dashboard-content .zone-live-summary strong,
+.zone-live-summary strong {
+  font-size: 20px !important;
+}
+
+.dashboard-content .zone-overview-description,
+.zone-overview-description {
+  font-size: 16px !important;
+}
+
+.dashboard-content .zone-status-indicator,
+.zone-status-indicator {
+  font-size: 14px !important;
+  padding: 4px 12px !important;
+}
+
+
 
 
 

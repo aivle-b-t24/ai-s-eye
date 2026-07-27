@@ -226,26 +226,27 @@ export default function ZoneBreakdownTable({ zoneCounts }) {
               </div>
 
               <div className="zone-status-copy">
-                <span style={{ fontSize: '0.9rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                <span style={{ fontSize: '0.9rem', fontWeight: '700', color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   {zone.english}
                 </span>
 
-                <h4 style={{ margin: '6px 0 0 0', fontSize: '1.3rem', fontWeight: '700', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '1.3rem', fontWeight: '700', color: '#ffffff' }}>
+                <h4 style={{ margin: '6px 0 0 0', fontSize: '1.3rem', fontWeight: '700', color: '#091512', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '1.3rem', fontWeight: '700', color: '#091512' }}>
                     {zone.label}
                   </span>
-                  <span style={{ fontSize: '1.85rem', fontWeight: '800', color: '#38bdf8', lineHeight: 1 }}>
+                  <span style={{ fontSize: '1.85rem', fontWeight: '800', color: '#0284c7', lineHeight: 1 }}>
                     {zone.value}
-                    <small style={{ fontSize: '1rem', marginLeft: '4px', color: '#38bdf8', fontWeight: '700' }}>명</small>
+                    <small style={{ fontSize: '1rem', marginLeft: '4px', color: '#0284c7', fontWeight: '700' }}>명</small>
                   </span>
                 </h4>
               </div>
 
               <div className="zone-status-bottom" style={{ marginTop: '10px' }}>
-                <p style={{ margin: 0, fontSize: '0.95rem', fontWeight: '500', color: '#cbd5e1' }}>
+                <p style={{ margin: 0, fontSize: '0.95rem', fontWeight: '600', color: '#1e293b' }}>
                   {zone.status}
                 </p>
               </div>
+
             </article>
           ))}
         </div>

@@ -66,8 +66,6 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [isUsingMock, setIsUsingMock] = useState(false)
 
-  const lastStateJsonRef = useRef({})
-
   const handleLoginSuccess = (userData) => {
     setCurrentUser(userData)
     setPage(userData.storeId ?? 'store-001')
@@ -87,15 +85,6 @@ function App() {
         fetchStoreState(targetStoreId),
         fetchStoreEta(targetStoreId),
       ])
-      const currentStateJson = JSON.stringify({ stateData, etaData })
-
-      if (lastStateJsonRef.current[targetStoreId] === currentStateJson) {
-        setError('')
-        setIsUsingMock(false)
-        return
-      }
-
-      lastStateJsonRef.current[targetStoreId] = currentStateJson
 
       setStoresData((prev) => ({
         ...prev,
@@ -142,8 +131,6 @@ function App() {
 
     if (authMode === 'dashboard') {
       if (page === 'store-001' || page === 'store-002') {
-        lastStateJsonRef.current[page] = ''
-
         loadStaticData(page)
         loadStateOnly(page, true)
 
@@ -164,90 +151,89 @@ function App() {
     }
   }, [authMode, page, loadStateOnly, loadStaticData])
 
+
   const activeDashboard = storesData[page] ?? DEFAULT_STORE_DATA[page] ?? DEFAULT_STORE_DATA['store-001']
   const soldOutCount = activeDashboard?.menus?.filter((menu) => !menu.available).length ?? 0
 
 
-  if (authMode === 'login') {
-    return (
-      <LoginPage 
-        onLogin={handleLoginSuccess}
-        onGoToSignup={() => setAuthMode('signup')}
-      />
-    )
-  }
-
-  if (authMode === 'signup') {
-    return (
-      <SignupPage
-        onGoToLogin={() => setAuthMode('login')}
-        onCompleteSignup={() => setAuthMode('login')}
-      />
-    )
-  }
-
   return (
-  <main className="page-shell">
-    {(page === 'store-001' || page === 'store-002' || page === 'head-office') && (
-      <>
-        <HeroSection
-          page={page}
-          dashboard={activeDashboard}
-          onMenuOpen={() => setIsSidebarOpen(true)}
-        />
+    <main className="page-shell">
+      <HeroSection
+        page={page}
+        authMode={authMode}
+        dashboard={activeDashboard}
+        onMenuOpen={() => setIsSidebarOpen(true)}
+      />
 
 
-        <Sidebar
-          isOpen={isSidebarOpen}
-          onClose={() => setIsSidebarOpen(false)}
-          page={page}
-          setPage={setPage}
-        />
-      </>
-    )}
-
-
-    <section id="dashboard" className="dashboard-content">
-      <GnbHeader
+      <Sidebar
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
         page={page}
         setPage={setPage}
-        loadStateOnly={loadStateOnly}
-        loading={loading}
-        user={currentUser}
-        onLogout={handleLogout}
       />
 
-      <RoleBanner
-        page={page}
-        apiBaseUrl={API_BASE_URL}
-        isUsingMock={isUsingMock}
-        error={error}
-        loading={loading}
-      />
-
-      {(page === 'store-001' || page === 'store-002') && (
-        <StoreDashboardView
-          page={page}
-          dashboard={activeDashboard}
-          soldOutCount={soldOutCount}
-        />
+      {(authMode === 'login' || authMode === 'signup') && (
+        <div className="auth-modal-overlay">
+          {authMode === 'login' && (
+            <LoginPage
+              onLogin={handleLoginSuccess}
+              onGoToSignup={() => setAuthMode('signup')}
+            />
+          )}
+          {authMode === 'signup' && (
+            <SignupPage
+              onGoToLogin={() => setAuthMode('login')}
+              onCompleteSignup={() => setAuthMode('login')}
+            />
+          )}
+        </div>
       )}
 
-      {page === 'head-office' && (
-        <SupervisorHeadOfficeView
-          storesData={storesData}
-        />
-      )}
+      {authMode === 'dashboard' && (
+        <section id="dashboard" className="dashboard-content">
+          <GnbHeader
+            page={page}
+            setPage={setPage}
+            loadStateOnly={loadStateOnly}
+            loading={loading}
+            user={currentUser}
+            onLogout={handleLogout}
+          />
 
-      {page === 'setting' && (
-        <SettingsView
-          apiBaseUrl={API_BASE_URL}
-          setPage={setPage}
-        />
+          <RoleBanner
+            page={page}
+            apiBaseUrl={API_BASE_URL}
+            isUsingMock={isUsingMock}
+            error={error}
+            loading={loading}
+          />
+
+          {(page === 'store-001' || page === 'store-002') && (
+            <StoreDashboardView
+              page={page}
+              dashboard={activeDashboard}
+              soldOutCount={soldOutCount}
+            />
+          )}
+
+          {page === 'head-office' && (
+            <SupervisorHeadOfficeView
+              storesData={storesData}
+            />
+          )}
+
+          {page === 'setting' && (
+            <SettingsView
+              apiBaseUrl={API_BASE_URL}
+              setPage={setPage}
+            />
+          )}
+        </section>
       )}
-    </section>
-  </main>
-)
+    </main>
+  )
+
   
 }
 

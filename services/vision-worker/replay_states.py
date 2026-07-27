@@ -118,17 +118,22 @@ def main():
     sent = failed = 0
     try:
         while True:
+            store_seq = {}  # 매장별 프레임 인덱스(한 바퀴마다 초기화)
             for i, state in enumerate(states, 1):
                 outgoing = prepare_state(
                     state,
                     preserve_timestamp=args.preserve_timestamps,
                 )
                 # 상태별 분석 이미지를 API로 업로드(이미지·숫자 동기)
+                # 이미지는 매장별 폴더: <frames-dir>/<store_id>/{k:04d}.jpg
                 if args.frames_dir:
-                    src = args.frames_dir / f"{i - 1:04d}.jpg"
+                    sid = state["store_id"]
+                    idx = store_seq.get(sid, 0)
+                    store_seq[sid] = idx + 1
+                    src = args.frames_dir / sid / f"{idx:04d}.jpg"
                     if src.exists():
                         try:
-                            post_snapshot(args.api, state["store_id"], src.read_bytes())
+                            post_snapshot(args.api, sid, src.read_bytes())
                         except urllib.error.URLError as exc:
                             print(f"  [{i}] 이미지 업로드 실패: {exc.reason}")
                 try:

@@ -1,9 +1,9 @@
 """PostgreSQL에 매장 상태와 주문 이벤트를 저장하는 Repository."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
@@ -197,6 +197,36 @@ class DatabaseRepository:
             end_at=end_at,
         )
 
+    def count_expired_store_states(
+        self,
+        cutoff: datetime,
+        store_ids: Collection[str] | None = None,
+    ) -> int:
+        """보관기간이 지났고 매장별 최신 상태가 아닌 이력 수를 반환한다."""
+        expired_ids = _expired_store_state_ids(cutoff, store_ids)
+        statement = (
+            select(func.count())
+            .select_from(StoreStateRecord)
+            .where(StoreStateRecord.id.in_(expired_ids))
+        )
+        with self._session_factory() as session:
+            return int(session.scalar(statement) or 0)
+
+    def delete_expired_store_states(
+        self,
+        cutoff: datetime,
+        store_ids: Collection[str] | None = None,
+    ) -> int:
+        """보관기간이 지난 이력을 삭제하되 매장별 최신 상태 1건은 보존한다."""
+        expired_ids = _expired_store_state_ids(cutoff, store_ids)
+        statement = delete(StoreStateRecord).where(
+            StoreStateRecord.id.in_(expired_ids)
+        )
+        with self._session_factory() as session:
+            result = session.execute(statement)
+            session.commit()
+            return int(result.rowcount or 0)
+
 
 def _get_order_event_record(
     session: Session,
@@ -208,6 +238,36 @@ def _get_order_event_record(
         .where(OrderEventRecord.event_id == event_id)
     )
     return session.scalar(statement)
+
+
+def _expired_store_state_ids(
+    cutoff: datetime,
+    store_ids: Collection[str] | None = None,
+):
+    ranked_statement = select(
+        StoreStateRecord.id.label("id"),
+        StoreStateRecord.store_id.label("store_id"),
+        StoreStateRecord.captured_at.label("captured_at"),
+        func.row_number()
+        .over(
+            partition_by=StoreStateRecord.store_id,
+            order_by=(
+                StoreStateRecord.captured_at.desc(),
+                StoreStateRecord.id.desc(),
+            ),
+        )
+        .label("latest_rank"),
+    )
+    if store_ids is not None:
+        ranked_statement = ranked_statement.where(
+            StoreStateRecord.store_id.in_(store_ids)
+        )
+
+    ranked_states = ranked_statement.subquery()
+    return select(ranked_states.c.id).where(
+        ranked_states.c.captured_at < cutoff,
+        ranked_states.c.latest_rank > 1,
+    )
 
 
 def _store_state_from_record(record: StoreStateRecord) -> StoreState:

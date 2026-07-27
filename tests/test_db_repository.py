@@ -120,6 +120,49 @@ def test_same_store_state_payload_is_not_saved_twice(
     assert state_count == 1
 
 
+def test_expired_states_are_deleted_but_latest_state_is_preserved(
+    database_repository: tuple[DatabaseRepository, sessionmaker[Session], str],
+) -> None:
+    repository, _, test_id = database_repository
+    store_with_history = f"{test_id}-history"
+    inactive_store = f"{test_id}-inactive"
+    cutoff = datetime(2026, 7, 20, tzinfo=timezone.utc)
+
+    for store_id, captured_at, person_count in (
+        (store_with_history, cutoff - timedelta(days=2), 2),
+        (store_with_history, cutoff - timedelta(days=1), 3),
+        (store_with_history, cutoff + timedelta(hours=1), 4),
+        (inactive_store, cutoff - timedelta(days=3), 1),
+    ):
+        repository.save_store_state(
+            StoreState(
+                store_id=store_id,
+                camera_id="cam-retention",
+                captured_at=captured_at,
+                visible_person_count=person_count,
+                queue_count_estimate=0,
+                zone_counts={},
+                quality_status=QualityStatus.NORMAL,
+                source="pytest",
+                model_version="test-v1",
+            )
+        )
+
+    target_count = repository.count_expired_store_states(
+        cutoff,
+        store_ids=[store_with_history, inactive_store],
+    )
+    deleted_count = repository.delete_expired_store_states(
+        cutoff,
+        store_ids=[store_with_history, inactive_store],
+    )
+
+    assert target_count == 2
+    assert deleted_count == 2
+    assert repository.get_store_state(store_with_history).visible_person_count == 4
+    assert repository.get_store_state(inactive_store).visible_person_count == 1
+
+
 def test_duplicate_order_event_is_ignored_and_latest_event_is_returned(
     database_repository: tuple[DatabaseRepository, sessionmaker[Session], str],
 ) -> None:

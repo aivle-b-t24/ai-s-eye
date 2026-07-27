@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +14,7 @@ from .repository import InMemoryRepository
 
 
 settings = get_settings()
+DEFAULT_SUMMARY_WINDOW = timedelta(hours=24)
 repository = (
     DatabaseRepository()
     if settings.database_url
@@ -50,6 +51,14 @@ def database_status() -> str:
         return "ok"
     except psycopg.Error:
         return "unavailable"
+
+
+def default_summary_period(
+    now: datetime | None = None,
+) -> tuple[datetime, datetime]:
+    """기간을 생략한 집계 요청에 사용할 최근 24시간 범위를 반환한다."""
+    end_at = now or datetime.now(timezone.utc)
+    return end_at - DEFAULT_SUMMARY_WINDOW, end_at
 
 
 if isinstance(repository, InMemoryRepository):
@@ -132,6 +141,8 @@ def get_stores_summary(
     start_at: datetime | None = None,
     end_at: datetime | None = None,
 ) -> StoreSummaryResponse:
+    if start_at is None and end_at is None:
+        start_at, end_at = default_summary_period()
     if (start_at is None) != (end_at is None):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,

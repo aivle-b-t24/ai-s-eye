@@ -160,7 +160,20 @@ function App() {
     activeDashboard?.menus?.filter((menu) => !menu.available).length ?? 0
 
   return (
-    <main className="page-shell">
+    <main className={`page-shell ${authMode === 'dashboard' ? 'has-hero' : ''}`}>
+      {authMode === 'dashboard' && (
+        <div className="top-global-nav is-overlay">
+          <GnbHeader
+            page={page}
+            setPage={setPage}
+            loadStateOnly={loadStateOnly}
+            loading={loading}
+            user={currentUser}
+            onLogout={handleLogout}
+          />
+        </div>
+      )}
+
       <HeroSection
         page={page}
         authMode={authMode}
@@ -194,14 +207,7 @@ function App() {
 
       {authMode === 'dashboard' && (
         <section id="dashboard" className="dashboard-content">
-          <GnbHeader
-            page={page}
-            setPage={setPage}
-            loadStateOnly={loadStateOnly}
-            loading={loading}
-            user={currentUser}
-            onLogout={handleLogout}
-          />
+          
 
           <RoleBanner
             page={page}

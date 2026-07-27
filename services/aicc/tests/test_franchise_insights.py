@@ -189,3 +189,11 @@ def test_non_json_response_raises() -> None:
     client = FakeGemini("이건 JSON이 아님")
     with pytest.raises(InsightsUnavailableError):
         generate_insights(summary(), client=client)
+
+
+@pytest.mark.parametrize("bad", [[], "문자열", {"period": {}}, {"stores": "리스트아님"}, None])
+def test_malformed_summary_raises_cleanly(bad: Any) -> None:
+    """집계 응답이 이상한 형식이면 500이 아니라 깔끔한 오류를 낸다."""
+    client = FakeGemini(json.dumps(FAKE_OUTPUT))
+    with pytest.raises(InsightsUnavailableError):
+        generate_insights(bad, client=client)

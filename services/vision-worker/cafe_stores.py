@@ -114,13 +114,28 @@ def dwell_waiting(pose_model, wait_zone, frames):
     return sum(1 for t in st if st[t] >= N_DWELL and st[t] > si.get(t, 0))
 
 
+def frame_quality(img):
+    """프레임 유효성 → quality_status. 사람 수와 무관(0명은 정상 빈 매장).
+
+    - 디코드 실패(None) 또는 거의 검은 화면(카메라 꺼짐/가림) = 영상 이상 → "low"
+    - 그 외 정상 프레임 → "normal"  (사람이 0명이어도 정상)
+    """
+    if img is None:
+        return "low"
+    return "low" if float(img.mean()) < 8 else "normal"
+
+
 def head_and_staff(ft_model, staff_zone, frame_path):
-    """대표 프레임에서 파인튜닝 모델로 총원 + 직원 수(직원 구역)."""
-    r = ft_model.predict(read(frame_path), classes=[0], conf=0.30, iou=0.5,
+    """대표 프레임에서 파인튜닝 모델로 총원 + 직원 수 + 프레임 품질."""
+    img = read(frame_path)
+    quality = frame_quality(img)
+    if img is None:
+        return 0, 0, quality
+    r = ft_model.predict(img, classes=[0], conf=0.30, iou=0.5,
                          agnostic_nms=True, verbose=False)[0]
     boxes = r.boxes.xyxy.cpu().numpy()
     staff = sum(1 for b in boxes if assign_zone(foot_point(b), staff_zone) is not None)
-    return len(boxes), staff
+    return len(boxes), staff, quality
 
 
 def run(limit=None):
@@ -143,13 +158,14 @@ def run(limit=None):
             if not frames:
                 continue
             waiting = dwell_waiting(pose, wait_zone, frames)
-            total, staff = head_and_staff(ft, staff_zone, frames[len(frames) // 2])
+            total, staff, quality = head_and_staff(
+                ft, staff_zone, frames[len(frames) // 2])
             customers = max(total - staff, 0)
             ts = base + timedelta(seconds=INTERVAL * k)
             state = build_store_state(
                 {"staff": staff, "waiting": waiting}, customers, waiting,
                 camera_id=f"{store['store_id']}-cam1", store_id=store["store_id"],
-                quality="normal" if total > 0 else "low", captured_at=ts,
+                quality=quality, captured_at=ts,
             )
             state["model_version"] = MODEL_VERSION
             states.append(state)

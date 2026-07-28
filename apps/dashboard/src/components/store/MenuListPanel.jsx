@@ -44,8 +44,9 @@ export default function MenuListPanel({ menus, soldOutCount, isExpanded, onToggl
       </div>
 
       {hasMore && (
-        <div style={{ textAlign: 'center', marginTop: '16px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+        <div style={{ textAlign: 'center', marginTop: '16px', paddingTop: '12px', paddingBottom: '14px', marginBottom: '4px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
           <button
+
             type="button"
             onClick={onToggleExpand}
             style={{

@@ -49,14 +49,15 @@ export default function StoreDashboardView({
       <section className="dashboard-section">
         <div className="dashboard-section-heading">
           <div>
-            <p className="dashboard-section-eyebrow">LIVE OVERVIEW</p>
-            <h2>현재 매장 운영 현황</h2>
+            <p className="dashboard-section-eyebrow">LIVE OVERVIEW - {page === 'store-002' ? 'STORE 002' : 'STORE 001'}</p>
+            <h2>{page === 'store-002' ? '매장 2 (수완점) 운영 현황' : '매장 1 (동명점) 운영 현황'}</h2>
           </div>
 
           <span className="dashboard-section-status">
             실시간 업데이트
           </span>
         </div>
+
 
         <KpiSummaryBar
           dashboard={dashboard}

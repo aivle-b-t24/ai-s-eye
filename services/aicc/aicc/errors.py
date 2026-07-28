@@ -10,6 +10,11 @@ class StoreNotFoundError(ToolError):
     message = "해당 매장의 상태 정보가 아직 없습니다."
 
 
+class OrderNotFoundError(ToolError):
+    code = "order_not_found"
+    message = "해당 주문번호로 등록된 주문을 찾지 못했습니다. 주문번호를 다시 확인해 주세요."
+
+
 class InvalidRequestError(ToolError):
     code = "invalid_request"
     message = "요청 형식이 올바르지 않습니다."

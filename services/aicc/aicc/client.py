@@ -7,6 +7,7 @@ from .config import get_settings
 from .errors import (
     ApiUnavailableError,
     InvalidRequestError,
+    OrderNotFoundError,
     SampleDataUnavailableError,
     StoreNotFoundError,
     ToolError,
@@ -15,7 +16,6 @@ from .errors import (
 
 
 STATUS_ERRORS: dict[int, type[ToolError]] = {
-    404: StoreNotFoundError,
     422: InvalidRequestError,
     503: SampleDataUnavailableError,
 }
@@ -53,12 +53,38 @@ class StoreApiClient:
     def get_policies(self, store_id: str) -> Any:
         return self._get(f"/api/stores/{quote(store_id)}/policies")
 
-    def _get(self, path: str) -> Any:
+    def get_order(self, order_id: str) -> Any:
+        return self._get(
+            f"/api/orders/{quote(order_id)}",
+            not_found=OrderNotFoundError,
+        )
+
+    def get_store_summary(
+        self,
+        start_at: str | None = None,
+        end_at: str | None = None,
+    ) -> Any:
+        """기간별 매장 집계를 조회한다. GET /api/stores/summary.
+
+        start_at/end_at은 있으면 쿼리로 넘긴다. 없으면 집계 API 기본 기간을 따른다.
+        기간 파라미터 이름은 공통 API 확정 시 맞춘다.
+        """
+        params = {k: v for k, v in (("start_at", start_at), ("end_at", end_at)) if v}
+        return self._get("/api/stores/summary", params=params or None)
+
+    def _get(
+        self,
+        path: str,
+        not_found: type[ToolError] = StoreNotFoundError,
+        params: dict[str, str] | None = None,
+    ) -> Any:
         try:
-            response = self._client.get(path)
+            response = self._client.get(path, params=params)
         except httpx.RequestError as exc:
             raise ApiUnavailableError() from exc
 
+        if response.status_code == 404:
+            raise not_found()
         error = STATUS_ERRORS.get(response.status_code)
         if error is not None:
             raise error()

@@ -1,0 +1,303 @@
+{
+  "schema_version": "1.0",
+  "scenario_id": "franchise-scenario-001",
+  "scenario_date": "2026-07-22",
+  "source": "mock",
+  "stores": [
+    {
+      "store_id": "store-001",
+      "store_name": "동명점",
+      "type": "도심·바쁨",
+      "camera_id": "cam-01"
+    },
+    {
+      "store_id": "store-002",
+      "store_name": "수완점",
+      "type": "한적·베이커리 중심",
+      "camera_id": "cam-02"
+    }
+  ],
+  "states": [
+    {
+      "store_id": "store-001",
+      "camera_id": "cam-01",
+      "captured_at": "2026-07-22T10:00:00+09:00",
+      "visible_person_count": 8,
+      "queue_count_estimate": 1,
+      "zone_counts": {
+        "counter": 2,
+        "waiting": 1,
+        "seating": 5
+      },
+      "quality_status": "normal",
+      "model_version": "mock-v1",
+      "source": "mock"
+    },
+    {
+      "store_id": "store-001",
+      "camera_id": "cam-01",
+      "captured_at": "2026-07-22T12:00:00+09:00",
+      "visible_person_count": 28,
+      "queue_count_estimate": 9,
+      "zone_counts": {
+        "counter": 7,
+        "waiting": 9,
+        "seating": 12
+      },
+      "quality_status": "normal",
+      "model_version": "mock-v1",
+      "source": "mock"
+    },
+    {
+      "store_id": "store-001",
+      "camera_id": "cam-01",
+      "captured_at": "2026-07-22T14:00:00+09:00",
+      "visible_person_count": 16,
+      "queue_count_estimate": 2,
+      "zone_counts": {
+        "counter": 3,
+        "waiting": 2,
+        "seating": 11
+      },
+      "quality_status": "normal",
+      "model_version": "mock-v1",
+      "source": "mock"
+    },
+    {
+      "store_id": "store-001",
+      "camera_id": "cam-01",
+      "captured_at": "2026-07-22T16:00:00+09:00",
+      "visible_person_count": 10,
+      "queue_count_estimate": 0,
+      "zone_counts": {
+        "counter": 2,
+        "waiting": 0,
+        "seating": 8
+      },
+      "quality_status": "normal",
+      "model_version": "mock-v1",
+      "source": "mock"
+    },
+    {
+      "store_id": "store-002",
+      "camera_id": "cam-02",
+      "captured_at": "2026-07-22T10:00:00+09:00",
+      "visible_person_count": 10,
+      "queue_count_estimate": 0,
+      "zone_counts": {
+        "counter": 2,
+        "waiting": 0,
+        "seating": 8
+      },
+      "quality_status": "normal",
+      "model_version": "mock-v1",
+      "source": "mock"
+    },
+    {
+      "store_id": "store-002",
+      "camera_id": "cam-02",
+      "captured_at": "2026-07-22T12:00:00+09:00",
+      "visible_person_count": 15,
+      "queue_count_estimate": 2,
+      "zone_counts": {
+        "counter": 3,
+        "waiting": 2,
+        "seating": 10
+      },
+      "quality_status": "normal",
+      "model_version": "mock-v1",
+      "source": "mock"
+    },
+    {
+      "store_id": "store-002",
+      "camera_id": "cam-02",
+      "captured_at": "2026-07-22T14:00:00+09:00",
+      "visible_person_count": 22,
+      "queue_count_estimate": 4,
+      "zone_counts": {
+        "counter": 5,
+        "waiting": 4,
+        "seating": 13
+      },
+      "quality_status": "normal",
+      "model_version": "mock-v1",
+      "source": "mock"
+    },
+    {
+      "store_id": "store-002",
+      "camera_id": "cam-02",
+      "captured_at": "2026-07-22T16:00:00+09:00",
+      "visible_person_count": 18,
+      "queue_count_estimate": 1,
+      "zone_counts": {
+        "counter": 3,
+        "waiting": 1,
+        "seating": 14
+      },
+      "quality_status": "normal",
+      "model_version": "mock-v1",
+      "source": "mock"
+    }
+  ],
+  "orders": [
+    {
+      "event_id": "event-001",
+      "order_id": "order-001",
+      "store_id": "store-001",
+      "occurred_at": "2026-07-22T10:31:00+09:00",
+      "status": "received",
+      "items": [
+        {
+          "menu_id": "menu-001",
+          "name": "아메리카노",
+          "quantity": 2
+        },
+        {
+          "menu_id": "menu-014",
+          "name": "스콘 (오리지널/초코)",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "event_id": "event-002",
+      "order_id": "order-002",
+      "store_id": "store-001",
+      "occurred_at": "2026-07-22T12:05:00+09:00",
+      "status": "preparing",
+      "items": [
+        {
+          "menu_id": "menu-002",
+          "name": "카페라떼",
+          "quantity": 2
+        },
+        {
+          "menu_id": "menu-015",
+          "name": "바스크 치즈케이크",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "event_id": "event-003",
+      "order_id": "order-003",
+      "store_id": "store-001",
+      "occurred_at": "2026-07-22T12:12:00+09:00",
+      "status": "preparing",
+      "items": [
+        {
+          "menu_id": "menu-001",
+          "name": "아메리카노",
+          "quantity": 3
+        },
+        {
+          "menu_id": "menu-003",
+          "name": "카푸치노",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "event_id": "event-004",
+      "order_id": "order-001",
+      "store_id": "store-002",
+      "occurred_at": "2026-07-22T10:35:00+09:00",
+      "status": "received",
+      "items": [
+        {
+          "menu_id": "menu-001",
+          "name": "아메리카노",
+          "quantity": 1
+        },
+        {
+          "menu_id": "menu-021",
+          "name": "크루아상",
+          "quantity": 2
+        }
+      ]
+    },
+    {
+      "event_id": "event-005",
+      "order_id": "order-002",
+      "store_id": "store-002",
+      "occurred_at": "2026-07-22T13:58:00+09:00",
+      "status": "preparing",
+      "items": [
+        {
+          "menu_id": "menu-002",
+          "name": "카페라떼",
+          "quantity": 1
+        },
+        {
+          "menu_id": "menu-023",
+          "name": "소금빵",
+          "quantity": 2
+        }
+      ]
+    },
+    {
+      "event_id": "event-006",
+      "order_id": "order-003",
+      "store_id": "store-002",
+      "occurred_at": "2026-07-22T14:08:00+09:00",
+      "status": "completed",
+      "items": [
+        {
+          "menu_id": "menu-004",
+          "name": "에스프레소",
+          "quantity": 1
+        },
+        {
+          "menu_id": "menu-022",
+          "name": "몽블랑",
+          "quantity": 1
+        }
+      ]
+    }
+  ],
+  "expected_insights": [
+    {
+      "store_id": "store-001",
+      "insight_type": "congestion",
+      "severity": "high",
+      "time_range": {
+        "start": "2026-07-22T12:00:00+09:00",
+        "end": "2026-07-22T14:00:00+09:00"
+      },
+      "summary": "점심시간에 대기 인원과 주문량이 크게 증가했습니다.",
+      "evidence": {
+        "peak_visible_person_count": 28,
+        "peak_queue_count": 9,
+        "preparing_order_id": "order-003"
+      },
+      "recommendation": "12시 전후로 카운터 및 제조 인력을 추가 배치하고, 예상 대기시간을 고객에게 안내하세요."
+    },
+    {
+      "store_id": "store-002",
+      "insight_type": "afternoon_demand",
+      "severity": "medium",
+      "time_range": {
+        "start": "2026-07-22T14:00:00+09:00",
+        "end": "2026-07-22T16:00:00+09:00"
+      },
+      "summary": "오후 시간대에 방문객과 베이커리 메뉴 주문이 증가했습니다.",
+      "evidence": {
+        "peak_visible_person_count": 22,
+        "peak_queue_count": 4,
+        "popular_menu_ids": [
+          "menu-021",
+          "menu-022",
+          "menu-023"
+        ]
+      },
+      "recommendation": "14시 이전에 인기 베이커리 메뉴 재고를 보충하고 진열 수량을 확대하세요."
+    },
+    {
+      "store_id": "store-001",
+      "insight_type": "store_comparison",
+      "severity": "info",
+      "summary": "store-001은 점심 혼잡도가 높고, store-002는 오후 베이커리 수요가 상대적으로 높습니다.",
+      "recommendation": "매장별 피크 시간에 맞춰 인력과 재고 운영 정책을 다르게 적용하세요."
+    }
+  ]
+}

@@ -31,10 +31,14 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-store}:${POSTGRES_PASSWORD:-change-me-for-local-development}@db:5432/${POSTGRES_DB:-store}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
       SAMPLE_DATA_DIR: /workspace/samples
+      VISION_SNAPSHOT_DIR: /workspace/vision-snapshots
+      VISION_SNAPSHOT_MAX_BYTES: ${VISION_SNAPSHOT_MAX_BYTES:-5242880}
+      VISION_STORE_IDS: ${VISION_STORE_IDS:-store-001,store-002}
     ports:
-      - "${API_PORT:-8000}:8000"
+      - "${API_BIND_HOST:-0.0.0.0}:${API_PORT:-8000}:8000"
     volumes:
       - ./samples:/workspace/samples:ro
+      - vision_snapshot_data:/workspace/vision-snapshots
     depends_on:
       db:
         condition: service_healthy
@@ -55,8 +59,9 @@ services:
     restart: unless-stopped
     environment:
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+      VITE_AICC_BASE_URL: ${VITE_AICC_BASE_URL:-http://localhost:8100}
     ports:
-      - "${DASHBOARD_PORT:-5173}:5173"
+      - "${DASHBOARD_BIND_HOST:-0.0.0.0}:${DASHBOARD_PORT:-5173}:5173"
     volumes:
       - ./apps/dashboard:/app
       - dashboard_node_modules:/app/node_modules
@@ -75,6 +80,70 @@ services:
       retries: 5
       start_period: 15s
 
+  aicc:
+    build:
+      context: ./services/aicc
+    restart: unless-stopped
+    environment:
+      AICC_API_BASE_URL: http://api:8000
+      AICC_REQUEST_TIMEOUT_SECONDS: ${AICC_REQUEST_TIMEOUT_SECONDS:-5}
+      AICC_DEFAULT_STORE_ID: ${AICC_DEFAULT_STORE_ID:-store-001}
+      AICC_CORS_ORIGINS: ${AICC_CORS_ORIGINS:-http://localhost:5173}
+      AICC_VERTEX_PROJECT: ${AICC_VERTEX_PROJECT:-}
+      AICC_VERTEX_LOCATION: ${AICC_VERTEX_LOCATION:-us-central1}
+      AICC_GEMINI_MODEL: ${AICC_GEMINI_MODEL:-gemini-2.5-flash}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/google_adc.json
+    ports:
+      - "${AICC_BIND_HOST:-0.0.0.0}:${AICC_PORT:-8100}:8100"
+    volumes:
+      - type: bind
+        source: ${GOOGLE_APPLICATION_CREDENTIALS_HOST_PATH:-/dev/null}
+        target: /run/secrets/google_adc.json
+        read_only: true
+    tmpfs:
+      - /run/aicc:size=1m,mode=0700
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8100/healthz', timeout=2)"
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  vision-replay:
+    image: python:3.12-slim
+    restart: unless-stopped
+    environment:
+      PYTHONUNBUFFERED: "1"
+    profiles:
+      - demo
+    command:
+      - python
+      - /workspace/services/vision-worker/replay_states.py
+      - --file
+      - /workspace/samples/cafe_stores_states.json
+      - --api
+      - http://api:8000
+      - --interval
+      - ${VISION_REPLAY_INTERVAL:-2}
+      - --frames-dir
+      - /workspace/services/vision-worker/outputs/snapshots/frames
+      - --loop
+    volumes:
+      - ./services/vision-worker:/workspace/services/vision-worker:ro
+      - ./samples:/workspace/samples:ro
+    depends_on:
+      api:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   dashboard_node_modules:
+  vision_snapshot_data:

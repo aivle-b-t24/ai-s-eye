@@ -54,3 +54,82 @@ class EtaResponse(BaseModel):
     calculation: str
     data_source: str
 
+
+class SummaryPeriod(BaseModel):
+    start_at: datetime | None = None
+    end_at: datetime | None = None
+
+
+class TrafficSummary(BaseModel):
+    observation_count: int = Field(ge=0)
+    latest_captured_at: datetime
+    latest_visible_person_count: int = Field(ge=0)
+    latest_queue_count_estimate: int = Field(ge=0)
+    average_visible_person_count: float = Field(ge=0)
+    average_queue_count_estimate: float = Field(ge=0)
+    peak_visible_person_count: int = Field(ge=0)
+    peak_visible_person_count_at: datetime
+    peak_queue_count_estimate: int = Field(ge=0)
+    peak_queue_count_estimate_at: datetime
+
+
+class OrderStatusCounts(BaseModel):
+    received: int = Field(default=0, ge=0)
+    preparing: int = Field(default=0, ge=0)
+    ready: int = Field(default=0, ge=0)
+    completed: int = Field(default=0, ge=0)
+    cancelled: int = Field(default=0, ge=0)
+    rejected: int = Field(default=0, ge=0)
+
+
+class MenuItemSummary(BaseModel):
+    menu_id: str
+    name: str | None = None
+    quantity: int = Field(ge=0)
+
+
+class OrderSummary(BaseModel):
+    total_order_count: int = Field(ge=0)
+    order_event_count: int = Field(ge=0)
+    latest_status_counts: OrderStatusCounts
+    top_menu_items: list[MenuItemSummary]
+
+
+class VideoSummary(BaseModel):
+    latest_quality_status: QualityStatus
+    quality_issue_count: int = Field(ge=0)
+
+
+class StoreOperatingSummary(BaseModel):
+    store_id: str
+    traffic_summary: TrafficSummary | None
+    order_summary: OrderSummary
+    video_summary: VideoSummary | None
+
+
+class StoreSummaryResponse(BaseModel):
+    schema_version: str = "1.0"
+    generated_at: datetime
+    data_source: str
+    period: SummaryPeriod
+    stores: list[StoreOperatingSummary]
+
+
+class StoreTimelinePoint(BaseModel):
+    start_at: datetime
+    end_at: datetime
+    observation_count: int = Field(ge=0)
+    average_visible_person_count: float | None = Field(default=None, ge=0)
+    peak_visible_person_count: int | None = Field(default=None, ge=0)
+    average_queue_count_estimate: float | None = Field(default=None, ge=0)
+    peak_queue_count_estimate: int | None = Field(default=None, ge=0)
+    order_count: int = Field(ge=0)
+    quality_issue_count: int = Field(ge=0)
+
+
+class StoreTimelineResponse(BaseModel):
+    schema_version: str = "1.0"
+    store_id: str
+    interval: str
+    period: SummaryPeriod
+    points: list[StoreTimelinePoint]

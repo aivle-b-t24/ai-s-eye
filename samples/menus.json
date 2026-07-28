@@ -1,16 +1,406 @@
 {
   "data_source": "mock",
   "menus": [
-    {"menu_id": "americano", "category": "coffee", "name": "아메리카노", "price": 4500, "prep_minutes": 3, "available": true, "sold_out_reason": null},
-    {"menu_id": "cafe_latte", "category": "coffee", "name": "카페라테", "price": 5000, "prep_minutes": 4, "available": true, "sold_out_reason": null},
-    {"menu_id": "vanilla_latte", "category": "coffee", "name": "바닐라라테", "price": 5500, "prep_minutes": 4, "available": true, "sold_out_reason": null},
-    {"menu_id": "caramel_macchiato", "category": "coffee", "name": "캐러멜 마키아토", "price": 5800, "prep_minutes": 5, "available": true, "sold_out_reason": null},
-    {"menu_id": "espresso", "category": "coffee", "name": "에스프레소", "price": 4000, "prep_minutes": 2, "available": true, "sold_out_reason": null},
-    {"menu_id": "green_tea", "category": "tea", "name": "녹차", "price": 4800, "prep_minutes": 3, "available": true, "sold_out_reason": null},
-    {"menu_id": "choco_latte", "category": "non_coffee", "name": "초코라테", "price": 5200, "prep_minutes": 4, "available": true, "sold_out_reason": null},
-    {"menu_id": "croissant", "category": "bakery", "name": "크루아상", "price": 3800, "prep_minutes": 3, "available": true, "sold_out_reason": null},
-    {"menu_id": "ham_cheese_sandwich", "category": "food", "name": "햄치즈 샌드위치", "price": 6500, "prep_minutes": 7, "available": false, "sold_out_reason": "재료 소진"},
-    {"menu_id": "cheesecake", "category": "dessert", "name": "치즈케이크", "price": 6000, "prep_minutes": 2, "available": false, "sold_out_reason": "금일 판매 종료"}
+    {
+      "store_id": "store-001",
+      "menu_id": "menu-001",
+      "category": "coffee",
+      "name": "아메리카노",
+      "price": 4000,
+      "prep_minutes": 3,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-001",
+      "menu_id": "menu-002",
+      "category": "coffee",
+      "name": "카페라떼",
+      "price": 4500,
+      "prep_minutes": 4,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-001",
+      "menu_id": "menu-003",
+      "category": "coffee",
+      "name": "카푸치노",
+      "price": 4500,
+      "prep_minutes": 4,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-001",
+      "menu_id": "menu-004",
+      "category": "coffee",
+      "name": "에스프레소",
+      "price": 3500,
+      "prep_minutes": 2,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-001",
+      "menu_id": "menu-005",
+      "category": "coffee",
+      "name": "바닐라 라떼",
+      "price": 4500,
+      "prep_minutes": 4,
+      "available": false,
+      "sold_out_reason": "바닐라 시럽 재고 부족"
+    },
+    {
+      "store_id": "store-001",
+      "menu_id": "menu-006",
+      "category": "beverage",
+      "name": "초코라떼",
+      "price": 5500,
+      "prep_minutes": 4,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-001",
+      "menu_id": "menu-007",
+      "category": "beverage",
+      "name": "딸기라떼",
+      "price": 5500,
+      "prep_minutes": 4,
+      "available": false,
+      "sold_out_reason": "딸기 소진"
+    },
+    {
+      "store_id": "store-001",
+      "menu_id": "menu-008",
+      "category": "beverage",
+      "name": "녹차라떼",
+      "price": 5500,
+      "prep_minutes": 4,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-001",
+      "menu_id": "menu-009",
+      "category": "ade",
+      "name": "자몽에이드",
+      "price": 6000,
+      "prep_minutes": 3,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-001",
+      "menu_id": "menu-010",
+      "category": "ade",
+      "name": "청포도에이드",
+      "price": 6000,
+      "prep_minutes": 3,
+      "available": false,
+      "sold_out_reason": "청포도 시럽 소진"
+    },
+    {
+      "store_id": "store-001",
+      "menu_id": "menu-011",
+      "category": "tea",
+      "name": "얼그레이",
+      "price": 5000,
+      "prep_minutes": 3,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-001",
+      "menu_id": "menu-012",
+      "category": "tea",
+      "name": "페퍼민트",
+      "price": 5000,
+      "prep_minutes": 3,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-001",
+      "menu_id": "menu-013",
+      "category": "tea",
+      "name": "캐모마일",
+      "price": 5000,
+      "prep_minutes": 3,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-001",
+      "menu_id": "menu-014",
+      "category": "dessert",
+      "name": "스콘 (오리지널/초코)",
+      "price": 3800,
+      "prep_minutes": 2,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-001",
+      "menu_id": "menu-015",
+      "category": "dessert",
+      "name": "바스크 치즈케이크",
+      "price": 6900,
+      "prep_minutes": 2,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-001",
+      "menu_id": "menu-016",
+      "category": "dessert",
+      "name": "휘낭시에 (플레인/초코/말차)",
+      "price": 2800,
+      "prep_minutes": 2,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-001",
+      "menu_id": "menu-017",
+      "category": "dessert",
+      "name": "아이스크림",
+      "price": 4800,
+      "prep_minutes": 1,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-001",
+      "menu_id": "menu-018",
+      "category": "beverage",
+      "name": "토피넛 라떼",
+      "price": 6000,
+      "prep_minutes": 4,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-001",
+      "menu_id": "menu-019",
+      "category": "frappuccino",
+      "name": "오레오 프라푸치노",
+      "price": 6500,
+      "prep_minutes": 5,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-001",
+      "menu_id": "menu-020",
+      "category": "frappuccino",
+      "name": "딸기 프라푸치노",
+      "price": 6500,
+      "prep_minutes": 5,
+      "available": false,
+      "sold_out_reason": "딸기 소진"
+    },
+
+    {
+      "store_id": "store-002",
+      "menu_id": "menu-001",
+      "category": "coffee",
+      "name": "아메리카노",
+      "price": 4000,
+      "prep_minutes": 3,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-002",
+      "menu_id": "menu-002",
+      "category": "coffee",
+      "name": "카페라떼",
+      "price": 4500,
+      "prep_minutes": 4,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-002",
+      "menu_id": "menu-003",
+      "category": "coffee",
+      "name": "카푸치노",
+      "price": 4500,
+      "prep_minutes": 4,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-002",
+      "menu_id": "menu-004",
+      "category": "coffee",
+      "name": "에스프레소",
+      "price": 3500,
+      "prep_minutes": 2,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-002",
+      "menu_id": "menu-005",
+      "category": "coffee",
+      "name": "바닐라 라떼",
+      "price": 4500,
+      "prep_minutes": 4,
+      "available": false,
+      "sold_out_reason": "바닐라 시럽 재고 부족"
+    },
+    {
+      "store_id": "store-002",
+      "menu_id": "menu-006",
+      "category": "beverage",
+      "name": "초코라떼",
+      "price": 5500,
+      "prep_minutes": 4,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-002",
+      "menu_id": "menu-007",
+      "category": "beverage",
+      "name": "딸기라떼",
+      "price": 5500,
+      "prep_minutes": 4,
+      "available": false,
+      "sold_out_reason": "딸기 소진"
+    },
+    {
+      "store_id": "store-002",
+      "menu_id": "menu-008",
+      "category": "beverage",
+      "name": "녹차라떼",
+      "price": 5500,
+      "prep_minutes": 4,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-002",
+      "menu_id": "menu-009",
+      "category": "ade",
+      "name": "자몽에이드",
+      "price": 6000,
+      "prep_minutes": 3,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-002",
+      "menu_id": "menu-010",
+      "category": "ade",
+      "name": "청포도에이드",
+      "price": 6000,
+      "prep_minutes": 3,
+      "available": false,
+      "sold_out_reason": "청포도 시럽 소진"
+    },
+    {
+      "store_id": "store-002",
+      "menu_id": "menu-011",
+      "category": "tea",
+      "name": "얼그레이",
+      "price": 5000,
+      "prep_minutes": 3,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-002",
+      "menu_id": "menu-012",
+      "category": "tea",
+      "name": "페퍼민트",
+      "price": 5000,
+      "prep_minutes": 3,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-002",
+      "menu_id": "menu-013",
+      "category": "tea",
+      "name": "캐모마일",
+      "price": 5000,
+      "prep_minutes": 3,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-002",
+      "menu_id": "menu-014",
+      "category": "dessert",
+      "name": "스콘 (오리지널/초코)",
+      "price": 3800,
+      "prep_minutes": 2,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-002",
+      "menu_id": "menu-015",
+      "category": "dessert",
+      "name": "바스크 치즈케이크",
+      "price": 6900,
+      "prep_minutes": 2,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-002",
+      "menu_id": "menu-016",
+      "category": "dessert",
+      "name": "휘낭시에 (플레인/초코/말차)",
+      "price": 2800,
+      "prep_minutes": 2,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-002",
+      "menu_id": "menu-021",
+      "category": "dessert",
+      "name": "크루아상",
+      "price": 3800,
+      "prep_minutes": 2,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-002",
+      "menu_id": "menu-022",
+      "category": "dessert",
+      "name": "몽블랑",
+      "price": 6000,
+      "prep_minutes": 2,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-002",
+      "menu_id": "menu-023",
+      "category": "dessert",
+      "name": "소금빵",
+      "price": 2500,
+      "prep_minutes": 2,
+      "available": true,
+      "sold_out_reason": null
+    },
+    {
+      "store_id": "store-002",
+      "menu_id": "menu-024",
+      "category": "dessert",
+      "name": "바게트",
+      "price": 4800,
+      "prep_minutes": 2,
+      "available": false,
+      "sold_out_reason": "재료 소진"
+    }
   ]
 }
-

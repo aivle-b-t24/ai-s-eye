@@ -1,136 +1,289 @@
 import { useCallback, useEffect, useState } from 'react'
 import './App.css'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
-const STORE_ID = 'store-001'
+import LoginPage from './components/user/LoginPage'
+import SignupPage from './components/user/SignupPage'
+import StoreDashboardView from './components/store/StoreDashboardView'
+import SupervisorHeadOfficeView from './components/head-office/SupervisorHeadOfficeView'
+import HeadOfficeHeader from './components/head-office/HeadOfficeHeader'
 
-async function getJson(path) {
-  const response = await fetch(`${API_BASE_URL}${path}`)
+import SettingsView from './components/settings/SettingsView'
+import GnbHeader from './components/common/GnbHeader'
+import RoleBanner from './components/common/RoleBanner'
+import HeroSection from './components/HeroSection'
+import Sidebar from './components/Sidebar'
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
+const AICC_BASE_URL = import.meta.env.VITE_AICC_BASE_URL ?? 'http://localhost:8100'
+
+const DEFAULT_STORE_DATA = {
+  'store-001': {
+    state: null,
+    eta: null,
+    menus: [],
+    policies: []
+  },
+  'store-002': {
+    state: null,
+    eta: null,
+    menus: [],
+    policies: []
+  }
+}
+
+async function fetchStoreState(storeId) {
+  const response = await fetch(`${API_BASE_URL}/api/stores/${storeId}/state`)
   if (!response.ok) {
     throw new Error(`API 요청 실패 (${response.status})`)
   }
   return response.json()
 }
 
-function App() {
-  const [dashboard, setDashboard] = useState(null)
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(true)
+async function fetchStoreEta(storeId) {
+  const response = await fetch(`${API_BASE_URL}/api/stores/${storeId}/eta`)
+  if (!response.ok) return null
+  return response.json()
+}
 
-  const loadDashboard = useCallback(async () => {
-    setLoading(true)
-    setError('')
+async function fetchStoreMenus(storeId) {
+  const response = await fetch(`${API_BASE_URL}/api/stores/${storeId}/menus`)
+  if (!response.ok) return { menus: [] }
+  return response.json()
+}
+
+async function fetchStorePolicies(storeId) {
+  const response = await fetch(`${API_BASE_URL}/api/stores/${storeId}/policies`)
+  if (!response.ok) return { policies: [] }
+  return response.json()
+}
+
+function App() {
+  const [authMode, setAuthMode] = useState('login')
+  const [currentUser, setCurrentUser] = useState(null)
+
+  const [page, setPage] = useState("store-001")
+  const [storesData, setStoresData] = useState(DEFAULT_STORE_DATA)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [isUsingMock, setIsUsingMock] = useState(false)
+  const isDedicatedHeadOffice =
+    page === 'head-office' && window.location.pathname === '/hq'
+
+  const handleLoginSuccess = (userData) => {
+    const nextPage = userData.storeId ?? 'store-001'
+    setCurrentUser(userData)
+    setPage(nextPage)
+    setAuthMode('dashboard')
+    window.history.replaceState(
+      {},
+      '',
+      nextPage === 'head-office' ? '/hq' : `/store/${nextPage}`,
+    )
+  }
+
+  const handleLogout = () => {
+    setCurrentUser(null)
+    setAuthMode('login')
+    window.history.replaceState({}, '', '/')
+  }
+
+  const loadStateOnly = useCallback(async (targetStoreId, isInitial = false) => {
+    if (isInitial) setLoading(true)
 
     try {
-      const [state, eta, menuData, policyData] = await Promise.all([
-        getJson(`/api/stores/${STORE_ID}/state`),
-        getJson(`/api/stores/${STORE_ID}/eta`),
-        getJson(`/api/stores/${STORE_ID}/menus`),
-        getJson(`/api/stores/${STORE_ID}/policies`),
+      const [stateData, etaData] = await Promise.all([
+        fetchStoreState(targetStoreId),
+        fetchStoreEta(targetStoreId),
       ])
 
-      setDashboard({
-        state,
-        eta,
-        menus: menuData.menus,
-        policies: policyData.policies,
-      })
-    } catch (requestError) {
-      setError(requestError.message)
+      setStoresData((prev) => ({
+        ...prev,
+        [targetStoreId]: {
+          ...(prev[targetStoreId] ?? DEFAULT_STORE_DATA[targetStoreId]),
+          state: stateData,
+          eta: etaData ?? prev[targetStoreId]?.eta ?? null,
+        }
+      }))
+      setError('')
+      setIsUsingMock(false)
+    } catch (err) {
+      setError(err.message)
+      setIsUsingMock(true)
     } finally {
       setLoading(false)
     }
   }, [])
 
+
+  const loadStaticData = useCallback(async (targetStoreId) => {
+    try {
+      const [menuData, policyData, etaData] = await Promise.all([
+        fetchStoreMenus(targetStoreId),
+        fetchStorePolicies(targetStoreId),
+        fetchStoreEta(targetStoreId),
+      ])
+      setStoresData((prev) => ({
+        ...prev,
+        [targetStoreId]: {
+          ...(prev[targetStoreId] ?? DEFAULT_STORE_DATA[targetStoreId]),
+          menus: menuData?.menus ?? [],
+          policies: policyData?.policies ?? [],
+          eta: etaData ?? null,
+        }
+      }))
+    } catch {
+      // API Error handler
+    }
+  }, [])
+
   useEffect(() => {
-    loadDashboard()
-  }, [loadDashboard])
+    let timerId = null
+
+    if (authMode === 'dashboard') {
+      if (page === 'store-001' || page === 'store-002') {
+        loadStaticData(page)
+        loadStateOnly(page, true)
+
+        timerId = setInterval(() => {
+          loadStateOnly(page, false)
+        }, 2000)
+      } else if (page === 'head-office' && !isDedicatedHeadOffice) {
+        loadStateOnly('store-001', false)
+        loadStateOnly('store-002', false)
+        timerId = null
+      } else if (page === 'head-office' || page === 'setting') {
+        timerId = null
+      }
+    }
+
+    return () => {
+      if (timerId) clearInterval(timerId)
+    }
+  }, [
+    authMode,
+    page,
+    isDedicatedHeadOffice,
+    loadStateOnly,
+    loadStaticData,
+  ])
+
+  const activeDashboard =
+    storesData[page] ??
+    DEFAULT_STORE_DATA[page] ??
+    DEFAULT_STORE_DATA['store-001']
+
+  const soldOutCount =
+    activeDashboard?.menus?.filter((menu) => !menu.available).length ?? 0
 
   return (
-    <main className="page-shell">
-      <header className="page-header">
-        <div>
-          <p className="eyebrow">AI's Eye</p>
-          <h1>매장 현황</h1>
-          <p className="subtitle">현재는 store-001의 샘플 데이터를 표시합니다.</p>
+    <main
+      className={[
+        'page-shell',
+        authMode === 'dashboard' && !isDedicatedHeadOffice ? 'has-hero' : '',
+        authMode === 'dashboard' && isDedicatedHeadOffice
+          ? 'supervisor-shell no-hero'
+          : '',
+      ].filter(Boolean).join(' ')}
+    >
+      {authMode === 'dashboard' && !isDedicatedHeadOffice && (
+        <div
+          className="top-global-nav is-overlay"
+        >
+          <GnbHeader
+            page={page}
+            setPage={setPage}
+            loadStateOnly={loadStateOnly}
+            loading={loading}
+            user={currentUser}
+            onLogout={handleLogout}
+          />
         </div>
-        <button type="button" onClick={loadDashboard} disabled={loading}>
-          {loading ? '불러오는 중' : '새로고침'}
-        </button>
-      </header>
-
-      {error && (
-        <section className="notice error-notice">
-          <strong>데이터를 불러오지 못했습니다.</strong>
-          <span>{error} · API 컨테이너가 실행 중인지 확인해주세요.</span>
-        </section>
       )}
 
-      {!error && loading && <section className="notice">매장 정보를 불러오고 있습니다.</section>}
+      {authMode === 'dashboard' && isDedicatedHeadOffice && (
+        <HeadOfficeHeader
+          user={currentUser}
+          onLogout={handleLogout}
+        />
+      )}
 
-      {dashboard && !error && (
-        <>
-          <section className="summary-grid" aria-label="매장 요약">
-            <article className="summary-card">
-              <span>매장 인원</span>
-              <strong>{dashboard.state.visible_person_count}명</strong>
-            </article>
-            <article className="summary-card">
-              <span>대기 인원</span>
-              <strong>{dashboard.state.queue_count_estimate}명</strong>
-            </article>
-            <article className="summary-card accent-card">
-              <span>예상 대기시간</span>
-              <strong>{dashboard.eta.estimated_wait_minutes}분</strong>
-            </article>
-            <article className="summary-card">
-              <span>영상 상태</span>
-              <strong>{dashboard.state.quality_status === 'normal' ? '정상' : '확인 필요'}</strong>
-            </article>
-          </section>
+      {!isDedicatedHeadOffice && (
+        <HeroSection
+          page={page}
+          authMode={authMode}
+          dashboard={activeDashboard}
+          onMenuOpen={() => setIsSidebarOpen(true)}
+        />
+      )}
 
-          <section className="content-grid">
-            <article className="panel">
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">Menu</p>
-                  <h2>메뉴 및 품절 현황</h2>
-                </div>
-                <span>{dashboard.menus.filter((menu) => !menu.available).length}개 품절</span>
-              </div>
-              <div className="menu-list">
-                {dashboard.menus.map((menu) => (
-                  <div className="menu-row" key={menu.menu_id}>
-                    <div>
-                      <strong>{menu.name}</strong>
-                      <span>{menu.price.toLocaleString('ko-KR')}원</span>
-                    </div>
-                    <span className={menu.available ? 'status available' : 'status sold-out'}>
-                      {menu.available ? '판매 중' : '품절'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </article>
+      {!isDedicatedHeadOffice && (
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          page={page}
+          setPage={setPage}
+        />
+      )}
 
-            <article className="panel">
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">Policy</p>
-                  <h2>매장 안내</h2>
-                </div>
-              </div>
-              <div className="policy-list">
-                {dashboard.policies.map((policy) => (
-                  <div className="policy-item" key={policy.policy_id}>
-                    <strong>{policy.title}</strong>
-                    <p>{policy.content}</p>
-                  </div>
-                ))}
-              </div>
-            </article>
-          </section>
-        </>
+      {(authMode === 'login' || authMode === 'signup') && (
+        <div className="auth-modal-overlay">
+          {authMode === 'login' && (
+            <LoginPage
+              onLogin={handleLoginSuccess}
+              onGoToSignup={() => setAuthMode('signup')}
+              onClose={() => setAuthMode('dashboard')}
+            />
+          )}
+          {authMode === 'signup' && (
+            <SignupPage
+              onGoToLogin={() => setAuthMode('login')}
+              onCompleteSignup={() => setAuthMode('login')}
+              onClose={() => setAuthMode('dashboard')}
+            />
+          )}
+        </div>
+      )}
+
+
+      {authMode === 'dashboard' && (
+        <section id="dashboard" className="dashboard-content">
+          
+
+          {!isDedicatedHeadOffice && (
+            <RoleBanner
+              page={page}
+              apiBaseUrl={API_BASE_URL}
+              isUsingMock={isUsingMock}
+              error={error}
+              loading={loading}
+            />
+          )}
+
+          {(page === 'store-001' || page === 'store-002') && (
+            <StoreDashboardView
+              page={page}
+              dashboard={activeDashboard}
+              soldOutCount={soldOutCount}
+            />
+          )}
+
+          {(page === 'head-office' || isDedicatedHeadOffice) && (
+            <SupervisorHeadOfficeView
+              apiBaseUrl={API_BASE_URL}
+              aiccBaseUrl={AICC_BASE_URL}
+            />
+          )}
+
+
+          {page === 'setting' && (
+            <SettingsView
+              apiBaseUrl={API_BASE_URL}
+              setPage={setPage}
+            />
+          )}
+        </section>
       )}
     </main>
   )

@@ -5,8 +5,8 @@ import LoginPage from './components/user/LoginPage'
 import SignupPage from './components/user/SignupPage'
 import StoreDashboardView from './components/store/StoreDashboardView'
 import SupervisorHeadOfficeView from './components/head-office/SupervisorHeadOfficeView'
-import LegacySupervisorHeadOfficeView from './components/head-office/LegacySupervisorHeadOfficeView'
 import HeadOfficeHeader from './components/head-office/HeadOfficeHeader'
+
 import SettingsView from './components/settings/SettingsView'
 import GnbHeader from './components/common/GnbHeader'
 import RoleBanner from './components/common/RoleBanner'
@@ -269,16 +269,13 @@ function App() {
             />
           )}
 
-          {page === 'head-office' && !isDedicatedHeadOffice && (
-            <LegacySupervisorHeadOfficeView storesData={storesData} />
-          )}
-
-          {isDedicatedHeadOffice && (
+          {(page === 'head-office' || isDedicatedHeadOffice) && (
             <SupervisorHeadOfficeView
               apiBaseUrl={API_BASE_URL}
               aiccBaseUrl={AICC_BASE_URL}
             />
           )}
+
 
           {page === 'setting' && (
             <SettingsView

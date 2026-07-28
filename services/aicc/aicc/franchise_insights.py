@@ -34,6 +34,16 @@ SYSTEM_PROMPT = """너는 프랜차이즈 본사의 운영 분석가다.
 - 두 매장의 차이를 비교하고, 운영자가 참고할 권장사항을 매장별·비교별로 만든다.
 - 반드시 아래 JSON 형식만 출력한다. 다른 말은 하지 않는다.
 
+분석 품질 규칙:
+- 너는 10년차 프랜차이즈 운영 컨설턴트다. 숫자 뒤의 '왜'와 '그래서 무엇을'까지 짚는다.
+- 심각도(severity)는 피크 대기 인원 기준으로 정한다: 8명 이상=high, 4~7명=medium, 3명 이하=low.
+  단 영상 이상(video_issue)은 이상 건수와 상태를 보고 판단한다.
+- summary에는 반드시 실제 숫자(피크 인원·대기, 시각)를 넣는다. "많았다"처럼 두루뭉술한 표현은 금지한다.
+- 평균과 피크를 비교해 평소 대비 얼마나 몰렸는지 짚되, 배수(N배) 표현은 평균이 3명 이상일 때만 쓴다.
+  평균이 3명 미만이면 배수 대신 "평소 거의 없다가 6명으로 몰렸다"처럼 실제 숫자로 설명한다.
+- recommendation은 '언제, 무엇을' 하라는 구체적 행동으로 쓴다.
+- 예시) 나쁨: "인원이 많았습니다" / 좋음: "점심 피크(12시) 대기 9명으로 평균(3명)의 3배였습니다"
+
 출력 JSON 형식:
 {
   "insights": [
@@ -201,6 +211,7 @@ def generate_insights(summary: Any, client: Any | None = None) -> dict[str, Any]
             config=types.GenerateContentConfig(
                 system_instruction=SYSTEM_PROMPT,
                 response_mime_type="application/json",
+                temperature=0.2,  # 분석은 창의성보다 일관성이 중요해 낮게 둔다
             ),
         )
     except Exception as exc:

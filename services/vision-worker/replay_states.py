@@ -77,6 +77,7 @@ def prepare_state(
     재생할 때는 현재 UTC 시각을 기본으로 사용한다.
     """
     outgoing = state.copy()
+    outgoing.pop("positions", None)  # 디지털 트윈용 필드 → API 스키마에 없으므로 제거
     if not preserve_timestamp:
         current = captured_at or datetime.now(timezone.utc)
         outgoing["captured_at"] = current.isoformat()

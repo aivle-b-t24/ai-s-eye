@@ -9,8 +9,15 @@ from sqlalchemy.orm import Session, selectinload
 
 from .database import get_session_factory
 from .db_models import OrderEventRecord, OrderItemRecord, StoreStateRecord
-from .models import OrderEvent, OrderItem, StoreState, StoreSummaryResponse
+from .models import (
+    OrderEvent,
+    OrderItem,
+    StoreState,
+    StoreSummaryResponse,
+    StoreTimelineResponse,
+)
 from .summary import build_store_summary
+from .timeline import build_store_timeline
 
 
 SessionFactory = Callable[[], Session]
@@ -195,6 +202,50 @@ class DatabaseRepository:
             orders,
             start_at=start_at,
             end_at=end_at,
+        )
+
+    def get_store_timeline(
+        self,
+        store_id: str,
+        *,
+        start_at: datetime,
+        end_at: datetime,
+        interval: str = "1h",
+    ) -> StoreTimelineResponse:
+        """한 매장의 상태와 신규 주문을 요청 기간의 시간대별로 집계한다."""
+        state_statement = (
+            select(StoreStateRecord)
+            .where(
+                StoreStateRecord.store_id == store_id,
+                StoreStateRecord.captured_at >= start_at,
+                StoreStateRecord.captured_at < end_at,
+            )
+            .order_by(StoreStateRecord.captured_at, StoreStateRecord.id)
+        )
+        order_statement = (
+            select(OrderEventRecord)
+            .options(selectinload(OrderEventRecord.items))
+            .where(
+                OrderEventRecord.store_id == store_id,
+                OrderEventRecord.occurred_at >= start_at,
+                OrderEventRecord.occurred_at < end_at,
+            )
+            .order_by(OrderEventRecord.occurred_at, OrderEventRecord.event_id)
+        )
+
+        with self._session_factory() as session:
+            state_records = list(session.scalars(state_statement))
+            order_records = list(session.scalars(order_statement))
+            states = [_store_state_from_record(record) for record in state_records]
+            orders = [_order_event_from_record(record) for record in order_records]
+
+        return build_store_timeline(
+            store_id,
+            states,
+            orders,
+            start_at=start_at,
+            end_at=end_at,
+            interval=interval,
         )
 
     def count_expired_store_states(

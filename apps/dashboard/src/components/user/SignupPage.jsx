@@ -122,17 +122,6 @@ export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose, ini
           </svg>
         </button>
 
-        {/* 우측 상단 X자 닫기 버튼 */}
-        <button
-          type="button"
-          className="auth-close-x-btn"
-          onClick={onClose}
-          aria-label="닫기"
-          title="닫기"
-        >
-          ✕
-        </button>
-
 
 
         <div className="auth-header">

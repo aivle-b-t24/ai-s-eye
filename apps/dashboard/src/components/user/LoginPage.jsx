@@ -86,16 +86,6 @@ export default function LoginPage({ onLogin, onGoToSignup, onClose, initialRole 
   return (
     <div className="auth-wrapper">
       <div className="auth-card">
-        {/* 오른쪽 상단 X자 닫기 버튼 */}
-        <button
-          type="button"
-          className="auth-close-x-btn"
-          onClick={onClose}
-          aria-label="닫기"
-          title="닫기"
-        >
-          ✕
-        </button>
 
         <div className="auth-header">
           <span className="auth-badge">AI MONITORING SYSTEM</span>
@@ -226,14 +216,14 @@ export default function LoginPage({ onLogin, onGoToSignup, onClose, initialRole 
                     className="store-sub-option"
                     onClick={handleSelectDongmyeong}
                   >
-                    🏪 매장 1 (동명점)
+                    매장 1 (동명점)
                   </button>
                   <button
                     type="button"
                     className="store-sub-option"
                     onClick={handleSelectSuwan}
                   >
-                    🏪 매장 2 (수완점)
+                    매장 2 (수완점)
                   </button>
                 </div>
               )}

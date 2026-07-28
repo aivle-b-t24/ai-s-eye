@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import { ROLES, STORES, ENDPOINTS } from '../../constants/auth';
 
-export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose }) {
+export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose, initialRole = ROLES.STORE_MANAGER, onRoleChange }) {
   const [step, setStep] = useState(1);
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreePrivacy, setAgreePrivacy] = useState(false);
@@ -23,8 +24,15 @@ export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose }) {
     setAgreeMarketing(nextVal);
   };
 
-  const [role, setRole] = useState('store_manager');
-  const [storeId, setStoreId] = useState('store-001');
+  const [role, setRoleState] = useState(initialRole);
+  const setRole = (newRole) => {
+    setRoleState(newRole);
+    if (onRoleChange) {
+      onRoleChange(newRole);
+    }
+  };
+
+  const [storeId, setStoreId] = useState(STORES.DONGMYEONG);
   const [userId, setUserId] = useState('');
   const [userName, setUserName] = useState('');
   const [email, setEmail] = useState('');
@@ -112,17 +120,6 @@ export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose }) {
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
           </svg>
-        </button>
-
-        {/* 우측 상단 X자 닫기 버튼 */}
-        <button
-          type="button"
-          className="auth-close-x-btn"
-          onClick={onClose}
-          aria-label="닫기"
-          title="닫기"
-        >
-          ✕
         </button>
 
 
@@ -275,64 +272,29 @@ export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose }) {
           <form onSubmit={handleSubmit} className="auth-form">
             <div className="form-group">
               <label>회원 구분 (권한)</label>
-              <div className="role-selector-radios">
-                <label className={`radio-pill ${role === 'store_manager' ? 'selected' : ''}`}>
-                  <input
-                    type="radio"
-                    name="signupRole"
-                    value="store_manager"
-                    checked={role === 'store_manager'}
-                    onChange={() => setRole('store_manager')}
-                  />
-                  점주 (매장 관제)
-                </label>
-                <label className={`radio-pill ${role === 'admin' ? 'selected' : ''}`}>
-                  <input
-                    type="radio"
-                    name="signupRole"
-                    value="admin"
-                    checked={role === 'admin'}
-                    onChange={() => setRole('admin')}
-                  />
-                  본사 관리자 (슈퍼바이저)
-                </label>
+              <div className="auth-select-box text-center">
+                {role === ROLES.STORE_MANAGER ? '점주 (매장 관제)' : '본사 관리자 (슈퍼바이저)'}
               </div>
             </div>
 
             <div className="form-group">
               <label htmlFor="storeIdSelect">
-                {role === 'store_manager' ? '담당 매장 선택' : '담당 관제 영역'}
+                {role === ROLES.STORE_MANAGER ? '담당 매장 선택' : '담당 관제 영역'}
               </label>
-              {role === 'store_manager' ? (
+              {role === ROLES.STORE_MANAGER ? (
                 <select
                   id="storeIdSelect"
                   value={storeId}
                   onChange={(e) => setStoreId(e.target.value)}
                   className="auth-select"
                 >
-                  <option value="store-001">매장 1 (강남점)</option>
-                  <option value="store-002">매장 2 (홍대점)</option>
+                  <option value={STORES.DONGMYEONG}>매장 1 (동명점)</option>
+                  <option value={STORES.SUWAN}>매장 2 (수완점)</option>
                 </select>
               ) : (
-                <div
-                  className="auth-select"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    background: '#fafcfb',
-                    border: '1px solid var(--border-light, #d0d7de)',
-                    color: '#1a1a1a',
-                    fontFamily: 'inherit',
-                    fontSize: '0.95rem',
-                    fontWeight: 'normal',
-                    cursor: 'default',
-                    userSelect: 'none'
-                  }}
-                >
+                <div className="auth-select-box text-center">
                   전 가맹점 통합 관제 (본사 직속)
                 </div>
-
-
               )}
             </div>
 
@@ -421,12 +383,9 @@ export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose }) {
               )}
             </div>
 
-            <div className="btn-row">
-              <button type="button" className="secondary-btn" onClick={() => setStep(1)}>
-                ← 이전 단계
-              </button>
-              <button type="submit" className="auth-submit-btn">
-                회원가입 완료 및 가입신청
+            <div className="btn-row justify-center">
+              <button type="submit" className="auth-submit-btn text-only-submit-btn">
+                회원가입 완료 및 로그인
               </button>
             </div>
           </form>

@@ -1,32 +1,54 @@
 import React, { useState } from 'react';
+import { ROLES, STORES, DEMO_CREDENTIALS } from '../../constants/auth';
 
-export default function LoginPage({ onLogin, onGoToSignup, onClose }) {
-  const [role, setRole] = useState('store_manager');
+export default function LoginPage({ onLogin, onGoToSignup, onClose, initialRole = ROLES.STORE_MANAGER, onRoleChange }) {
+  const [role, setRole] = useState(initialRole);
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberId, setRememberId] = useState(false);
   const [failedCount, setFailedCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isStoreSubmenuOpen, setIsStoreSubmenuOpen] = useState(false);
 
-  const handleDemoLogin = (selectedRole) => {
-    const demoId = selectedRole === 'store_manager' ? 'owner01' : 'admin01';
-    const userName = selectedRole === 'store_manager' ? '김점주 점주님' : '박팀장 슈퍼바이저님';
-    const storeId = selectedRole === 'store_manager' ? 'store-001' : 'head-office';
-    
+  const handleTabSwitch = (newRole) => {
+    setRole(newRole);
+    setErrorMessage('');
+    if (onRoleChange) {
+      onRoleChange(newRole);
+    }
+  };
+
+  const handleDemoLogin = (selectedRole, targetStoreId = STORES.DONGMYEONG) => {
+    const credKey = selectedRole === ROLES.STORE_MANAGER ? targetStoreId : STORES.HEAD_OFFICE;
+    const creds = DEMO_CREDENTIALS[credKey] || DEMO_CREDENTIALS[STORES.DONGMYEONG];
+
     onLogin({
-      id: demoId,
-      name: userName,
-      role: selectedRole,
-      storeId: storeId
+      id: creds.id,
+      name: creds.name,
+      role: creds.role,
+      storeId: creds.storeId,
     });
+  };
+
+  const handleSelectDongmyeong = () => {
+    setIsStoreSubmenuOpen(false);
+    handleDemoLogin(ROLES.STORE_MANAGER, STORES.DONGMYEONG);
+  };
+
+  const handleSelectSuwan = () => {
+    setIsStoreSubmenuOpen(false);
+    handleDemoLogin(ROLES.STORE_MANAGER, STORES.SUWAN);
+  };
+
+  const handleAdminDemoLogin = () => {
+    handleDemoLogin(ROLES.ADMIN, STORES.HEAD_OFFICE);
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
 
     if (failedCount >= 5) {
-
       setErrorMessage('비밀번호 5회 이상 오류로 계정이 일시 잠금되었습니다. 고객센터에 문의하거나 비밀번호를 재설정해 주세요.');
       return;
     }
@@ -40,15 +62,15 @@ export default function LoginPage({ onLogin, onGoToSignup, onClose }) {
       return;
     }
 
-    if ((role === 'store_manager' && userId === 'owner' && password === '1234') ||
-        (role === 'admin' && userId === 'admin' && password === '1234')) {
+    if ((role === ROLES.STORE_MANAGER && userId === 'owner' && password === '1234') ||
+        (role === ROLES.ADMIN && userId === 'admin' && password === '1234')) {
       setFailedCount(0);
       setErrorMessage('');
       onLogin({
         id: userId,
-        name: role === 'store_manager' ? '강남점 점주' : '본사 관리자',
+        name: role === ROLES.STORE_MANAGER ? '강남점 점주' : '본사 관리자',
         role: role,
-        storeId: role === 'store_manager' ? 'store-001' : 'head-office'
+        storeId: role === ROLES.STORE_MANAGER ? STORES.DONGMYEONG : STORES.HEAD_OFFICE
       });
     } else {
       const newCount = failedCount + 1;
@@ -64,16 +86,6 @@ export default function LoginPage({ onLogin, onGoToSignup, onClose }) {
   return (
     <div className="auth-wrapper">
       <div className="auth-card">
-        {/* 오른쪽 상단 X자 닫기 버튼 */}
-        <button
-          type="button"
-          className="auth-close-x-btn"
-          onClick={onClose}
-          aria-label="닫기"
-          title="닫기"
-        >
-          ✕
-        </button>
 
         <div className="auth-header">
           <span className="auth-badge">AI MONITORING SYSTEM</span>
@@ -84,15 +96,15 @@ export default function LoginPage({ onLogin, onGoToSignup, onClose }) {
         <div className="role-switch-tabs">
           <button
             type="button"
-            className={`role-tab ${role === 'store_manager' ? 'active' : ''}`}
-            onClick={() => { setRole('store_manager'); setErrorMessage(''); }}
+            className={`role-tab ${role === ROLES.STORE_MANAGER ? 'active' : ''}`}
+            onClick={() => handleTabSwitch(ROLES.STORE_MANAGER)}
           >
             점주 전용 로그인
           </button>
           <button
             type="button"
-            className={`role-tab ${role === 'admin' ? 'active' : ''}`}
-            onClick={() => { setRole('admin'); setErrorMessage(''); }}
+            className={`role-tab ${role === ROLES.ADMIN ? 'active' : ''}`}
+            onClick={() => handleTabSwitch(ROLES.ADMIN)}
           >
             본사 관리자 로그인
           </button>
@@ -101,12 +113,12 @@ export default function LoginPage({ onLogin, onGoToSignup, onClose }) {
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
             <label htmlFor="userId">
-              {role === 'store_manager' ? '점주 아이디' : '본사 관리자 사번/아이디'}
+              {role === ROLES.STORE_MANAGER ? '점주 아이디' : '본사 관리자 사번/아이디'}
             </label>
             <input
               id="userId"
               type="text"
-              placeholder={role === 'store_manager' ? '예: owner01' : '예: admin01'}
+              placeholder={role === ROLES.STORE_MANAGER ? '예: owner01' : '예: admin01'}
               value={userId}
               onChange={(e) => setUserId(e.target.value)}
               disabled={failedCount >= 5}
@@ -175,30 +187,60 @@ export default function LoginPage({ onLogin, onGoToSignup, onClose }) {
           </div>
 
           <button type="submit" className="auth-submit-btn" disabled={failedCount >= 5}>
-            {role === 'store_manager' ? '점주 관제 화면 로그인' : '본사 관리자 대시보드 로그인'}
+            {role === ROLES.STORE_MANAGER ? '점주 관제 화면 로그인' : '본사 관리자 대시보드 로그인'}
           </button>
         </form>
 
         <div className="demo-login-box">
           <p className="demo-hint">[빠른 체험용 원클릭 로그인]</p>
           <div className="demo-btn-group">
-            <button
-              type="button"
-              className="demo-btn store-demo"
-              onClick={() => handleDemoLogin('store_manager')}
-            >
-              [점주] 로그인
-            </button>
+            <div className="store-sub-wrapper">
+              <button
+                type="button"
+                className="demo-btn store-demo with-arrow-btn"
+                onClick={() => setIsStoreSubmenuOpen(!isStoreSubmenuOpen)}
+                aria-expanded={isStoreSubmenuOpen}
+              >
+                <span>[점주] 로그인</span>
+                <span className={`dropdown-arrow-icon ${isStoreSubmenuOpen ? 'open' : ''}`} aria-hidden="true">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </span>
+              </button>
+
+              {isStoreSubmenuOpen && (
+                <div className="store-sub-dropdown-menu">
+                  <button
+                    type="button"
+                    className="store-sub-option"
+                    onClick={handleSelectDongmyeong}
+                  >
+                    매장 1 (동명점)
+                  </button>
+                  <button
+                    type="button"
+                    className="store-sub-option"
+                    onClick={handleSelectSuwan}
+                  >
+                    매장 2 (수완점)
+                  </button>
+                </div>
+              )}
+            </div>
+
             <button
               type="button"
               className="demo-btn admin-demo"
-              onClick={() => handleDemoLogin('admin')}
+              onClick={handleAdminDemoLogin}
             >
               [본사 관리자] 로그인
             </button>
           </div>
-
         </div>
+
+
+
 
         <div className="auth-footer-links">
           <span>아직 계정이 없으신가요?</span>

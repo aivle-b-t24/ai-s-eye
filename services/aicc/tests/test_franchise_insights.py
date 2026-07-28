@@ -108,13 +108,13 @@ class FakeGemini:
 
 
 def test_utc_peak_time_converts_to_kst_lunch() -> None:
-    # 03:00 UTC == 12:00 KST (점심)
-    assert "12:00 KST" in _to_kst("2026-07-22T03:00:00Z")
+    # 03:00 UTC == 12:00 KST (점심). 형식은 "YYYY-MM-DD HH:MM" (KST 접미사 없음)
+    assert _to_kst("2026-07-22T03:00:00Z") == "2026-07-22 12:00"
 
 
 def test_utc_peak_time_converts_to_kst_afternoon() -> None:
     # 05:00 UTC == 14:00 KST (오후)
-    assert "14:00 KST" in _to_kst("2026-07-22T05:00:00Z")
+    assert _to_kst("2026-07-22T05:00:00Z") == "2026-07-22 14:00"
 
 
 def test_bad_time_returns_original() -> None:
@@ -126,7 +126,7 @@ def test_bad_time_returns_original() -> None:
 
 def test_prompt_uses_kst_not_raw_utc() -> None:
     p = build_prompt(summary())
-    assert "12:00 KST" in p  # store-001 피크가 KST로 환산돼 들어감
+    assert "2026-07-22 12:00" in p  # store-001 피크가 KST로 환산돼 들어감
     assert "2026-07-22T03:00:00Z" not in p  # 원본 UTC는 안 들어감
 
 

@@ -71,7 +71,7 @@ def _to_kst(iso: Any) -> str:
         dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
     except ValueError:
         return iso
-    return dt.astimezone(KST).strftime("%Y-%m-%d %H:%M KST")
+    return dt.astimezone(KST).strftime("%Y-%m-%d %H:%M")
 
 
 def build_client() -> Any | None:

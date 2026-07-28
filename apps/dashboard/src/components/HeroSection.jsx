@@ -1,7 +1,9 @@
 function HeroSection({ page, authMode, dashboard, onMenuOpen }) {
   const isHeadOffice = page === 'head-office'
+  const isSettings = page === 'setting' || page === 'settings'
   const isAuthPage = authMode === 'login' || authMode === 'signup'
-  const hideMetrics = isHeadOffice || isAuthPage
+  const hideMetrics = isHeadOffice || isSettings || isAuthPage
+
 
   const peopleCount = dashboard?.state?.visible_person_count ?? 0
   const queueCount = dashboard?.state?.queue_count_estimate ?? 0
@@ -74,7 +76,7 @@ function HeroSection({ page, authMode, dashboard, onMenuOpen }) {
                 혼잡도, 대기시간, 고객 흐름을 한눈에 확인하세요.
               </p>
 
-              <div className="hero-actions">
+              <div className={`hero-actions ${isSettings ? 'is-hidden' : ''}`}>
                 <a href="#dashboard" className="hero-primary-button">
                   실시간 모니터링
                   <span>↗</span>
@@ -89,6 +91,7 @@ function HeroSection({ page, authMode, dashboard, onMenuOpen }) {
                   <span>＋</span>
                 </button>
               </div>
+
             </div>
 
             <div className="hero-visual">
@@ -118,39 +121,38 @@ function HeroSection({ page, authMode, dashboard, onMenuOpen }) {
 
                 <div className="camera-bottom-label">
                   <span>{isHeadOffice ? 'SUPERVISOR CONTROL MODE' : 'AI OBJECT DETECTION'}</span>
-                  {!hideMetrics && <strong>{peopleCount}명 감지</strong>}
+                  <strong className={hideMetrics ? 'is-hidden' : ''}>{peopleCount}명 감지</strong>
                 </div>
               </div>
 
-              {!hideMetrics && (
-                <div className="hero-metrics-row">
-                  <div className="hero-inline-metric">
-                    <div className="hero-inline-title">
-                      <span className="metric-icon">●</span>
-                      현재 혼잡도
-                    </div>
-
-                    <div className="hero-inline-value">
-                      <strong>{congestionRate}%</strong>
-                      <span>{congestionLabel}</span>
-                    </div>
+              <div className={`hero-metrics-row ${hideMetrics ? 'is-hidden' : ''}`}>
+                <div className="hero-inline-metric">
+                  <div className="hero-inline-title">
+                    <span className="metric-icon">●</span>
+                    현재 혼잡도
                   </div>
 
-                  <div className="hero-metric-divider" />
-
-                  <div className="hero-inline-metric">
-                    <div className="hero-inline-title">
-                      <span className="metric-icon">◷</span>
-                      대기 현황
-                    </div>
-
-                    <div className="hero-inline-value">
-                      <strong>{queueCount}팀</strong>
-                      <span>예상 대기 {waitMinutes}분</span>
-                    </div>
+                  <div className="hero-inline-value">
+                    <strong>{congestionRate}%</strong>
+                    <span>{congestionLabel}</span>
                   </div>
                 </div>
-              )}
+
+                <div className="hero-metric-divider" />
+
+                <div className="hero-inline-metric">
+                  <div className="hero-inline-title">
+                    <span className="metric-icon">◷</span>
+                    대기 현황
+                  </div>
+
+                  <div className="hero-inline-value">
+                    <strong>{queueCount}팀</strong>
+                    <span>예상 대기 {waitMinutes}분</span>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
 

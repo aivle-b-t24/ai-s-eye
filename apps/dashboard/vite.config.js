@@ -14,6 +14,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: '0.0.0.0',
+    allowedHosts: ['aiseye.ldhcloud.com'],
     watch: {
       usePolling: true,
       interval: 100,

@@ -1,4 +1,10 @@
-import React from 'react'
+import React, { useCallback, useState } from 'react'
+
+import CameraSceneTwin from './CameraSceneTwin'
+
+const ENABLE_CAMERA_TWIN_V2 = (
+  String(import.meta.env.VITE_ENABLE_CAMERA_TWIN_V2).toLowerCase() === 'true'
+)
 
 const ZoneIcon = ({ type }) => {
   const paths = {
@@ -45,7 +51,11 @@ const ZoneIcon = ({ type }) => {
   )
 }
 
-export default function ZoneBreakdownTable({ zoneCounts }) {
+export default function ZoneBreakdownTable({ zoneCounts, storeId }) {
+  const [twinSummary, setTwinSummary] = useState(null)
+  const handleTwinSummaryChange = useCallback((summary) => {
+    setTwinSummary(summary)
+  }, [])
   const allZones = [
     {
       id: 'staff',
@@ -135,9 +145,20 @@ export default function ZoneBreakdownTable({ zoneCounts }) {
     },
   ]
 
-  const totalZoneCount = displayZones.reduce(
+  const fallbackTotalCount = displayZones.reduce(
     (sum, zone) => sum + zone.value,
     0
+  )
+  const totalZoneCount = (
+    ENABLE_CAMERA_TWIN_V2
+      && (twinSummary?.status === 'ready' || twinSummary?.status === 'stale')
+      ? twinSummary.count
+      : fallbackTotalCount
+  )
+  const liveLabel = (
+    ENABLE_CAMERA_TWIN_V2 && twinSummary?.status === 'stale'
+      ? 'TRACKING DELAYED'
+      : 'LIVE TRACKING'
   )
 
   return (
@@ -154,53 +175,60 @@ export default function ZoneBreakdownTable({ zoneCounts }) {
         <div className="zone-live-summary">
           <span className="zone-live-dot" />
           <div>
-            <small>LIVE TRACKING</small>
+            <small>{liveLabel}</small>
             <strong>{totalZoneCount}명 감지</strong>
           </div>
         </div>
       </div>
 
       <div className="zone-overview-body">
-        <div className="zone-map-preview" aria-hidden="true">
-          <div className="zone-map-grid" />
+        {ENABLE_CAMERA_TWIN_V2 ? (
+          <CameraSceneTwin
+            storeId={storeId}
+            onSummaryChange={handleTwinSummaryChange}
+          />
+        ) : (
+          <div className="zone-map-preview" aria-hidden="true">
+            <div className="zone-map-grid" />
 
-          {displayZones.some((z) => z.id === 'staff') && (
-            <span className="map-zone map-zone-counter">
-              <i />
-              직원 구역
-            </span>
-          )}
+            {displayZones.some((z) => z.id === 'staff') && (
+              <span className="map-zone map-zone-counter">
+                <i />
+                직원 구역
+              </span>
+            )}
 
-          {displayZones.some((z) => z.id === 'waiting') && (
-            <span className="map-zone map-zone-waiting">
-              <i />
-              대기 구역
-            </span>
-          )}
+            {displayZones.some((z) => z.id === 'waiting') && (
+              <span className="map-zone map-zone-waiting">
+                <i />
+                대기 구역
+              </span>
+            )}
 
-          {displayZones.some((z) => z.id === 'counter') && (
-            <span className="map-zone map-zone-counter">
-              <i />
-              카운터
-            </span>
-          )}
+            {displayZones.some((z) => z.id === 'counter') && (
+              <span className="map-zone map-zone-counter">
+                <i />
+                카운터
+              </span>
+            )}
 
-          {displayZones.some((z) => z.id === 'seating') && (
-            <span className="map-zone map-zone-seating-1">
-              <i />
-              좌석
-            </span>
-          )}
+            {displayZones.some((z) => z.id === 'seating') && (
+              <span className="map-zone map-zone-seating-1">
+                <i />
+                좌석
+              </span>
+            )}
 
-          {displayZones.some((z) => z.id === 'aisle') && (
-            <span className="map-zone map-zone-aisle">
-              <i />
-              통로
-            </span>
-          )}
+            {displayZones.some((z) => z.id === 'aisle') && (
+              <span className="map-zone map-zone-aisle">
+                <i />
+                통로
+              </span>
+            )}
 
-          <div className="map-entry">ENTRANCE</div>
-        </div>
+            <div className="map-entry">ENTRANCE</div>
+          </div>
+        )}
 
         <div className="zone-card-grid" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {displayZones.map((zone) => (

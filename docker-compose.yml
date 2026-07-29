@@ -60,6 +60,7 @@ services:
     environment:
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
       VITE_AICC_BASE_URL: ${VITE_AICC_BASE_URL:-http://localhost:8100}
+      VITE_ENABLE_CAMERA_TWIN_V2: ${VITE_ENABLE_CAMERA_TWIN_V2:-false}
     ports:
       - "${DASHBOARD_BIND_HOST:-0.0.0.0}:${DASHBOARD_PORT:-5173}:5173"
     volumes:

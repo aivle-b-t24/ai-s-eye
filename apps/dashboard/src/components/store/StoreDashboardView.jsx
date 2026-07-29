@@ -82,6 +82,7 @@ export default function StoreDashboardView({
       <section className="dashboard-feature-grid">
         <div className="dashboard-feature dashboard-feature-large">
           <ZoneBreakdownTable
+            storeId={page}
             zoneCounts={dashboard?.state?.zone_counts}
           />
         </div>

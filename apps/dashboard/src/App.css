@@ -4551,12 +4551,14 @@ font-size: 16px !important;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  padding: 0 20px;
+  margin: 0 18px;
+  padding: 14px 2px 0;
+  border-top: 1px solid #e2e8f0;
 }
 
 .twin-status-panel p {
   margin: 0;
-  color: rgba(255, 255, 255, 0.4);
+  color: #475569;
   font-size: 11px;
 }
 
@@ -4570,7 +4572,7 @@ font-size: 16px !important;
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  color: rgba(255, 255, 255, 0.72);
+  color: #1e293b;
   font-size: 12px;
   font-weight: 700;
 }

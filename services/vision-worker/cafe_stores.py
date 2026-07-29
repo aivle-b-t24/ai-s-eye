@@ -38,6 +38,7 @@ from roi_zone_counter import (
     parse_zones, foot_point, assign_zone, build_store_state, ZONE_COLOR, KST,
 )
 from roi_config_client import load_roi_zone_data
+from replay_states import post_state, prepare_occupancy
 
 CAFE_ROOT = Path(os.getenv(
     "AISEYE_CAFE_ROOT", r"D:\Cafe_Dataset\Cafe_Dataset\Dataset\cafe"))
@@ -46,6 +47,7 @@ CAFE_MODEL = os.getenv(
 POSE_MODEL = "yolo11s-pose.pt"   # 자동 다운로드(서있음/앉음 + 추적)
 TRACKER_CONFIG = os.getenv("AISEYE_TRACKER", "bytetrack.yaml")
 MODEL_VERSION = "yolo11s-cafe-ft+pose-dwell"
+BASE_MODEL_VERSION = "yolo11s-base+pose-dwell"
 ZONES_DIR = Path(__file__).resolve().parent / "zones"
 ROI_CACHE_DIR = Path(
     os.getenv(
@@ -84,8 +86,18 @@ def load_cafe_model():
     return YOLO(CAFE_MODEL) if Path(CAFE_MODEL).exists() else YOLO("yolo11s.pt")
 
 
+def active_model_version():
+    """실제로 불러온 탐지 가중치에 맞는 버전을 반환한다."""
+    return MODEL_VERSION if Path(CAFE_MODEL).exists() else BASE_MODEL_VERSION
+
+
 def load_store_trackers():
     """운영 매장마다 독립된 사람 추적기를 준비한다."""
+    if not Path(CAFE_MODEL).exists():
+        print(
+            f"경고: 파인튜닝 가중치가 없어 일반 yolo11s.pt를 사용합니다: "
+            f"{CAFE_MODEL}"
+        )
     return {store["store_id"]: load_cafe_model() for store in STORES}
 
 
@@ -206,7 +218,7 @@ def run(limit=None, gen_images=True):
                 {"staff": c["staff"], "waiting": c["waiting"]}, c["customers"],
                 c["waiting"], camera_id=f"{store['store_id']}-cam1",
                 store_id=store["store_id"], quality=c["quality"], captured_at=ts)
-            state["model_version"] = MODEL_VERSION
+            state["model_version"] = active_model_version()
             state["positions"] = c["positions"]  # 디지털 트윈용(POST 시 replay가 제거)
             states.append(state)
             if gen_images:
@@ -514,7 +526,14 @@ def run_live(api, interval, limit=None):
                     c["waiting"], camera_id=f"{store['store_id']}-cam1",
                     store_id=store["store_id"], quality=c["quality"],
                     captured_at=datetime.now(KST))
-                state["model_version"] = MODEL_VERSION
+                state["model_version"] = active_model_version()
+                state_with_positions = {**state, "positions": c["positions"]}
+                occupancy = prepare_occupancy(
+                    state_with_positions,
+                    preserve_timestamp=True,
+                    frame_width=raw_img.shape[1],
+                    frame_height=raw_img.shape[0],
+                )
                 req = urllib.request.Request(
                     url, data=json.dumps(state).encode("utf-8"),
                     headers={"Content-Type": "application/json"}, method="POST")
@@ -522,6 +541,14 @@ def run_live(api, interval, limit=None):
                     urllib.request.urlopen(req, timeout=5).close()
                 except Exception as exc:  # noqa: BLE001
                     print(f"  POST 실패({store['store_id']}): {exc}")
+                occupancy_url = (
+                    api.rstrip("/")
+                    + f"/internal/stores/{store['store_id']}/occupancy"
+                )
+                try:
+                    post_state(occupancy_url, occupancy)
+                except Exception as exc:  # noqa: BLE001
+                    print(f"  위치 POST 실패({store['store_id']}): {exc}")
             if t % 10 == 0:
                 print(f"  세그 {t + 1}/{n} 상태+이미지 갱신")
             time.sleep(interval)

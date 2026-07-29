@@ -134,7 +134,7 @@ services:
       - --interval
       - ${VISION_REPLAY_INTERVAL:-2}
       - --frames-dir
-      - /workspace/services/vision-worker/outputs/snapshots/frame
+      - /workspace/services/vision-worker/outputs/snapshots/frames
       - --loop
     volumes:
       - ./services/vision-worker:/workspace/services/vision-worker:ro

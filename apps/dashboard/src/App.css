@@ -1666,19 +1666,12 @@ width: 100%;
 max-width: none;
 margin: 0;
 padding: 76px 0 100px;
-color: var(--premium-text);
-background: linear-gradient(180deg, #07110f 0%, #0a1714 18%, #10211d 55%, #132824 100%);
+color: #17211f;
+background: #f5f6f7;
 scroll-margin-top: 24px;
 }
 .dashboard-content::before {
-position: absolute;
-top: -120px;
-left: 0;
-right: 0;
-height: 160px;
-content: "";
-background: linear-gradient(180deg, rgba(7, 17, 15, 0), #07110f 76%);
-pointer-events: none;
+display: none;
 }
 .dashboard-content > * {
 width: min(1320px, calc(100% - 56px));
@@ -1690,11 +1683,11 @@ margin-right: auto;
 .dashboard-content .panel,
 .dashboard-content .vision-card,
 .dashboard-content .kpi-card {
-border-color: var(--premium-border);
-background: linear-gradient(145deg, var(--premium-panel-strong), var(--premium-panel));
-box-shadow: 0 18px 48px rgba(0, 0, 0, 0.17);
-backdrop-filter: blur(18px);
--webkit-backdrop-filter: blur(18px);
+border-color: #e5e7eb;
+background: #ffffff;
+box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+backdrop-filter: none;
+-webkit-backdrop-filter: none;
 }
 .dashboard-content .gnb-header {
 margin-bottom: 18px;
@@ -1704,7 +1697,7 @@ margin-bottom: 18px;
 .dashboard-content .panel-heading h2,
 .dashboard-content .vision-card-header h2,
 .dashboard-content .dashboard-section-heading h2 {
-color: #fff;
+color: #17211f;
 }
 .dashboard-content .brand-badge,
 .dashboard-content .eyebrow,
@@ -1714,39 +1707,44 @@ color: var(--premium-accent);
 .dashboard-content .store-tabs,
 .dashboard-content .action-btn,
 .dashboard-content .user-profile-badge {
-background: rgba(255, 255, 255, 0.065);
+background: #f2f4f5;
 }
 .dashboard-content .tab-btn {
-color: rgba(255, 255, 255, 0.52);
+color: #667085;
 }
 .dashboard-content .tab-btn:hover,
 .dashboard-content .tab-btn.active,
 .dashboard-content .action-btn,
 .dashboard-content .user-name {
-color: #fff;
+color: #173f3a;
 }
 .dashboard-content .tab-btn.active {
-background: rgba(85, 216, 157, 0.14);
-box-shadow: none;
+background: #ffffff;
+box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
 }
 .dashboard-content .user-profile-badge {
-border-color: rgba(255, 255, 255, 0.1);
+border-color: #dfe5e3;
 }
 .dashboard-content .role-banner-container {
-color: rgba(255, 255, 255, 0.7);
+color: #43514d;
 margin-bottom: 28px;
 }
 .dashboard-content .store-role {
-color: #6be2ae;
-background: rgba(85, 216, 157, 0.1);
+color: #167a59;
+background: #e5f5ef;
 }
 .dashboard-content .polling-status {
-color: #61dca7;
+color: #238565;
 }
 .store-dashboard-view {
 display: flex;
 flex-direction: column;
 gap: 24px;
+max-width: 1440px;
+margin: 0 auto;
+width: 100%;
+padding: 0 24px;
+box-sizing: border-box;
 }
 .dashboard-section {
 width: 100%;
@@ -1770,7 +1768,7 @@ font-size: 25px;
 letter-spacing: -0.035em;
 }
 .dashboard-section-status {
-color: rgba(255, 255, 255, 0.5);
+color: #667085;
 font-size: 20px;
 }
 
@@ -2663,21 +2661,7 @@ box-shadow: none !important;
 position: relative !important;
 overflow: hidden !important;
 min-height: 100vh !important;
-background:
-linear-gradient(
-180deg,
-#10352b 0%,
-#164639 10%,
-#1f594a 22%,
-#2d7864 35%,
-#429a82 46%,
-#58b89e 52%,
-#429a82 58%,
-#2d7864 68%,
-#1f594a 80%,
-#164639 90%,
-#10352b 100%
-) !important;
+background: #f5f6f7 !important;
 background-repeat: no-repeat !important;
 background-size: 100% 100% !important;
 background-attachment: scroll !important;
@@ -2822,9 +2806,9 @@ min-height: 1800px !important;
 .dashboard-content .role-banner-container,
 .gnb-header,
 .role-banner-container {
-border: 1px solid rgba(255, 255, 255, 0.08) !important;
+border: 1px solid #e5e7eb !important;
 border-radius: 12px !important;
-box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
+box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06) !important;
 }
 .dashboard-content .gnb-header .tab-btn.active,
 .dashboard-content .gnb-header .supervisor-tab.active,
@@ -3028,7 +3012,7 @@ font-size: 16px !important;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  color: rgba(255, 255, 255, 0.78);
+  color: #334155;
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
@@ -3037,7 +3021,7 @@ font-size: 16px !important;
 
 
 .dashboard-content .gnb-header .logout-btn:hover {
-  color: #fff;
+  color: #173f3a;
   background: transparent;
   text-decoration: none;
 }
@@ -3047,7 +3031,7 @@ font-size: 16px !important;
    ========================================================================== */
 
 .dashboard-content .dashboard-section-heading h2 {
-  color: #ffffff;
+  color: #17211f;
 }
 
 .dashboard-content .kpi-summary-bar .kpi-label,
@@ -3406,7 +3390,7 @@ font-size: 16px !important;
 .dashboard-content .kpi-card-top,
 .dashboard-content .kpi-value,
 .dashboard-content .kpi-subtext {
-  border-color: rgba(255, 255, 255, 0.42);
+  border-color: #e5e7eb;
 }
 
 .dashboard-content .kpi-summary-bar .kpi-card {
@@ -3703,56 +3687,6 @@ font-size: 16px !important;
 
 .naver-next-btn.active:hover {
   background: #0d8a60;
-}
-
-/* ==========================================================================
-   RECOMMENDATION 2: WARM CHAMPAGNE CREAM HIGH-CONTRAST TYPOGRAPHY
-   ========================================================================== */
-
-/* Main Section Headings (현재 매장 운영 현황, 구역별 실시간 인원 현황, 실시간 카메라 모니터링 등) */
-.dashboard-content .dashboard-section-heading h2,
-.dashboard-content .panel-heading h2,
-.dashboard-content .vision-card-header h2 {
-  color: #FEF3C7 !important;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45) !important;
-}
-
-/* KPI Summary Cards Main Values (10명, 0명, 0분, 4개 등) */
-.dashboard-content .kpi-value {
-  color: #FFFBEB !important;
-  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important;
-}
-
-/* KPI Summary Cards Labels (매장 총 인원, 대기 인원, 예상 대기시간, 품절 메뉴, AI 카메라 상태) */
-.dashboard-content .kpi-label {
-  color: #FDE68A !important;
-  font-weight: 700 !important;
-}
-
-/* Subtexts & Descriptions (실시간 객체 감지, 외부 및 대기 구역 기준, 근무 직원, 대기열 구역 등) */
-.dashboard-content .kpi-subtext,
-.dashboard-content .dashboard-section-status,
-.dashboard-content .subtitle,
-.dashboard-content .policy-item p,
-.dashboard-content .policy-item strong {
-  color: #FEF08A !important;
-}
-
-/* ==========================================================================
-   CENTERED CONTAINER MAX-WIDTH LAYOUT (화면 축소 시 중앙 집중 정렬)
-   ========================================================================== */
-.store-dashboard-view {
-  max-width: 1440px !important;
-  margin: 0 auto !important;
-  width: 100% !important;
-  padding: 0 24px !important;
-  box-sizing: border-box !important;
-}
-
-.dashboard-content .gnb-header,
-.dashboard-content .hero-section {
-  max-width: 1440px !important;
-  margin: 0 auto !important;
 }
 
 :root {

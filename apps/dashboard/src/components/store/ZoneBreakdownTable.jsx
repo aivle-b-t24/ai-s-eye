@@ -105,12 +105,30 @@ export default function ZoneBreakdownTable({ zoneCounts, storeId }) {
     },
   ]
 
-  const activeZoneKeys = zoneCounts ? Object.keys(zoneCounts) : []
+  const hasLiveTwinData = (
+    ENABLE_CAMERA_TWIN_V2
+    && (twinSummary?.status === 'ready' || twinSummary?.status === 'stale')
+  )
+  const effectiveZoneCounts = hasLiveTwinData
+    ? twinSummary.zoneCounts
+    : zoneCounts
+  const hasApprovedZoneDefinition = (
+    ENABLE_CAMERA_TWIN_V2
+    && Array.isArray(twinSummary?.roiZoneTypes)
+  )
+  const approvedZoneTypes = hasApprovedZoneDefinition
+    ? new Set(twinSummary.roiZoneTypes)
+    : null
+  const activeZoneKeys = effectiveZoneCounts
+    ? Object.keys(effectiveZoneCounts)
+    : []
 
   const filteredZones = allZones
     .map((z) => {
-      const val = z.getValue(zoneCounts)
-      const isPresent = val !== undefined || z.keyMatch.some((k) => activeZoneKeys.includes(k))
+      const val = z.getValue(effectiveZoneCounts)
+      const isPresent = approvedZoneTypes
+        ? approvedZoneTypes.has(z.id)
+        : val !== undefined || z.keyMatch.some((k) => activeZoneKeys.includes(k))
       return {
         id: z.id,
         label: z.label,
@@ -124,7 +142,9 @@ export default function ZoneBreakdownTable({ zoneCounts, storeId }) {
     })
     .filter((z) => z.isPresent)
 
-  const displayZones = filteredZones.length > 0 ? filteredZones : [
+  const displayZones = filteredZones.length > 0
+    ? filteredZones
+    : (hasApprovedZoneDefinition ? [] : [
     {
       id: 'staff',
       label: '근무 직원',
@@ -143,15 +163,14 @@ export default function ZoneBreakdownTable({ zoneCounts, storeId }) {
       value: zoneCounts?.waiting ?? 0,
       danger: (zoneCounts?.waiting ?? 0) >= 5,
     },
-  ]
+  ])
 
   const fallbackTotalCount = displayZones.reduce(
     (sum, zone) => sum + zone.value,
     0
   )
   const totalZoneCount = (
-    ENABLE_CAMERA_TWIN_V2
-      && (twinSummary?.status === 'ready' || twinSummary?.status === 'stale')
+    hasLiveTwinData
       ? twinSummary.count
       : fallbackTotalCount
   )

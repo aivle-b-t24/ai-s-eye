@@ -188,9 +188,33 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
   }, [scene, storeId])
 
   const trackList = useMemo(() => Object.values(tracks), [tracks])
+  const roiZoneTypes = useMemo(
+    () => [...new Set((roiConfig?.zones ?? []).map((zone) => zone.type))],
+    [roiConfig],
+  )
+  const roiZoneTypeSet = useMemo(
+    () => new Set(roiZoneTypes),
+    [roiZoneTypes],
+  )
+  const displayTrackList = useMemo(() => {
+    if (!roiConfig) return trackList
+    return trackList.map((track) => {
+      const hasApprovedZone = (
+        (track.zone && roiZoneTypeSet.has(track.zone))
+        || (track.role === 'staff' && roiZoneTypeSet.has('staff'))
+      )
+      if (hasApprovedZone) return track
+      return {
+        ...track,
+        role: track.role === 'staff' ? 'customer' : track.role,
+        state: 'unknown',
+        zone: null,
+      }
+    })
+  }, [roiConfig, roiZoneTypeSet, trackList])
   const activeTracks = useMemo(
-    () => trackList.filter((track) => !track.missing),
-    [trackList],
+    () => displayTrackList.filter((track) => !track.missing),
+    [displayTrackList],
   )
   const counts = useMemo(
     () => activeTracks.reduce(
@@ -204,14 +228,31 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
     ),
     [activeTracks],
   )
-
+  const liveZoneCounts = useMemo(
+    () => activeTracks.reduce((result, track) => {
+      if (!track.zone) return result
+      result[track.zone] = (result[track.zone] ?? 0) + 1
+      return result
+    }, {}),
+    [activeTracks],
+  )
   useEffect(() => {
     onSummaryChange?.({
       count: activeTracks.length,
       capturedAt,
       status,
+      zoneCounts: liveZoneCounts,
+      roiZoneTypes: roiConfig ? roiZoneTypes : null,
     })
-  }, [activeTracks.length, capturedAt, onSummaryChange, status])
+  }, [
+    activeTracks.length,
+    capturedAt,
+    liveZoneCounts,
+    onSummaryChange,
+    roiConfig,
+    roiZoneTypes,
+    status,
+  ])
 
   if (!scene) {
     return (
@@ -308,7 +349,7 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
             </g>
           ))}
 
-          {trackList.map((track) => (
+          {displayTrackList.map((track) => (
             track.trail.length > 1 && (
               <polyline
                 key={`${track.id}-trail`}
@@ -320,7 +361,7 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
         </svg>
 
         <div className="camera-scene-agent-layer" aria-live="polite">
-          {trackList.map((track) => {
+          {displayTrackList.map((track) => {
             const scale = Math.min(Math.max(0.7 + track.y * 0.65, 0.7), 1.35)
             return (
               <div

@@ -17,6 +17,7 @@ export default function StoreDashboardView({
   isUsingMock,
   error,
   loading,
+  isChatbotEnabled,
 }) {
   const [isPolicyExpanded, setIsPolicyExpanded] = useState(false)
   const [isMenuExpanded, setIsMenuExpanded] = useState(false)
@@ -110,7 +111,7 @@ export default function StoreDashboardView({
       </section>
 
       {/* JBNU Inspired Store Chatbot Widget */}
-      <StoreChatbotWidget page={page} />
+      {isChatbotEnabled !== false && <StoreChatbotWidget page={page} />}
 
     </section>
   )

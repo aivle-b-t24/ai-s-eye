@@ -59,6 +59,22 @@ function App() {
   const [storesData, setStoresData] = useState(DEFAULT_STORE_DATA)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
+  const [chatbotSettingsMap, setChatbotSettingsMap] = useState(() => {
+    try {
+      const saved = localStorage.getItem('aicafe_chatbot_settings_map')
+      return saved ? JSON.parse(saved) : {}
+    } catch (e) {
+      return {}
+    }
+  })
+
+  const handleToggleChatbotForStore = (targetStoreId, enabled) => {
+    setChatbotSettingsMap((prev) => {
+      const next = { ...prev, [targetStoreId]: enabled }
+      localStorage.setItem('aicafe_chatbot_settings_map', JSON.stringify(next))
+      return next
+    })
+  }
 
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -448,6 +464,7 @@ function App() {
               isUsingMock={isUsingMock}
               error={error}
               loading={loading}
+              isChatbotEnabled={chatbotSettingsMap[page] !== false}
             />
           )}
 
@@ -467,6 +484,21 @@ function App() {
                 currentUser?.role === ROLES.STORE_MANAGER
                   ? currentUser.storeId
                   : STORES.DONGMYEONG
+              }
+              isChatbotEnabled={
+                chatbotSettingsMap[
+                  currentUser?.role === ROLES.STORE_MANAGER
+                    ? currentUser.storeId
+                    : STORES.DONGMYEONG
+                ] !== false
+              }
+              onToggleChatbot={(enabled) =>
+                handleToggleChatbotForStore(
+                  currentUser?.role === ROLES.STORE_MANAGER
+                    ? currentUser.storeId
+                    : STORES.DONGMYEONG,
+                  enabled
+                )
               }
             />
           )}

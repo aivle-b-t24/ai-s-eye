@@ -230,8 +230,11 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
   )
   const liveZoneCounts = useMemo(
     () => activeTracks.reduce((result, track) => {
-      if (!track.zone) return result
-      result[track.zone] = (result[track.zone] ?? 0) + 1
+      const zone = track.zone ?? (
+        track.role === 'customer' ? 'unassigned' : null
+      )
+      if (!zone) return result
+      result[zone] = (result[zone] ?? 0) + 1
       return result
     }, {}),
     [activeTracks],

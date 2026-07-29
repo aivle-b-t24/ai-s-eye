@@ -42,6 +42,12 @@ const ZoneIcon = ({ type }) => {
         <path d="M11 20v-2a5 5 0 0 1 10 0v2" />
       </>
     ),
+    unassigned: (
+      <>
+        <circle cx="12" cy="12" r="8" />
+        <path d="M12 8v5M12 16h.01" />
+      </>
+    ),
   }
 
   return (
@@ -103,6 +109,15 @@ export default function ZoneBreakdownTable({ zoneCounts, storeId }) {
       status: '이동 감지',
       getValue: (zc) => zc?.aisle ?? zc?.aisle_1f,
     },
+    {
+      id: 'unassigned',
+      keyMatch: ['unassigned'],
+      label: '구역 외 고객',
+      english: 'Outside Zone',
+      type: 'unassigned',
+      status: '승인 ROI 밖에서 감지',
+      getValue: (zc) => zc?.unassigned,
+    },
   ]
 
   const hasLiveTwinData = (
@@ -127,7 +142,10 @@ export default function ZoneBreakdownTable({ zoneCounts, storeId }) {
     .map((z) => {
       const val = z.getValue(effectiveZoneCounts)
       const isPresent = approvedZoneTypes
-        ? approvedZoneTypes.has(z.id)
+        ? (
+          approvedZoneTypes.has(z.id)
+          || (z.id === 'unassigned' && (val ?? 0) > 0)
+        )
         : val !== undefined || z.keyMatch.some((k) => activeZoneKeys.includes(k))
       return {
         id: z.id,

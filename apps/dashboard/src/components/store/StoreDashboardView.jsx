@@ -7,6 +7,7 @@ import VisionMonitorPanel from './VisionMonitorPanel'
 import MenuListPanel from './MenuListPanel'
 import PolicyListPanel from './PolicyListPanel'
 import EmptyStorePanel from './EmptyStorePanel'
+import StoreChatbotWidget from './StoreChatbotWidget'
 
 export default function StoreDashboardView({
   page,
@@ -107,6 +108,9 @@ export default function StoreDashboardView({
           />
         </div>
       </section>
+
+      {/* JBNU Inspired Store Chatbot Widget */}
+      <StoreChatbotWidget page={page} />
 
     </section>
   )

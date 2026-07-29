@@ -81,15 +81,30 @@ def _angle(a, b, c):
 
 
 def posture(kp, cf):
-    """무릎 각도로 서있음/앉음 판정. 다리 안 보이면 unknown."""
-    best = None
-    for hip, knee, ank in [(11, 13, 15), (12, 14, 16)]:
-        if cf[hip] > 0.3 and cf[knee] > 0.3 and cf[ank] > 0.3:
-            a = _angle(kp[hip], kp[knee], kp[ank])
-            best = a if best is None else max(best, a)
-    if best is None:
-        return "unknown"
-    return "stand" if best >= 150 else "sit"
+    """자세 판정. 상체-허벅지 각도(어깨-엉덩이-무릎)를 주 신호로 사용.
+
+    상체는 탑다운 CCTV에서도 잘 보이고, 앉으면 굽고(~90°) 서면 펴진다(~180°).
+    무릎 각도(엉덩이-무릎-발목)는 발목이 자주 가려 보조로만. 정보 없으면 unknown.
+    (구버전은 무릎 각도의 max만 봐서 다리 가리면 unknown 다발 + 한 다리만 펴져도 오판.)
+    """
+    torso = []
+    for sh, hip, kn in [(5, 11, 13), (6, 12, 14)]:
+        if cf[sh] > 0.3 and cf[hip] > 0.3 and cf[kn] > 0.3:
+            torso.append(_angle(kp[sh], kp[hip], kp[kn]))
+    knee = []
+    for hip, kn, an in [(11, 13, 15), (12, 14, 16)]:
+        if cf[hip] > 0.3 and cf[kn] > 0.3 and cf[an] > 0.3:
+            knee.append(_angle(kp[hip], kp[kn], kp[an]))
+    if torso:
+        t = max(torso)                       # 더 펴진 쪽
+        if t < 135:
+            return "sit"                     # 상체-허벅지 굽음 → 앉음
+        if t >= 160 and (not knee or max(knee) >= 150):
+            return "stand"                   # 상체 폄 + (무릎도 폄 또는 무릎 안 보임)
+        return "sit"                         # 애매하면 보수적으로 앉음
+    if knee:
+        return "stand" if max(knee) >= 160 else "sit"
+    return "unknown"
 
 
 def dwell_waiting(pose_model, wait_zone, frames):

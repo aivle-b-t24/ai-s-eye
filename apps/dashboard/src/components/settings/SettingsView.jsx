@@ -5,6 +5,8 @@ export default function SettingsView({
   apiBaseUrl,
   setPage,
   storeId,
+  isChatbotEnabled = true,
+  onToggleChatbot,
 }) {
   const [activeTab, setActiveTab] = useState('space');
 
@@ -85,6 +87,31 @@ export default function SettingsView({
             <div className="setting-group">
               <label>실시간 폴링 정책</label>
               <input type="text" value="매장 화면 진입 시 /state 단일 Polling (2초) | 본사/설정 진입 시 Polling 중지" readOnly />
+            </div>
+
+            {/* AI Chatbot Assistant ON/OFF Setting Toggle */}
+            <div className="setting-group chatbot-setting-group">
+              <label>
+                AI 챗봇 어시스턴트 기능 ({storeId === 'store-001' ? '매장 1 (동명점)' : storeId === 'store-002' ? '매장 2 (상무점)' : storeId})
+              </label>
+              <div className="chatbot-toggle-wrapper">
+                <div className="toggle-info-text">
+                  <span className={`chatbot-badge ${isChatbotEnabled ? 'is-enabled' : 'is-disabled'}`}>
+                    {isChatbotEnabled ? '🟢 ON (사용 중)' : '🔴 OFF (비활성화)'}
+                  </span>
+                  <span className="toggle-desc">
+                    {storeId === 'store-001' ? '매장 1 (동명점)' : storeId === 'store-002' ? '매장 2 (상무점)' : storeId} 화면 전용 AI Cafe 챗봇 버튼 및 팝업 표시 설정
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className={`chatbot-switch-btn ${isChatbotEnabled ? 'is-active' : ''}`}
+                  onClick={() => onToggleChatbot && onToggleChatbot(!isChatbotEnabled)}
+                  title={isChatbotEnabled ? '챗봇 끄기' : '챗봇 켜기'}
+                >
+                  <span className="switch-handle" />
+                </button>
+              </div>
             </div>
           </div>
         </div>

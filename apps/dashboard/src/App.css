@@ -5286,3 +5286,117 @@ font-size: 16px !important;
   background: #9d174d;
   transform: scale(1.05);
 }
+
+/* Settings View Chatbot ON/OFF Toggle Switch */
+.chatbot-setting-group {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.chatbot-toggle-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-top: 8px;
+}
+
+.toggle-info-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chatbot-badge {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 20px;
+  width: fit-content;
+}
+
+.chatbot-badge.is-enabled {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.chatbot-badge.is-disabled {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.toggle-desc {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.chatbot-switch-btn {
+  width: 56px;
+  height: 30px;
+  border-radius: 15px;
+  background: #cbd5e1;
+  border: none;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.3s;
+  padding: 3px;
+}
+
+.chatbot-switch-btn.is-active {
+  background: #004b8d;
+}
+
+.switch-handle {
+  display: block;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chatbot-switch-btn.is-active .switch-handle {
+  transform: translateX(26px);
+}
+
+/* Chatbot Source Citation Tag & Loading Dots */
+.message-source-tag {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 3px 8px;
+  background: #d1fae5;
+  color: #047857;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid #a7f3d0;
+}
+
+.chatbot-loading-dots {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 12px 18px !important;
+}
+
+.chatbot-loading-dots span {
+  width: 7px;
+  height: 7px;
+  background: #64748b;
+  border-radius: 50%;
+  animation: loadingBlink 1.4s infinite ease-in-out both;
+}
+
+.chatbot-loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+.chatbot-loading-dots span:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes loadingBlink {
+  0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
+  40% { transform: scale(1); opacity: 1; }
+}

@@ -106,7 +106,7 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
   const [roiConfig, setRoiConfig] = useState(null)
   const [status, setStatus] = useState('loading')
   const [capturedAt, setCapturedAt] = useState(null)
-  const [showSource, setShowSource] = useState(false)
+  const [viewMode, setViewMode] = useState('twin')
   const [imageTick, setImageTick] = useState(() => Date.now())
   const latestCapturedAtRef = useRef(null)
 
@@ -155,7 +155,7 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
     setRoiConfig(null)
     setCapturedAt(null)
     setStatus('loading')
-    setShowSource(false)
+    setViewMode('twin')
   }, [storeId])
 
   useEffect(() => {
@@ -265,13 +265,15 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
     )
   }
 
-  const imageUrl = (
-    `${API_BASE_URL}/api/stores/${storeId}/vision/raw/latest?t=${imageTick}`
+  const imageEndpoint = (
+    viewMode === 'analysis' ? 'vision/latest' : 'vision/raw/latest'
   )
+  const imageUrl = `${API_BASE_URL}/api/stores/${storeId}/${imageEndpoint}?t=${imageTick}`
+  const showSource = viewMode !== 'twin'
 
   return (
     <section
-      className={`camera-scene-twin ${showSource ? 'show-source' : ''}`}
+      className={`camera-scene-twin camera-scene-mode-${viewMode}`}
       aria-label={`${scene.label} 디지털 트윈`}
     >
       <div className="camera-scene-toolbar">
@@ -286,14 +288,32 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
             {status === 'error' && '연결 오류'}
           </small>
         </div>
-        <button
-          type="button"
-          className={showSource ? 'active' : ''}
-          aria-pressed={showSource}
-          onClick={() => setShowSource((current) => !current)}
-        >
-          원본 겹쳐보기
-        </button>
+        <div className="camera-scene-view-switch" aria-label="카메라 화면 보기 방식">
+          <button
+            type="button"
+            className={viewMode === 'twin' ? 'active' : ''}
+            aria-pressed={viewMode === 'twin'}
+            onClick={() => setViewMode('twin')}
+          >
+            디지털 트윈
+          </button>
+          <button
+            type="button"
+            className={viewMode === 'raw' ? 'active' : ''}
+            aria-pressed={viewMode === 'raw'}
+            onClick={() => setViewMode('raw')}
+          >
+            원본 CCTV
+          </button>
+          <button
+            type="button"
+            className={viewMode === 'analysis' ? 'active' : ''}
+            aria-pressed={viewMode === 'analysis'}
+            onClick={() => setViewMode('analysis')}
+          >
+            분석 영상
+          </button>
+        </div>
       </div>
 
       <div className="camera-scene-stage">
@@ -305,95 +325,99 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
           />
         )}
 
-        <svg
-          className="camera-scene-map"
-          viewBox="0 0 1000 1000"
-          preserveAspectRatio="none"
-          aria-hidden="true"
-        >
-          <defs>
-            <linearGradient id={`${storeId}-floor`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#e7edf0" />
-              <stop offset="100%" stopColor="#aab8be" />
-            </linearGradient>
-            <pattern
-              id={`${storeId}-grid`}
-              width="62"
-              height="62"
-              patternUnits="userSpaceOnUse"
+        {viewMode !== 'analysis' && (
+          <>
+            <svg
+              className="camera-scene-map"
+              viewBox="0 0 1000 1000"
+              preserveAspectRatio="none"
+              aria-hidden="true"
             >
-              <path d="M 62 0 L 0 0 0 62" fill="none" stroke="#4c626b" strokeWidth="1" opacity="0.16" />
-            </pattern>
-          </defs>
+              <defs>
+                <linearGradient id={`${storeId}-floor`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#e7edf0" />
+                  <stop offset="100%" stopColor="#aab8be" />
+                </linearGradient>
+                <pattern
+                  id={`${storeId}-grid`}
+                  width="62"
+                  height="62"
+                  patternUnits="userSpaceOnUse"
+                >
+                  <path d="M 62 0 L 0 0 0 62" fill="none" stroke="#4c626b" strokeWidth="1" opacity="0.16" />
+                </pattern>
+              </defs>
 
-          <rect width="1000" height="1000" className="camera-scene-background" />
-          {scene.objects.map((object) => {
-            const center = objectCenter(object.polygon)
-            return (
-              <g key={object.id} className={`camera-scene-object camera-scene-${object.type}`}>
-                <polygon points={polygonPoints(object.polygon)} />
-                {object.label && (
-                  <text x={center.x} y={center.y}>{object.label}</text>
-                )}
-              </g>
-            )
-          })}
-          <rect width="1000" height="1000" fill={`url(#${storeId}-grid)`} />
+              <rect width="1000" height="1000" className="camera-scene-background" />
+              {scene.objects.map((object) => {
+                const center = objectCenter(object.polygon)
+                return (
+                  <g key={object.id} className={`camera-scene-object camera-scene-${object.type}`}>
+                    <polygon points={polygonPoints(object.polygon)} />
+                    {object.label && (
+                      <text x={center.x} y={center.y}>{object.label}</text>
+                    )}
+                  </g>
+                )
+              })}
+              <rect width="1000" height="1000" fill={`url(#${storeId}-grid)`} />
 
-          {(roiConfig?.zones ?? []).map((zone) => (
-            <g key={zone.id} className={`camera-scene-roi camera-scene-roi-${zone.type}`}>
-              <polygon points={roiPolygonPoints(zone.polygon)} />
-              <text
-                x={zone.polygon[0]?.x ?? 0}
-                y={Math.max((zone.polygon[0]?.y ?? 0) - 12, 22)}
-              >
-                {zone.label}
-              </text>
-            </g>
-          ))}
+              {(roiConfig?.zones ?? []).map((zone) => (
+                <g key={zone.id} className={`camera-scene-roi camera-scene-roi-${zone.type}`}>
+                  <polygon points={roiPolygonPoints(zone.polygon)} />
+                  <text
+                    x={zone.polygon[0]?.x ?? 0}
+                    y={Math.max((zone.polygon[0]?.y ?? 0) - 12, 22)}
+                  >
+                    {zone.label}
+                  </text>
+                </g>
+              ))}
 
-          {displayTrackList.map((track) => (
-            track.trail.length > 1 && (
-              <polyline
-                key={`${track.id}-trail`}
-                className={`camera-scene-trail camera-scene-trail-${agentClass(track)}`}
-                points={track.trail.map(({ x, y }) => `${x * 1000},${y * 1000}`).join(' ')}
-              />
-            )
-          ))}
-        </svg>
+              {displayTrackList.map((track) => (
+                track.trail.length > 1 && (
+                  <polyline
+                    key={`${track.id}-trail`}
+                    className={`camera-scene-trail camera-scene-trail-${agentClass(track)}`}
+                    points={track.trail.map(({ x, y }) => `${x * 1000},${y * 1000}`).join(' ')}
+                  />
+                )
+              ))}
+            </svg>
 
-        <div className="camera-scene-agent-layer" aria-live="polite">
-          {displayTrackList.map((track) => {
-            const scale = Math.min(Math.max(0.7 + track.y * 0.65, 0.7), 1.35)
-            return (
-              <div
-                key={track.id}
-                className={[
-                  'camera-scene-agent',
-                  `camera-scene-agent-${agentClass(track)}`,
-                  track.missing ? 'is-missing' : '',
-                ].filter(Boolean).join(' ')}
-                style={{
-                  left: `${track.x * 100}%`,
-                  top: `${track.y * 100}%`,
-                  zIndex: Math.round(track.y * 1000) + 100,
-                  '--agent-scale': scale,
-                  '--position-transition': `${POSITION_TRANSITION_MS}ms`,
-                }}
-                title={`${agentLabel(track)} · ${track.zone ?? '구역 미지정'} · ID ${track.id}`}
-              >
-                <span className="camera-scene-agent-shadow" />
-                <span className="camera-scene-agent-body">
-                  <i className="camera-scene-agent-head" />
-                  <i className="camera-scene-agent-torso" />
-                  <i className="camera-scene-agent-legs" />
-                </span>
-                <small>{track.id}</small>
-              </div>
-            )
-          })}
-        </div>
+            <div className="camera-scene-agent-layer" aria-live="polite">
+              {displayTrackList.map((track) => {
+                const scale = Math.min(Math.max(0.7 + track.y * 0.65, 0.7), 1.35)
+                return (
+                  <div
+                    key={track.id}
+                    className={[
+                      'camera-scene-agent',
+                      `camera-scene-agent-${agentClass(track)}`,
+                      track.missing ? 'is-missing' : '',
+                    ].filter(Boolean).join(' ')}
+                    style={{
+                      left: `${track.x * 100}%`,
+                      top: `${track.y * 100}%`,
+                      zIndex: Math.round(track.y * 1000) + 100,
+                      '--agent-scale': scale,
+                      '--position-transition': `${POSITION_TRANSITION_MS}ms`,
+                    }}
+                    title={`${agentLabel(track)} · ${track.zone ?? '구역 미지정'} · ID ${track.id}`}
+                  >
+                    <span className="camera-scene-agent-shadow" />
+                    <span className="camera-scene-agent-body">
+                      <i className="camera-scene-agent-head" />
+                      <i className="camera-scene-agent-torso" />
+                      <i className="camera-scene-agent-legs" />
+                    </span>
+                    <small>{track.id}</small>
+                  </div>
+                )
+              })}
+            </div>
+          </>
+        )}
 
         {(status === 'loading' || status === 'empty' || status === 'error') && (
           <div className={`camera-scene-message camera-scene-message-${status}`}>

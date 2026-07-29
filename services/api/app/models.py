@@ -113,3 +113,23 @@ class StoreSummaryResponse(BaseModel):
     data_source: str
     period: SummaryPeriod
     stores: list[StoreOperatingSummary]
+
+
+class StoreTimelinePoint(BaseModel):
+    start_at: datetime
+    end_at: datetime
+    observation_count: int = Field(ge=0)
+    average_visible_person_count: float | None = Field(default=None, ge=0)
+    peak_visible_person_count: int | None = Field(default=None, ge=0)
+    average_queue_count_estimate: float | None = Field(default=None, ge=0)
+    peak_queue_count_estimate: int | None = Field(default=None, ge=0)
+    order_count: int = Field(ge=0)
+    quality_issue_count: int = Field(ge=0)
+
+
+class StoreTimelineResponse(BaseModel):
+    schema_version: str = "1.0"
+    store_id: str
+    interval: str
+    period: SummaryPeriod
+    points: list[StoreTimelinePoint]

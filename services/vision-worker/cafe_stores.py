@@ -179,6 +179,7 @@ def run(limit=None, gen_images=True):
                 c["waiting"], camera_id=f"{store['store_id']}-cam1",
                 store_id=store["store_id"], quality=c["quality"], captured_at=ts)
             state["model_version"] = MODEL_VERSION
+            state["positions"] = c["positions"]  # 디지털 트윈용(POST 시 replay가 제거)
             states.append(state)
             if gen_images:
                 # 매장별 폴더에 매장별 인덱스로 저장: frames/<store_id>/{k:04d}.jpg
@@ -297,11 +298,30 @@ def render_analysis(img, zones, ft_boxes, wfeet):
             "customers": max(total - staff, 0)}
 
 
+def person_positions(ft_boxes, zones):
+    """FT 탐지 → 사람별 좌표(이미지 픽셀 1920×1080) + 구역 + 유형. 디지털 트윈용.
+
+    각 사람: {x, y(발 위치), zone: waiting/staff/seating, type: staff/customer}.
+    """
+    out = []
+    for b in ft_boxes:
+        fx, fy = foot_point(b)
+        z = assign_zone((int(fx), int(fy)), zones)
+        zk = z["key"] if z else None
+        out.append({
+            "x": int(fx), "y": int(fy),
+            "zone": zk if zk in ("waiting", "staff") else "seating",
+            "type": "staff" if zk == "staff" else "customer",
+        })
+    return out
+
+
 def analyze_and_render(ft_model, pose_model, store, seg):
     """매장 한 세그먼트 → (마지막프레임 주석 이미지, 집계). 이미지·상태 공통 경로.
 
     - 인원/직원: 파인튜닝 모델(정확). - 대기: pose+dwell(서있는 대기자만).
     - 대기자만 주황으로 칠해 앉은 사람 오표시 없음. 헤더=집계와 일치.
+    - c["positions"]: 사람별 좌표(디지털 트윈용, 이미지 픽셀).
     """
     _, zones = load_zones(ZONES_DIR / f"{store['store_id']}_zones.json")
     frames = seg_frames(store["clip"], seg)
@@ -317,6 +337,7 @@ def analyze_and_render(ft_model, pose_model, store, seg):
     _header(img, f"{store['store_id']}  customer {c['customers']}  "
                  f"wait {c['waiting']}  staff {c['staff']}  [{quality}]")
     c["quality"] = quality
+    c["positions"] = person_positions(ft_boxes, zones)
     return img, c
 
 
@@ -441,8 +462,9 @@ def main():
         url = args.post.rstrip("/") + "/internal/store-states"
         ok = 0
         for s in states:
+            payload = {k: v for k, v in s.items() if k != "positions"}
             req = urllib.request.Request(
-                url, data=json.dumps(s).encode("utf-8"),
+                url, data=json.dumps(payload).encode("utf-8"),
                 headers={"Content-Type": "application/json"}, method="POST")
             try:
                 with urllib.request.urlopen(req, timeout=5) as resp:

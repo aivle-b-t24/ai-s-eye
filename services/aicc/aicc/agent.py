@@ -1,8 +1,11 @@
+import logging
 from typing import Any
 
 from .config import get_settings
 from .router import QuestionRouter
 from .tools import StoreTools
+
+logger = logging.getLogger(__name__)
 
 
 SYSTEM_PROMPT = """너는 카페 'AI's Eye 데모점'의 안내 직원이다.
@@ -75,6 +78,8 @@ class StoreAgent:
                     location=settings.vertex_location,
                 )
             except Exception:
+                # 연결 실패해도 앱은 키워드 방식으로 넘어간다. 다만 원인은 로그로 남긴다.
+                logger.warning("Vertex Gemini 클라이언트 생성 실패", exc_info=True)
                 return None
 
         if not settings.gemini_api_key:

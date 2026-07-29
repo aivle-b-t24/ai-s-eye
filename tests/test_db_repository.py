@@ -335,3 +335,68 @@ def test_store_summary_uses_period_and_separates_stores(
     assert filtered_stores[store_one].traffic_summary is None
     assert filtered_stores[store_one].order_summary.total_order_count == 1
     assert filtered_stores[store_one].order_summary.order_event_count == 1
+
+
+def test_store_timeline_groups_store_records_by_hour(
+    database_repository: tuple[DatabaseRepository, sessionmaker[Session], str],
+) -> None:
+    repository, _, test_id = database_repository
+    store_id = f"{test_id}-timeline"
+    unique_offset = int(test_id[-12:], 16)
+    start_at = datetime(2200, 2, 1, tzinfo=timezone.utc) + timedelta(
+        microseconds=unique_offset
+    )
+    end_at = start_at + timedelta(hours=3)
+
+    for minute, people, queue, quality in (
+        (10, 4, 1, QualityStatus.NORMAL),
+        (40, 8, 3, QualityStatus.LOW),
+        (70, 6, 2, QualityStatus.NORMAL),
+    ):
+        repository.save_store_state(
+            StoreState(
+                store_id=store_id,
+                camera_id="cam-timeline",
+                captured_at=start_at + timedelta(minutes=minute),
+                visible_person_count=people,
+                queue_count_estimate=queue,
+                zone_counts={"waiting": queue},
+                quality_status=quality,
+                source="pytest",
+                model_version="test-v1",
+            )
+        )
+
+    received_event = OrderEvent(
+        event_id=f"{test_id}-timeline-received",
+        order_id=f"{test_id}-timeline-order",
+        store_id=store_id,
+        occurred_at=start_at + timedelta(minutes=20),
+        status=OrderStatus.RECEIVED,
+        items=[OrderItem(menu_id="menu-001", name="아메리카노", quantity=1)],
+    )
+    repository.save_order_event(received_event)
+    repository.save_order_event(
+        received_event.model_copy(
+            update={
+                "event_id": f"{test_id}-timeline-ready",
+                "occurred_at": start_at + timedelta(minutes=80),
+                "status": OrderStatus.READY,
+            }
+        )
+    )
+
+    response = repository.get_store_timeline(
+        store_id,
+        start_at=start_at,
+        end_at=end_at,
+    )
+
+    assert len(response.points) == 3
+    assert response.points[0].average_visible_person_count == 6
+    assert response.points[0].peak_queue_count_estimate == 3
+    assert response.points[0].order_count == 1
+    assert response.points[0].quality_issue_count == 1
+    assert response.points[1].observation_count == 1
+    assert response.points[1].order_count == 0
+    assert response.points[2].observation_count == 0

@@ -255,6 +255,58 @@ def test_store_summary_rejects_reversed_period(client: TestClient) -> None:
     assert response.json()["detail"] == "start_at must be earlier than end_at"
 
 
+def test_store_timeline_requires_postgresql(client: TestClient) -> None:
+    response = client.get(
+        "/api/stores/store-001/timeline",
+        params={
+            "start_at": "2026-07-22T00:00:00+09:00",
+            "end_at": "2026-07-23T00:00:00+09:00",
+        },
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "PostgreSQL is required for store timeline"
+
+
+def test_store_timeline_requires_timezone(client: TestClient) -> None:
+    response = client.get(
+        "/api/stores/store-001/timeline",
+        params={
+            "start_at": "2026-07-22T00:00:00",
+            "end_at": "2026-07-23T00:00:00",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "start_at and end_at must include a timezone"
+
+
+def test_store_timeline_rejects_reversed_period(client: TestClient) -> None:
+    response = client.get(
+        "/api/stores/store-001/timeline",
+        params={
+            "start_at": "2026-07-23T00:00:00+09:00",
+            "end_at": "2026-07-22T00:00:00+09:00",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "start_at must be earlier than end_at"
+
+
+def test_store_timeline_rejects_period_over_31_days(client: TestClient) -> None:
+    response = client.get(
+        "/api/stores/store-001/timeline",
+        params={
+            "start_at": "2026-06-01T00:00:00+09:00",
+            "end_at": "2026-07-03T00:00:00+09:00",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "timeline period must not exceed 31 days"
+
+
 def test_invalid_order_status_is_rejected(client: TestClient) -> None:
     payload = {
         "event_id": "event-invalid",

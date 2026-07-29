@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import FastAPI, File, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,7 +10,13 @@ import psycopg
 
 from .config import get_settings
 from .db_repository import DatabaseRepository
-from .models import EtaResponse, OrderEvent, StoreState, StoreSummaryResponse
+from .models import (
+    EtaResponse,
+    OrderEvent,
+    StoreState,
+    StoreSummaryResponse,
+    StoreTimelineResponse,
+)
 from .repository import InMemoryRepository
 from .vision_snapshots import (
     InvalidImageError,
@@ -22,6 +28,7 @@ from .vision_snapshots import (
 
 settings = get_settings()
 DEFAULT_SUMMARY_WINDOW = timedelta(hours=24)
+MAX_TIMELINE_WINDOW = timedelta(days=31)
 repository = (
     DatabaseRepository()
     if settings.database_url
@@ -242,6 +249,45 @@ def get_stores_summary(
             detail="PostgreSQL is required for store summary",
         )
     return repository.get_store_summary(start_at=start_at, end_at=end_at)
+
+
+@app.get(
+    "/api/stores/{store_id}/timeline",
+    response_model=StoreTimelineResponse,
+    tags=["stores"],
+)
+def get_store_timeline(
+    store_id: str,
+    start_at: datetime,
+    end_at: datetime,
+    interval: Literal["1h"] = "1h",
+) -> StoreTimelineResponse:
+    if start_at.tzinfo is None or end_at.tzinfo is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="start_at and end_at must include a timezone",
+        )
+    if start_at >= end_at:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="start_at must be earlier than end_at",
+        )
+    if end_at - start_at > MAX_TIMELINE_WINDOW:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="timeline period must not exceed 31 days",
+        )
+    if not isinstance(repository, DatabaseRepository):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="PostgreSQL is required for store timeline",
+        )
+    return repository.get_store_timeline(
+        store_id,
+        start_at=start_at,
+        end_at=end_at,
+        interval=interval,
+    )
 
 
 @app.get(

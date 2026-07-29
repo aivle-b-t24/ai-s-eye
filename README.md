@@ -155,6 +155,20 @@ Vision은 다음 분석 실행 시 API의 승인본을 먼저 사용하고, API 
 그마저 없으면 기존 `zones/*.json`을 사용합니다. 기존에 만들어 둔 재생 JSON은
 ROI만 저장한다고 다시 계산되지 않으므로 Vision 분석을 재실행해야 수치가 바뀝니다.
 
+개발 중에는 다음 명령으로 Vision LIVE 분석을 계속 실행할 수 있습니다.
+
+```bash
+services/vision-worker/live_control.sh start
+services/vision-worker/live_control.sh status
+services/vision-worker/live_control.sh logs
+services/vision-worker/live_control.sh stop
+```
+
+LIVE 실행 중에는 승인된 ROI 버전을 2초마다 확인합니다. `저장 및 적용`을 누르면
+별도 재시작 없이 다음 분석 구간부터 새 ROI가 사용됩니다. 마지막 구간까지 끝나면
+처음부터 반복하므로 대시보드의 인원, 위치, 분석 이미지도 계속 갱신됩니다. 기존
+JSON 기반 `vision-replay`는 같은 데이터를 덮어쓰지 않도록 LIVE 시작 시 중지합니다.
+
 ## 테스트
 
 API 코드만 따로 테스트하려면 Python 가상환경을 만든 뒤 실행합니다.

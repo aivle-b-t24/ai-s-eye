@@ -122,6 +122,7 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
         { signal },
       )
       if (response.status === 404) {
+        latestCapturedAtRef.current = null
         setTracks({})
         setCapturedAt(null)
         setStatus('empty')
@@ -151,6 +152,7 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
   useEffect(() => {
     latestCapturedAtRef.current = null
     setTracks({})
+    setRoiConfig(null)
     setCapturedAt(null)
     setStatus('loading')
     setShowSource(false)

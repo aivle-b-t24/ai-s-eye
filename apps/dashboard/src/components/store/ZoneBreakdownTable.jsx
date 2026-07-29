@@ -144,7 +144,7 @@ export default function ZoneBreakdownTable({ zoneCounts, storeId }) {
       const isPresent = approvedZoneTypes
         ? (
           approvedZoneTypes.has(z.id)
-          || (z.id === 'unassigned' && (val ?? 0) > 0)
+          || z.id === 'unassigned'
         )
         : val !== undefined || z.keyMatch.some((k) => activeZoneKeys.includes(k))
       return {

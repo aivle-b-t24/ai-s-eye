@@ -252,18 +252,9 @@ export default function VisionMonitorPanel({ storeId }) {
                       r="12"
                     >
                       <title>
-                        {`${agentLabel(agent)} · ID ${agent.id ?? '없음'} · ${agent.zone ?? '구역 미지정'}`}
+                        {`${agentLabel(agent)} · ${agent.zone ?? '구역 미지정'}`}
                       </title>
                     </circle>
-                    {agent.id && (
-                      <text
-                        className="camera-agent-id"
-                        x={agent.x * 1000 + 17}
-                        y={agent.y * 1000 - 16}
-                      >
-                        {agent.id}
-                      </text>
-                    )}
                   </g>
                 ))}
 

@@ -27,6 +27,7 @@ import collections
 import json
 import math
 import os
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -38,6 +39,7 @@ from roi_zone_counter import (
     parse_zones, foot_point, assign_zone, build_store_state, ZONE_COLOR, KST,
 )
 from roi_config_client import load_roi_zone_data
+from replay_states import post_state, prepare_occupancy
 
 CAFE_ROOT = Path(os.getenv(
     "AISEYE_CAFE_ROOT", r"D:\Cafe_Dataset\Cafe_Dataset\Dataset\cafe"))
@@ -46,6 +48,7 @@ CAFE_MODEL = os.getenv(
 POSE_MODEL = "yolo11s-pose.pt"   # 자동 다운로드(서있음/앉음 + 추적)
 TRACKER_CONFIG = os.getenv("AISEYE_TRACKER", "bytetrack.yaml")
 MODEL_VERSION = "yolo11s-cafe-ft+pose-dwell"
+BASE_MODEL_VERSION = "yolo11s-base+pose-dwell"
 ZONES_DIR = Path(__file__).resolve().parent / "zones"
 ROI_CACHE_DIR = Path(
     os.getenv(
@@ -54,7 +57,12 @@ ROI_CACHE_DIR = Path(
     )
 )
 ROI_API_BASE_URL = os.getenv("AISEYE_API_BASE_URL")
-_ZONE_CACHE: dict[tuple[str, int, int], list[dict]] = {}
+ROI_REFRESH_SECONDS = max(
+    float(os.getenv("AISEYE_ROI_REFRESH_SECONDS", "2")),
+    0.0,
+)
+ROI_AUTO_REFRESH = False
+_ZONE_CACHE: dict[tuple[str, str, int, int], dict] = {}
 N_DWELL = 8        # 대기 구역 안 '서있음' 이 프레임 수 이상이면 대기
 # 직원 = 직원구역 누적 체류 상위 K명(track_id 기준). 매장별 직원 수를 설정해 상한.
 STAFF_COUNT = {"store-001": 1, "store-002": 1}
@@ -86,8 +94,18 @@ def load_cafe_model():
     return YOLO(CAFE_MODEL) if Path(CAFE_MODEL).exists() else YOLO("yolo11s.pt")
 
 
+def active_model_version():
+    """실제로 불러온 탐지 가중치에 맞는 버전을 반환한다."""
+    return MODEL_VERSION if Path(CAFE_MODEL).exists() else BASE_MODEL_VERSION
+
+
 def load_store_trackers():
     """운영 매장마다 독립된 사람 추적기를 준비한다."""
+    if not Path(CAFE_MODEL).exists():
+        print(
+            f"경고: 파인튜닝 가중치가 없어 일반 yolo11s.pt를 사용합니다: "
+            f"{CAFE_MODEL}"
+        )
     return {store["store_id"]: load_cafe_model() for store in STORES}
 
 
@@ -226,7 +244,7 @@ def run(limit=None, gen_images=True):
                 {"staff": c["staff"], "waiting": c["waiting"]}, c["customers"],
                 c["waiting"], camera_id=f"{store['store_id']}-cam1",
                 store_id=store["store_id"], quality=c["quality"], captured_at=ts)
-            state["model_version"] = MODEL_VERSION
+            state["model_version"] = active_model_version()
             state["positions"] = c["positions"]  # 디지털 트윈용(POST 시 replay가 제거)
             states.append(state)
             if gen_images:
@@ -446,10 +464,15 @@ def track_people(ft_model, frames, staff_accum=None, staff_zone=None):
 
 
 def runtime_zones(store_id: str, camera_id: str, width: int, height: int):
-    """분석 시작 후 매장·해상도별 ROI를 한 번만 불러온다."""
-    key = (store_id, width, height)
-    if key in _ZONE_CACHE:
-        return _ZONE_CACHE[key]
+    """배치는 ROI를 고정하고 LIVE는 승인 버전을 주기적으로 다시 확인한다."""
+    key = (store_id, camera_id, width, height)
+    cached = _ZONE_CACHE.get(key)
+    checked_at = time.monotonic()
+    if cached is not None:
+        age = checked_at - cached["checked_at"]
+        if not ROI_AUTO_REFRESH or age < ROI_REFRESH_SECONDS:
+            return cached["zones"]
+
     data, source = load_roi_zone_data(
         api_base_url=ROI_API_BASE_URL,
         store_id=store_id,
@@ -460,10 +483,26 @@ def runtime_zones(store_id: str, camera_id: str, width: int, height: int):
         legacy_path=ZONES_DIR / f"{store_id}_zones.json",
     )
     _, zones = parse_zones(data)
-    _ZONE_CACHE[key] = zones
     version = data.get("version")
-    suffix = f" v{version}" if version else ""
-    print(f"  ROI {store_id}/{camera_id}: {source}{suffix}")
+
+    if cached is None:
+        suffix = f" v{version}" if version is not None else ""
+        print(f"  ROI {store_id}/{camera_id}: {source}{suffix}")
+    elif cached["version"] != version or cached["source"] != source:
+        previous = (
+            f"{cached['source']} v{cached['version']}"
+            if cached["version"] is not None
+            else cached["source"]
+        )
+        current = f"{source} v{version}" if version is not None else source
+        print(f"  ROI 갱신 {store_id}/{camera_id}: {previous} -> {current}")
+
+    _ZONE_CACHE[key] = {
+        "zones": zones,
+        "source": source,
+        "version": version,
+        "checked_at": checked_at,
+    }
     return zones
 
 
@@ -517,7 +556,18 @@ def run_snapshot(seg_override=None):
               f"대기 {c['waiting']} 직원 {c['staff']} [{c['quality']}] → {p.name}")
 
 
-def run_live(api, interval, limit=None):
+def reset_store_trackers(models):
+    """재생을 처음으로 돌릴 때 매장별 ByteTrack 상태도 초기화한다."""
+    for model in models.values():
+        predictor = getattr(model, "predictor", None)
+        trackers = getattr(predictor, "trackers", None) or []
+        for tracker in trackers:
+            reset = getattr(tracker, "reset", None)
+            if callable(reset):
+                reset()
+
+
+def run_live(api, interval, limit=None, loop=False):
     """(ㄴ) 이미지↔상태 동기 재생. 세그먼트마다 분석 이미지 + StoreState를 함께 생성.
 
     같은 세그먼트에서 이미지(탐지+ROI, 대기자만 주황)와 상태(인원/대기/직원)를 만들어
@@ -526,7 +576,6 @@ def run_live(api, interval, limit=None):
 
     실행: py cafe_stores.py --live --post http://localhost:8000 --interval 3
     """
-    import time
     import urllib.request
 
     ft_models = load_store_trackers()
@@ -540,44 +589,72 @@ def run_live(api, interval, limit=None):
     print(f"=== LIVE 동기 재생: {n}세그 × {len(STORES)}매장 → {url} (간격 {interval}s) ===")
     print("이미지 갱신: " + str(SNAP_DIR) + "\n중단 Ctrl+C\n")
 
+    cycle = 0
     try:
-        for t in range(n):
-            for store in STORES:
-                seg = seg_map[store["store_id"]][t]
-                if not seg_frames(store["clip"], seg):
-                    continue
-                img, raw_img, c = analyze_and_render(
-                    ft_models[store["store_id"]], pose, store, seg,
-                    staff_accum[store["store_id"]],
-                )
-                save_snapshot(store["store_id"], img)   # 로컬 디버그용
-                try:                                     # 이미지 API 업로드(#85)
-                    upload_snapshot(api, store["store_id"], img)
-                    upload_snapshot(api, store["store_id"], raw_img, raw=True)
-                except Exception as exc:  # noqa: BLE001
-                    print(f"  이미지 업로드 실패({store['store_id']}): {exc}")
-                state = build_store_state(
-                    {"staff": c["staff"], "waiting": c["waiting"]}, c["customers"],
-                    c["waiting"], camera_id=f"{store['store_id']}-cam1",
-                    store_id=store["store_id"], quality=c["quality"],
-                    captured_at=datetime.now(KST))
-                state["model_version"] = MODEL_VERSION
-                req = urllib.request.Request(
-                    url, data=json.dumps(state).encode("utf-8"),
-                    headers={"Content-Type": "application/json"}, method="POST")
-                try:
-                    urllib.request.urlopen(req, timeout=5).close()
-                except Exception as exc:  # noqa: BLE001
-                    print(f"  POST 실패({store['store_id']}): {exc}")
-            if t % 10 == 0:
-                print(f"  세그 {t + 1}/{n} 상태+이미지 갱신")
-            time.sleep(interval)
+        while True:
+            if cycle:
+                reset_store_trackers(ft_models)
+                for accumulator in staff_accum.values():
+                    accumulator.clear()  # 트래커 리셋 시 track_id도 초기화 → 누적도 초기화
+                print(f"=== LIVE 재분석 {cycle + 1}회차 시작 ===")
+
+            for t in range(n):
+                for store in STORES:
+                    seg = seg_map[store["store_id"]][t]
+                    if not seg_frames(store["clip"], seg):
+                        continue
+                    img, raw_img, c = analyze_and_render(
+                        ft_models[store["store_id"]], pose, store, seg,
+                        staff_accum[store["store_id"]],
+                    )
+                    save_snapshot(store["store_id"], img)   # 로컬 디버그용
+                    try:                                     # 이미지 API 업로드(#85)
+                        upload_snapshot(api, store["store_id"], img)
+                        upload_snapshot(api, store["store_id"], raw_img, raw=True)
+                    except Exception as exc:  # noqa: BLE001
+                        print(f"  이미지 업로드 실패({store['store_id']}): {exc}")
+                    state = build_store_state(
+                        {"staff": c["staff"], "waiting": c["waiting"]}, c["customers"],
+                        c["waiting"], camera_id=f"{store['store_id']}-cam1",
+                        store_id=store["store_id"], quality=c["quality"],
+                        captured_at=datetime.now(KST))
+                    state["model_version"] = active_model_version()
+                    state_with_positions = {**state, "positions": c["positions"]}
+                    occupancy = prepare_occupancy(
+                        state_with_positions,
+                        preserve_timestamp=True,
+                        frame_width=raw_img.shape[1],
+                        frame_height=raw_img.shape[0],
+                    )
+                    req = urllib.request.Request(
+                        url, data=json.dumps(state).encode("utf-8"),
+                        headers={"Content-Type": "application/json"}, method="POST")
+                    try:
+                        urllib.request.urlopen(req, timeout=5).close()
+                    except Exception as exc:  # noqa: BLE001
+                        print(f"  POST 실패({store['store_id']}): {exc}")
+                    occupancy_url = (
+                        api.rstrip("/")
+                        + f"/internal/stores/{store['store_id']}/occupancy"
+                    )
+                    try:
+                        post_state(occupancy_url, occupancy)
+                    except Exception as exc:  # noqa: BLE001
+                        print(f"  위치 POST 실패({store['store_id']}): {exc}")
+                if t % 10 == 0:
+                    print(f"  세그 {t + 1}/{n} 상태+이미지 갱신")
+                if t < n - 1 or loop:
+                    time.sleep(interval)
+
+            if not loop:
+                break
+            cycle += 1
     except KeyboardInterrupt:
         print("\n중단됨")
 
 
 def main():
-    global ROI_API_BASE_URL
+    global ROI_API_BASE_URL, ROI_AUTO_REFRESH
     ap = argparse.ArgumentParser(description="CAFE 다매장 인원·대기·직원 집계(dwell)")
     ap.add_argument("--limit", type=int, default=None, help="매장별 앞 N세그만(빠른 확인)")
     ap.add_argument("--post", default=None, help="API 베이스 URL로 전송(예: http://localhost:8000)")
@@ -586,11 +663,14 @@ def main():
     ap.add_argument("--snapshot-seg", default=None, help="스냅샷에 쓸 세그먼트 번호(전 매장 공통)")
     ap.add_argument("--live", action="store_true",
                     help="이미지↔상태 동기 재생: 세그먼트마다 이미지 갱신 + StoreState POST")
+    ap.add_argument("--loop", action="store_true",
+                    help="마지막 세그먼트 뒤 처음부터 LIVE 분석을 계속 반복")
     ap.add_argument("--interval", type=float, default=3.0, help="--live 세그먼트 간격(초)")
     ap.add_argument("--no-images", action="store_true",
                     help="상태만 생성하고 분석 이미지(frames/)는 저장하지 않음")
     args = ap.parse_args()
     ROI_API_BASE_URL = args.post or ROI_API_BASE_URL
+    ROI_AUTO_REFRESH = args.live
     _ZONE_CACHE.clear()
 
     if args.snapshot:
@@ -600,7 +680,7 @@ def main():
     if args.live:
         if not args.post:
             raise SystemExit("--live 에는 --post <API URL> 이 필요합니다 (예: --post http://localhost:8000)")
-        run_live(args.post, args.interval, args.limit)
+        run_live(args.post, args.interval, args.limit, args.loop)
         return
 
     states = run(args.limit, gen_images=not args.no_images)

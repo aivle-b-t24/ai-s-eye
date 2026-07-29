@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-s-eye.local/schemas/camera_roi_config.schema.json",
+  "title": "Camera ROI Config Input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["coordinate_space", "image_size", "source", "zones"],
+  "properties": {
+    "coordinate_space": {
+      "const": "normalized_1000"
+    },
+    "image_size": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height"],
+      "properties": {
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "source": {
+      "enum": ["manual", "ai_assisted"]
+    },
+    "zones": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "type", "label", "polygon"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "type": {
+            "enum": ["staff", "waiting", "entrance", "seating"]
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "polygon": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 20,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["x", "y"],
+              "properties": {
+                "x": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

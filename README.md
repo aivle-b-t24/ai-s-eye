@@ -103,6 +103,8 @@ docker compose down
 | 메뉴와 품절 여부 | 샘플 메뉴 10개 중 2개 품절 처리 |
 | 매장 정책 | 샘플 정책 5개 조회 가능 |
 | 영상 분석 결과 받기 | StoreState JSON과 매장별 최신 분석 이미지 업로드·조회 API 준비 |
+| 카메라 ROI 설정 | 점주가 CCTV 화면에서 구역을 직접 설정하고 PostgreSQL에 버전별 저장 |
+| CCTV 디지털 트윈 | 원본 CCTV 위에 ROI·발 좌표·Track ID·최근 이동 궤적 표시 |
 | 주문 이벤트 받기 | 주문 시스템이 나중에 보낼 JSON 형식만 준비 |
 | 슈퍼바이저 AI 인사이트 | 두 매장 집계 결과를 Vertex AI로 분석하는 API 준비 |
 
@@ -139,6 +141,19 @@ GOOGLE_APPLICATION_CREDENTIALS_HOST_PATH=/home/user/.config/gcloud/application_d
 설정 후 `docker compose up -d --build aicc`로 실행하고
 `http://localhost:8100/healthz`에서 상태를 확인합니다. 인증 설정이 없더라도
 컨테이너와 상태 확인 API는 실행되지만 실제 `/insights` 호출은 실패합니다.
+
+## 카메라 ROI 설정
+
+점주 계정으로 로그인한 뒤 `설정`의 `카메라 구역 설정`에서 사용할 수 있습니다.
+
+1. 최신 CCTV 이미지 또는 별도 JPEG·PNG 이미지를 선택합니다.
+2. 직원·대기·출입구·좌석 구역을 직접 그립니다.
+3. 꼭짓점을 이동하거나 추가·삭제해 경계를 맞춥니다.
+4. `저장 및 적용`을 누르면 새 버전이 PostgreSQL에 저장됩니다.
+
+Vision은 다음 분석 실행 시 API의 승인본을 먼저 사용하고, API 장애 시 마지막 캐시,
+그마저 없으면 기존 `zones/*.json`을 사용합니다. 기존에 만들어 둔 재생 JSON은
+ROI만 저장한다고 다시 계산되지 않으므로 Vision 분석을 재실행해야 수치가 바뀝니다.
 
 ## 테스트
 

@@ -11,12 +11,16 @@ import psycopg
 from .config import get_settings
 from .db_repository import DatabaseRepository
 from .models import (
+    CameraRoiConfig,
+    CameraRoiConfigInput,
     EtaResponse,
     OrderEvent,
     StoreState,
     StoreSummaryResponse,
     StoreTimelineResponse,
+    TwinFrame,
 )
+from .occupancy import LatestOccupancyRepository
 from .repository import InMemoryRepository
 from .vision_snapshots import (
     InvalidImageError,
@@ -34,6 +38,7 @@ repository = (
     if settings.database_url
     else InMemoryRepository()
 )
+occupancy_repository = LatestOccupancyRepository()
 
 
 def load_json_file(filename: str) -> Any:
@@ -136,6 +141,30 @@ def save_store_state(state: StoreState) -> dict[str, Any]:
 
 
 @app.post(
+    "/internal/stores/{store_id}/occupancy",
+    status_code=status.HTTP_201_CREATED,
+    tags=["internal"],
+)
+def save_store_occupancy(
+    store_id: str,
+    frame: TwinFrame,
+) -> dict[str, Any]:
+    validate_vision_store_id(store_id)
+    if frame.store_id != store_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Path store_id and body store_id must match",
+        )
+    if frame.captured_at.tzinfo is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="captured_at must include a timezone",
+        )
+    saved = occupancy_repository.save(frame)
+    return {"saved": True, "frame": saved.model_dump(mode="json")}
+
+
+@app.post(
     "/internal/order-events",
     status_code=status.HTTP_202_ACCEPTED,
     tags=["internal"],
@@ -167,16 +196,34 @@ async def save_vision_snapshot(
     }
 
 
-@app.get(
-    "/api/stores/{store_id}/vision/latest",
-    response_class=FileResponse,
-    tags=["stores"],
+@app.post(
+    "/internal/stores/{store_id}/vision-raw",
+    status_code=status.HTTP_201_CREATED,
+    tags=["internal"],
 )
-def get_latest_vision_snapshot(store_id: str) -> FileResponse:
+async def save_raw_vision_snapshot(
+    store_id: str,
+    image: UploadFile = File(...),
+) -> dict[str, Any]:
+    """ROI 설정에 사용할 오버레이 없는 원본 CCTV 프레임을 저장한다."""
     validate_vision_store_id(store_id)
-    path = snapshot_path(settings.vision_snapshot_dir, store_id)
+    content = await read_snapshot_upload(image)
+    media_type = detect_image_media_type(content)
+    save_snapshot(settings.vision_snapshot_dir, store_id, content, raw=True)
+    return {
+        "saved": True,
+        "store_id": store_id,
+        "content_type": media_type,
+        "size_bytes": len(content),
+        "image_url": f"/api/stores/{store_id}/vision/raw/latest",
+    }
+
+
+def vision_snapshot_response(store_id: str, *, raw: bool = False) -> FileResponse:
+    path = snapshot_path(settings.vision_snapshot_dir, store_id, raw=raw)
     if not path.is_file():
-        raise HTTPException(status_code=404, detail="Vision snapshot not found")
+        label = "Raw vision snapshot" if raw else "Vision snapshot"
+        raise HTTPException(status_code=404, detail=f"{label} not found")
     try:
         with path.open("rb") as image_file:
             media_type = detect_image_media_type(image_file.read(8))
@@ -190,6 +237,113 @@ def get_latest_vision_snapshot(store_id: str) -> FileResponse:
         media_type=media_type,
         headers={"Cache-Control": "no-store"},
     )
+
+
+@app.get(
+    "/api/stores/{store_id}/vision/latest",
+    response_class=FileResponse,
+    tags=["stores"],
+)
+def get_latest_vision_snapshot(store_id: str) -> FileResponse:
+    validate_vision_store_id(store_id)
+    return vision_snapshot_response(store_id)
+
+
+@app.get(
+    "/api/stores/{store_id}/vision/raw/latest",
+    response_class=FileResponse,
+    tags=["stores"],
+)
+def get_latest_raw_vision_snapshot(store_id: str) -> FileResponse:
+    """ROI 설정용 원본 CCTV 프레임을 반환한다."""
+    validate_vision_store_id(store_id)
+    return vision_snapshot_response(store_id, raw=True)
+
+
+@app.get(
+    "/api/stores/{store_id}/occupancy/latest",
+    response_model=TwinFrame,
+    tags=["stores"],
+)
+def get_latest_store_occupancy(store_id: str) -> TwinFrame:
+    validate_vision_store_id(store_id)
+    frame = occupancy_repository.get(store_id)
+    if frame is None:
+        raise HTTPException(status_code=404, detail="Occupancy not found")
+    return frame
+
+
+@app.get(
+    "/api/stores/{store_id}/cameras/{camera_id}/roi-config",
+    response_model=CameraRoiConfig,
+    tags=["roi"],
+)
+def get_camera_roi_config(store_id: str, camera_id: str) -> CameraRoiConfig:
+    validate_vision_store_id(store_id)
+    config = repository.get_approved_roi_config(store_id, camera_id)
+    if config is None:
+        raise HTTPException(status_code=404, detail="ROI config not found")
+    return config
+
+
+@app.put(
+    "/api/stores/{store_id}/cameras/{camera_id}/roi-config",
+    response_model=CameraRoiConfig,
+    tags=["roi"],
+)
+def save_camera_roi_config(
+    store_id: str,
+    camera_id: str,
+    config: CameraRoiConfigInput,
+) -> CameraRoiConfig:
+    validate_vision_store_id(store_id)
+    return repository.save_roi_config(store_id, camera_id, config)
+
+
+@app.get(
+    "/api/stores/{store_id}/cameras/{camera_id}/roi-configs",
+    response_model=list[CameraRoiConfig],
+    tags=["roi"],
+)
+def list_camera_roi_configs(
+    store_id: str,
+    camera_id: str,
+) -> list[CameraRoiConfig]:
+    validate_vision_store_id(store_id)
+    return repository.list_roi_configs(store_id, camera_id)
+
+
+@app.post(
+    "/api/stores/{store_id}/cameras/{camera_id}/roi-configs/{version}/approve",
+    response_model=CameraRoiConfig,
+    tags=["roi"],
+)
+def approve_camera_roi_config(
+    store_id: str,
+    camera_id: str,
+    version: int,
+) -> CameraRoiConfig:
+    validate_vision_store_id(store_id)
+    config = repository.approve_roi_config(store_id, camera_id, version)
+    if config is None:
+        raise HTTPException(status_code=404, detail="ROI config version not found")
+    return config
+
+
+@app.get(
+    "/internal/stores/{store_id}/cameras/{camera_id}/roi-config",
+    response_model=CameraRoiConfig,
+    tags=["internal"],
+)
+def get_internal_camera_roi_config(
+    store_id: str,
+    camera_id: str,
+) -> CameraRoiConfig:
+    validate_vision_store_id(store_id)
+    config = repository.get_approved_roi_config(store_id, camera_id)
+    if config is None:
+        raise HTTPException(status_code=404, detail="ROI config not found")
+    return config
 
 
 @app.get(

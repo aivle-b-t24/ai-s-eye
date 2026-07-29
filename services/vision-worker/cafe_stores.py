@@ -35,16 +35,26 @@ import numpy as np
 from ultralytics import YOLO
 
 from roi_zone_counter import (
-    load_zones, foot_point, assign_zone, build_store_state, ZONE_COLOR, KST,
+    parse_zones, foot_point, assign_zone, build_store_state, ZONE_COLOR, KST,
 )
+from roi_config_client import load_roi_zone_data
 
 CAFE_ROOT = Path(os.getenv(
     "AISEYE_CAFE_ROOT", r"D:\Cafe_Dataset\Cafe_Dataset\Dataset\cafe"))
 CAFE_MODEL = os.getenv(
     "AISEYE_CAFE_MODEL", r"D:\Cafe_Dataset\yolo_runs\cafe_ft\weights\best.pt")
 POSE_MODEL = "yolo11s-pose.pt"   # 자동 다운로드(서있음/앉음 + 추적)
+TRACKER_CONFIG = os.getenv("AISEYE_TRACKER", "bytetrack.yaml")
 MODEL_VERSION = "yolo11s-cafe-ft+pose-dwell"
 ZONES_DIR = Path(__file__).resolve().parent / "zones"
+ROI_CACHE_DIR = Path(
+    os.getenv(
+        "AISEYE_ROI_CACHE_DIR",
+        str(Path(__file__).resolve().parent / "outputs" / "roi-cache"),
+    )
+)
+ROI_API_BASE_URL = os.getenv("AISEYE_API_BASE_URL")
+_ZONE_CACHE: dict[tuple[str, int, int], list[dict]] = {}
 N_DWELL = 8        # 대기 구역 안 '서있음' 이 프레임 수 이상이면 대기
 INTERVAL = 0.5     # 합성 시각 간격(초)
 
@@ -52,6 +62,7 @@ INTERVAL = 0.5     # 합성 시각 간격(초)
 SNAP_SEG = {"store-001": "28", "store-002": "8"}  # --snapshot 데모 세그(활동 보이는)
 SNAP_DIR = Path(__file__).resolve().parent / "outputs" / "snapshots"
 FRAMES_DIR = SNAP_DIR / "frames"  # 상태별 분석 이미지({i:04d}.jpg, states 배열과 같은 순서)
+RAW_FRAMES_DIR = SNAP_DIR / "raw-frames"  # ROI 설정용 오버레이 없는 원본
 
 # 운영 매장. 늘리려면 여기에 추가 + zones/<store_id>_zones.json 작성.
 STORES = [
@@ -62,6 +73,20 @@ STORES = [
 
 def read(path):
     return cv2.imdecode(np.fromfile(str(path), dtype=np.uint8), cv2.IMREAD_COLOR)
+
+
+def load_cafe_model():
+    """사람 탐지 모델 한 개를 만든다.
+
+    추적 상태는 YOLO 인스턴스 내부에 유지되므로 카메라별로 별도 인스턴스를
+    사용해야 서로 다른 매장의 track_id가 섞이지 않는다.
+    """
+    return YOLO(CAFE_MODEL) if Path(CAFE_MODEL).exists() else YOLO("yolo11s.pt")
+
+
+def load_store_trackers():
+    """운영 매장마다 독립된 사람 추적기를 준비한다."""
+    return {store["store_id"]: load_cafe_model() for store in STORES}
 
 
 def seg_dirs(clip):
@@ -170,7 +195,7 @@ def run(limit=None, gen_images=True):
     전송 인덱스에 맞춰 현재 이미지로 교체하면 대시보드에서 이미지·숫자가 동기.
     반환: states(교차 배치된 리스트).
     """
-    ft = YOLO(CAFE_MODEL) if Path(CAFE_MODEL).exists() else YOLO("yolo11s.pt")
+    ft_models = load_store_trackers()
     pose = YOLO(POSE_MODEL)
     base = datetime.now(KST)
     seg_map = {s["store_id"]: seg_dirs(s["clip"]) for s in STORES}
@@ -179,6 +204,7 @@ def run(limit=None, gen_images=True):
         n = min(n, limit)
     if gen_images:
         FRAMES_DIR.mkdir(parents=True, exist_ok=True)
+        RAW_FRAMES_DIR.mkdir(parents=True, exist_ok=True)
 
     states = []
     store_k = {s["store_id"]: 0 for s in STORES}  # 매장별 프레임 인덱스
@@ -187,7 +213,9 @@ def run(limit=None, gen_images=True):
             seg = seg_map[store["store_id"]][t]
             if not seg_frames(store["clip"], seg):
                 continue
-            img, c = analyze_and_render(ft, pose, store, seg)
+            img, raw_img, c = analyze_and_render(
+                ft_models[store["store_id"]], pose, store, seg
+            )
             ts = base + timedelta(seconds=INTERVAL * t)
             state = build_store_state(
                 {"staff": c["staff"], "waiting": c["waiting"]}, c["customers"],
@@ -199,9 +227,14 @@ def run(limit=None, gen_images=True):
             if gen_images:
                 # 매장별 폴더에 매장별 인덱스로 저장: frames/<store_id>/{k:04d}.jpg
                 sdir = FRAMES_DIR / store["store_id"]
+                raw_dir = RAW_FRAMES_DIR / store["store_id"]
                 sdir.mkdir(parents=True, exist_ok=True)
+                raw_dir.mkdir(parents=True, exist_ok=True)
                 k = store_k[store["store_id"]]
                 cv2.imencode(".jpg", img)[1].tofile(str(sdir / f"{k:04d}.jpg"))
+                cv2.imencode(".jpg", raw_img)[1].tofile(
+                    str(raw_dir / f"{k:04d}.jpg")
+                )
             store_k[store["store_id"]] += 1
         if t % 10 == 0 or t == n - 1:
             print(f"  세그 {t + 1}/{n} (states {len(states)}"
@@ -221,11 +254,11 @@ def save_snapshot(store_id, img):
     return out_path
 
 
-def upload_snapshot(api, store_id, img):
-    """분석 이미지를 백엔드에 업로드(백엔드 #85 계약).
+def upload_snapshot(api, store_id, img, *, raw=False):
+    """분석 이미지 또는 ROI 설정용 원본을 백엔드에 업로드한다.
 
-    POST /internal/stores/{store_id}/vision-snapshot (multipart form field 'image').
-    대시보드는 GET /api/stores/{store_id}/vision/latest 로 조회.
+    분석본: POST /internal/stores/{store_id}/vision-snapshot
+    원본:   POST /internal/stores/{store_id}/vision-raw
     """
     import urllib.request
     jpg = cv2.imencode(".jpg", img)[1].tobytes()
@@ -234,7 +267,8 @@ def upload_snapshot(api, store_id, img):
             + b'Content-Disposition: form-data; name="image"; filename="snapshot.jpg"\r\n'
             + b"Content-Type: image/jpeg\r\n\r\n" + jpg
             + f"\r\n--{boundary}--\r\n".encode())
-    url = api.rstrip("/") + f"/internal/stores/{store_id}/vision-snapshot"
+    endpoint = "vision-raw" if raw else "vision-snapshot"
+    url = api.rstrip("/") + f"/internal/stores/{store_id}/{endpoint}"
     req = urllib.request.Request(
         url, data=body, method="POST",
         headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
@@ -277,7 +311,7 @@ def waiter_feet(pose_model, zones, frames):
     return last_path, feet
 
 
-def render_analysis(img, zones, ft_boxes, wfeet):
+def render_analysis(img, zones, ft_boxes, wfeet, track_ids=None):
     """FT 탐지 박스 + 직원/대기 ROI를 그린다. 발점 색은 dwell 기준으로 통일:
        직원구역=보라, (대기자 발 위치 근처)=주황, 그 외=파랑(좌석/기타).
        → 앉은 사람은 대기 구역 안이라도 주황이 아님.
@@ -291,7 +325,8 @@ def render_analysis(img, zones, ft_boxes, wfeet):
         cv2.polylines(img, [z["polygon"]], True, ZONE_COLOR.get(z["key"], (150, 150, 150)), 2)
 
     staff = waiting = 0
-    for b in ft_boxes:
+    track_ids = track_ids if track_ids is not None else [None] * len(ft_boxes)
+    for b, track_id in zip(ft_boxes, track_ids):
         foot = foot_point(b)
         z = assign_zone(foot, zones)
         zk = z["key"] if z else None
@@ -308,27 +343,105 @@ def render_analysis(img, zones, ft_boxes, wfeet):
         cv2.rectangle(img, (int(b[0]), int(b[1])), (int(b[2]), int(b[3])), (0, 255, 0), 1)
         cv2.circle(img, foot, 7, col, -1)
         cv2.circle(img, foot, 7, (0, 0, 0), 1)
+        if track_id is not None:
+            cv2.putText(
+                img,
+                f"ID {int(track_id)}",
+                (int(b[0]), max(int(b[1]) - 6, 16)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.45,
+                (255, 255, 255),
+                2,
+            )
+            cv2.putText(
+                img,
+                f"ID {int(track_id)}",
+                (int(b[0]), max(int(b[1]) - 6, 16)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.45,
+                (0, 0, 0),
+                1,
+            )
     total = len(ft_boxes)
     return {"total": total, "staff": staff, "waiting": waiting,
             "customers": max(total - staff, 0)}
 
 
-def person_positions(ft_boxes, zones):
-    """FT 탐지 → 사람별 좌표(이미지 픽셀 1920×1080) + 구역 + 유형. 디지털 트윈용.
+def person_positions(ft_boxes, zones, track_ids=None):
+    """FT 추적 → 사람별 ID·좌표·구역·유형. 디지털 트윈용.
 
-    각 사람: {x, y(발 위치), zone: waiting/staff/seating, type: staff/customer}.
+    각 사람: {track_id, x, y(발 위치), zone, type}.
     """
     out = []
-    for b in ft_boxes:
+    track_ids = track_ids if track_ids is not None else [None] * len(ft_boxes)
+    if len(track_ids) != len(ft_boxes):
+        raise ValueError("track_ids and boxes must have the same length")
+    for b, track_id in zip(ft_boxes, track_ids):
         fx, fy = foot_point(b)
         z = assign_zone((int(fx), int(fy)), zones)
         zk = z["key"] if z else None
-        out.append({
+        position = {
             "x": int(fx), "y": int(fy),
             "zone": zk if zk in ("waiting", "staff") else "seating",
             "type": "staff" if zk == "staff" else "customer",
-        })
+        }
+        if track_id is not None:
+            position["track_id"] = int(track_id)
+        out.append(position)
     return out
+
+
+def track_people(ft_model, frames):
+    """연속 프레임을 추적하고 마지막 프레임의 박스와 ID를 반환한다.
+
+    세그먼트 경계에서도 같은 모델 인스턴스에 persist=True를 유지하므로
+    동일 인물의 ID가 다음 디지털 트윈 프레임까지 이어진다.
+    """
+    result = None
+    for path in frames:
+        frame = read(path)
+        if frame is None:
+            continue
+        result = ft_model.track(
+            frame,
+            persist=True,
+            tracker=TRACKER_CONFIG,
+            classes=[0],
+            conf=0.30,
+            iou=0.5,
+            agnostic_nms=True,
+            verbose=False,
+        )[0]
+
+    if result is None or result.boxes is None:
+        return np.empty((0, 4)), []
+
+    boxes = result.boxes.xyxy.cpu().numpy()
+    if result.boxes.id is None:
+        return boxes, [None] * len(boxes)
+    return boxes, result.boxes.id.cpu().numpy().astype(int).tolist()
+
+
+def runtime_zones(store_id: str, camera_id: str, width: int, height: int):
+    """분석 시작 후 매장·해상도별 ROI를 한 번만 불러온다."""
+    key = (store_id, width, height)
+    if key in _ZONE_CACHE:
+        return _ZONE_CACHE[key]
+    data, source = load_roi_zone_data(
+        api_base_url=ROI_API_BASE_URL,
+        store_id=store_id,
+        camera_id=camera_id,
+        frame_width=width,
+        frame_height=height,
+        cache_path=ROI_CACHE_DIR / f"{store_id}_{camera_id}.json",
+        legacy_path=ZONES_DIR / f"{store_id}_zones.json",
+    )
+    _, zones = parse_zones(data)
+    _ZONE_CACHE[key] = zones
+    version = data.get("version")
+    suffix = f" v{version}" if version else ""
+    print(f"  ROI {store_id}/{camera_id}: {source}{suffix}")
+    return zones
 
 
 def analyze_and_render(ft_model, pose_model, store, seg):
@@ -338,31 +451,37 @@ def analyze_and_render(ft_model, pose_model, store, seg):
     - 대기자만 주황으로 칠해 앉은 사람 오표시 없음. 헤더=집계와 일치.
     - c["positions"]: 사람별 좌표(디지털 트윈용, 이미지 픽셀).
     """
-    _, zones = load_zones(ZONES_DIR / f"{store['store_id']}_zones.json")
     frames = seg_frames(store["clip"], seg)
     if not frames:
         raise SystemExit(f"{store['store_id']} 세그 {seg} 프레임 없음")
+    first_image = read(frames[0])
+    if first_image is None:
+        raise SystemExit(f"{store['store_id']} 세그 {seg} 이미지 디코드 실패")
+    height, width = first_image.shape[:2]
+    camera_id = f"{store['store_id']}-cam1"
+    zones = runtime_zones(store["store_id"], camera_id, width, height)
     last_path, wfeet = waiter_feet(pose_model, zones, frames)
     img = read(last_path)
+    raw_img = img.copy()
     quality = frame_quality(img)
-    res = ft_model.predict(img, classes=[0], conf=0.30, iou=0.5,
-                           agnostic_nms=True, verbose=False)[0]
-    ft_boxes = res.boxes.xyxy.cpu().numpy()
-    c = render_analysis(img, zones, ft_boxes, wfeet)
+    ft_boxes, track_ids = track_people(ft_model, frames)
+    c = render_analysis(img, zones, ft_boxes, wfeet, track_ids)
     _header(img, f"{store['store_id']}  customer {c['customers']}  "
                  f"wait {c['waiting']}  staff {c['staff']}  [{quality}]")
     c["quality"] = quality
-    c["positions"] = person_positions(ft_boxes, zones)
-    return img, c
+    c["positions"] = person_positions(ft_boxes, zones, track_ids)
+    return img, raw_img, c
 
 
 def run_snapshot(seg_override=None):
-    ft = YOLO(CAFE_MODEL) if Path(CAFE_MODEL).exists() else YOLO("yolo11s.pt")
+    ft_models = load_store_trackers()
     pose = YOLO(POSE_MODEL)
     print(f"=== 분석 스냅샷 생성 → {SNAP_DIR} ===")
     for store in STORES:
         seg = seg_override or SNAP_SEG.get(store["store_id"], "0")
-        img, c = analyze_and_render(ft, pose, store, seg)
+        img, _, c = analyze_and_render(
+            ft_models[store["store_id"]], pose, store, seg
+        )
         p = save_snapshot(store["store_id"], img)
         print(f"  {store['store_id']} (seg {seg}): 손님 {c['customers']} "
               f"대기 {c['waiting']} 직원 {c['staff']} [{c['quality']}] → {p.name}")
@@ -380,7 +499,7 @@ def run_live(api, interval, limit=None):
     import time
     import urllib.request
 
-    ft = YOLO(CAFE_MODEL) if Path(CAFE_MODEL).exists() else YOLO("yolo11s.pt")
+    ft_models = load_store_trackers()
     pose = YOLO(POSE_MODEL)
     seg_map = {s["store_id"]: seg_dirs(s["clip"]) for s in STORES}
     n = min(len(v) for v in seg_map.values())
@@ -396,10 +515,13 @@ def run_live(api, interval, limit=None):
                 seg = seg_map[store["store_id"]][t]
                 if not seg_frames(store["clip"], seg):
                     continue
-                img, c = analyze_and_render(ft, pose, store, seg)
+                img, raw_img, c = analyze_and_render(
+                    ft_models[store["store_id"]], pose, store, seg
+                )
                 save_snapshot(store["store_id"], img)   # 로컬 디버그용
                 try:                                     # 이미지 API 업로드(#85)
                     upload_snapshot(api, store["store_id"], img)
+                    upload_snapshot(api, store["store_id"], raw_img, raw=True)
                 except Exception as exc:  # noqa: BLE001
                     print(f"  이미지 업로드 실패({store['store_id']}): {exc}")
                 state = build_store_state(
@@ -423,6 +545,7 @@ def run_live(api, interval, limit=None):
 
 
 def main():
+    global ROI_API_BASE_URL
     ap = argparse.ArgumentParser(description="CAFE 다매장 인원·대기·직원 집계(dwell)")
     ap.add_argument("--limit", type=int, default=None, help="매장별 앞 N세그만(빠른 확인)")
     ap.add_argument("--post", default=None, help="API 베이스 URL로 전송(예: http://localhost:8000)")
@@ -435,6 +558,8 @@ def main():
     ap.add_argument("--no-images", action="store_true",
                     help="상태만 생성하고 분석 이미지(frames/)는 저장하지 않음")
     args = ap.parse_args()
+    ROI_API_BASE_URL = args.post or ROI_API_BASE_URL
+    _ZONE_CACHE.clear()
 
     if args.snapshot:
         run_snapshot(args.snapshot_seg)

@@ -1,7 +1,8 @@
 from datetime import datetime
 from enum import StrEnum
+from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class QualityStatus(StrEnum):
@@ -18,6 +19,26 @@ class OrderStatus(StrEnum):
     COMPLETED = "completed"
     CANCELLED = "cancelled"
     REJECTED = "rejected"
+
+
+class TwinMode(StrEnum):
+    LIVE = "live"
+
+
+class TwinAgentRole(StrEnum):
+    CUSTOMER = "customer"
+    STAFF = "staff"
+
+
+class TwinAgentState(StrEnum):
+    ENTERING = "entering"
+    QUEUE = "queue"
+    ORDERING = "ordering"
+    WAITING = "waiting"
+    SEATED = "seated"
+    EXITING = "exiting"
+    WORKING = "working"
+    UNKNOWN = "unknown"
 
 
 class StoreState(BaseModel):
@@ -133,3 +154,147 @@ class StoreTimelineResponse(BaseModel):
     interval: str
     period: SummaryPeriod
     points: list[StoreTimelinePoint]
+
+
+class TwinAgent(BaseModel):
+    id: str | None = None
+    x: float = Field(ge=0, le=1)
+    y: float = Field(ge=0, le=1)
+    role: TwinAgentRole
+    state: TwinAgentState = TwinAgentState.UNKNOWN
+    zone: str | None = None
+
+
+class TwinFrame(BaseModel):
+    schema_version: str = "1.0"
+    store_id: str = Field(min_length=1)
+    camera_id: str = Field(min_length=1)
+    mode: TwinMode = TwinMode.LIVE
+    captured_at: datetime
+    coordinate_space: Literal["normalized_image"] = "normalized_image"
+    agents: list[TwinAgent] = Field(default_factory=list)
+
+
+class RoiZoneType(StrEnum):
+    STAFF = "staff"
+    WAITING = "waiting"
+    ENTRANCE = "entrance"
+    SEATING = "seating"
+
+
+class RoiConfigSource(StrEnum):
+    MANUAL = "manual"
+    AI_ASSISTED = "ai_assisted"
+
+
+class RoiConfigStatus(StrEnum):
+    APPROVED = "approved"
+    ARCHIVED = "archived"
+
+
+class RoiPoint(BaseModel):
+    x: int = Field(ge=0, le=1000)
+    y: int = Field(ge=0, le=1000)
+
+
+class RoiImageSize(BaseModel):
+    width: int = Field(gt=0)
+    height: int = Field(gt=0)
+
+
+def _orientation(a: RoiPoint, b: RoiPoint, c: RoiPoint) -> int:
+    value = (b.y - a.y) * (c.x - b.x) - (b.x - a.x) * (c.y - b.y)
+    if value == 0:
+        return 0
+    return 1 if value > 0 else 2
+
+
+def _on_segment(a: RoiPoint, b: RoiPoint, c: RoiPoint) -> bool:
+    return (
+        min(a.x, c.x) <= b.x <= max(a.x, c.x)
+        and min(a.y, c.y) <= b.y <= max(a.y, c.y)
+    )
+
+
+def _segments_intersect(
+    a: RoiPoint,
+    b: RoiPoint,
+    c: RoiPoint,
+    d: RoiPoint,
+) -> bool:
+    o1 = _orientation(a, b, c)
+    o2 = _orientation(a, b, d)
+    o3 = _orientation(c, d, a)
+    o4 = _orientation(c, d, b)
+    if o1 != o2 and o3 != o4:
+        return True
+    return (
+        (o1 == 0 and _on_segment(a, c, b))
+        or (o2 == 0 and _on_segment(a, d, b))
+        or (o3 == 0 and _on_segment(c, a, d))
+        or (o4 == 0 and _on_segment(c, b, d))
+    )
+
+
+def _validate_polygon_points(points: list[RoiPoint]) -> None:
+    if len({(point.x, point.y) for point in points}) != len(points):
+        raise ValueError("polygon points must be unique")
+
+    twice_area = abs(
+        sum(
+            point.x * points[(index + 1) % len(points)].y
+            - points[(index + 1) % len(points)].x * point.y
+            for index, point in enumerate(points)
+        )
+    )
+    if twice_area == 0:
+        raise ValueError("polygon must have a non-zero area")
+
+    edge_count = len(points)
+    for first in range(edge_count):
+        a = points[first]
+        b = points[(first + 1) % edge_count]
+        for second in range(first + 1, edge_count):
+            if second in {first, (first + 1) % edge_count}:
+                continue
+            if first == 0 and second == edge_count - 1:
+                continue
+            c = points[second]
+            d = points[(second + 1) % edge_count]
+            if _segments_intersect(a, b, c, d):
+                raise ValueError("polygon edges must not intersect")
+
+
+class RoiZone(BaseModel):
+    id: str = Field(min_length=1, max_length=100)
+    type: RoiZoneType
+    label: str = Field(min_length=1, max_length=100)
+    polygon: list[RoiPoint] = Field(min_length=3, max_length=20)
+
+    @model_validator(mode="after")
+    def validate_polygon(self) -> "RoiZone":
+        _validate_polygon_points(self.polygon)
+        return self
+
+
+class CameraRoiConfigInput(BaseModel):
+    coordinate_space: Literal["normalized_1000"] = "normalized_1000"
+    image_size: RoiImageSize
+    zones: list[RoiZone] = Field(min_length=1)
+    source: RoiConfigSource = RoiConfigSource.MANUAL
+
+    @model_validator(mode="after")
+    def validate_unique_zone_ids(self) -> "CameraRoiConfigInput":
+        zone_ids = [zone.id for zone in self.zones]
+        if len(zone_ids) != len(set(zone_ids)):
+            raise ValueError("zone ids must be unique")
+        return self
+
+
+class CameraRoiConfig(CameraRoiConfigInput):
+    store_id: str = Field(min_length=1)
+    camera_id: str = Field(min_length=1)
+    version: int = Field(gt=0)
+    status: RoiConfigStatus
+    created_at: datetime
+    approved_at: datetime | None = None

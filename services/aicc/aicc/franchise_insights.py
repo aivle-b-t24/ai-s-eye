@@ -10,11 +10,13 @@
 """
 
 import json
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from .config import get_settings
 
+logger = logging.getLogger(__name__)
 
 KST = timezone(timedelta(hours=9))
 
@@ -71,7 +73,7 @@ def _to_kst(iso: Any) -> str:
         dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
     except ValueError:
         return iso
-    return dt.astimezone(KST).strftime("%Y-%m-%d %H:%M KST")
+    return dt.astimezone(KST).strftime("%Y-%m-%d %H:%M")
 
 
 def build_client() -> Any | None:
@@ -89,6 +91,8 @@ def build_client() -> Any | None:
                 location=settings.vertex_location,
             )
         except Exception:
+            # 연결 실패해도 호출한 쪽이 오류 응답으로 처리한다. 원인은 로그로 남긴다.
+            logger.warning("Vertex Gemini 클라이언트 생성 실패", exc_info=True)
             return None
     if not settings.gemini_api_key:
         return None

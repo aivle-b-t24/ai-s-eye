@@ -29,7 +29,7 @@ OUT_DIR = Path(__file__).resolve().parent / "outputs"  # .gitignore의 outputs/ 
 
 # --- 구역 이름(한글) -> 전송 스키마용 영문 키 -----------------------------
 ZONE_KEY = {"좌석": "seating", "카운터": "counter", "통로": "aisle",
-            "직원": "staff", "대기": "waiting"}
+            "직원": "staff", "대기": "waiting", "입구": "entrance"}
 # 대기 인원(queue): 대기 구역이 있으면 그걸, 없으면 카운터(주문)로 근사
 QUEUE_KEY_PRIORITY = ["waiting", "counter"]
 STAFF_KO = "직원"          # 직원 구역(고객 집계에서 제외)
@@ -41,15 +41,14 @@ ZONE_COLOR = {
     "aisle": (0, 200, 0),       # 초록
     "staff": (200, 0, 200),     # 보라(직원)
     "waiting": (0, 80, 255),    # 빨강 계열(대기 줄)
+    "entrance": (180, 180, 0),  # 청록(출입구)
     "unknown": (150, 150, 150),  # 회색(미배정)
 }
 KST = timezone(timedelta(hours=9))
 
 
-def load_zones(path: Path):
-    """zones JSON 로드. AI Hub 계열 JSON은 BOM이 있어 utf-8-sig로 읽는다."""
-    with open(path, encoding="utf-8-sig") as f:
-        data = json.load(f)
+def parse_zones(data):
+    """구역 데이터 객체를 OpenCV 폴리곤 형식으로 변환한다."""
     zones = []
     seq: dict[str, int] = {}
     for z in data.get("zones", []):
@@ -62,6 +61,13 @@ def load_zones(path: Path):
         zones.append({"name_ko": z["name"], "key": key, "zid": zid,
                       "polygon": pts, "center": (cx, cy)})
     return data, zones
+
+
+def load_zones(path: Path):
+    """zones JSON 로드. AI Hub 계열 JSON은 BOM이 있어 utf-8-sig로 읽는다."""
+    with open(path, encoding="utf-8-sig") as f:
+        data = json.load(f)
+    return parse_zones(data)
 
 
 def foot_point(box) -> tuple[int, int]:

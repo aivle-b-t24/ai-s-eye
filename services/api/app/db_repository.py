@@ -1,17 +1,25 @@
 """PostgreSQL에 매장 상태와 주문 이벤트를 저장하는 Repository."""
 
 from collections.abc import Callable, Collection
-from datetime import datetime
+from datetime import datetime, timezone
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from .database import get_session_factory
-from .db_models import OrderEventRecord, OrderItemRecord, StoreStateRecord
+from .db_models import (
+    CameraRoiConfigRecord,
+    OrderEventRecord,
+    OrderItemRecord,
+    StoreStateRecord,
+)
 from .models import (
+    CameraRoiConfig,
+    CameraRoiConfigInput,
     OrderEvent,
     OrderItem,
+    RoiConfigStatus,
     StoreState,
     StoreSummaryResponse,
     StoreTimelineResponse,
@@ -278,6 +286,125 @@ class DatabaseRepository:
             session.commit()
             return int(result.rowcount or 0)
 
+    def save_roi_config(
+        self,
+        store_id: str,
+        camera_id: str,
+        config: CameraRoiConfigInput,
+    ) -> CameraRoiConfig:
+        """새 승인 버전을 저장하고 이전 승인본은 보관 상태로 바꾼다."""
+        with self._session_factory() as session:
+            existing_statement = (
+                select(CameraRoiConfigRecord)
+                .where(
+                    CameraRoiConfigRecord.store_id == store_id,
+                    CameraRoiConfigRecord.camera_id == camera_id,
+                )
+                .order_by(CameraRoiConfigRecord.version)
+                .with_for_update()
+            )
+            existing = list(session.scalars(existing_statement))
+            next_version = max((item.version for item in existing), default=0) + 1
+            session.execute(
+                update(CameraRoiConfigRecord)
+                .where(
+                    CameraRoiConfigRecord.store_id == store_id,
+                    CameraRoiConfigRecord.camera_id == camera_id,
+                    CameraRoiConfigRecord.status == RoiConfigStatus.APPROVED.value,
+                )
+                .values(status=RoiConfigStatus.ARCHIVED.value)
+            )
+            now = datetime.now(timezone.utc)
+            record = CameraRoiConfigRecord(
+                store_id=store_id,
+                camera_id=camera_id,
+                version=next_version,
+                coordinate_space=config.coordinate_space,
+                image_width=config.image_size.width,
+                image_height=config.image_size.height,
+                zones=[
+                    zone.model_dump(mode="json")
+                    for zone in config.zones
+                ],
+                source=config.source.value,
+                status=RoiConfigStatus.APPROVED.value,
+                approved_at=now,
+            )
+            session.add(record)
+            session.commit()
+            session.refresh(record)
+            return _roi_config_from_record(record)
+
+    def get_approved_roi_config(
+        self,
+        store_id: str,
+        camera_id: str,
+    ) -> CameraRoiConfig | None:
+        statement = (
+            select(CameraRoiConfigRecord)
+            .where(
+                CameraRoiConfigRecord.store_id == store_id,
+                CameraRoiConfigRecord.camera_id == camera_id,
+                CameraRoiConfigRecord.status == RoiConfigStatus.APPROVED.value,
+            )
+            .limit(1)
+        )
+        with self._session_factory() as session:
+            record = session.scalar(statement)
+            return _roi_config_from_record(record) if record is not None else None
+
+    def list_roi_configs(
+        self,
+        store_id: str,
+        camera_id: str,
+    ) -> list[CameraRoiConfig]:
+        statement = (
+            select(CameraRoiConfigRecord)
+            .where(
+                CameraRoiConfigRecord.store_id == store_id,
+                CameraRoiConfigRecord.camera_id == camera_id,
+            )
+            .order_by(CameraRoiConfigRecord.version.desc())
+        )
+        with self._session_factory() as session:
+            return [
+                _roi_config_from_record(record)
+                for record in session.scalars(statement)
+            ]
+
+    def approve_roi_config(
+        self,
+        store_id: str,
+        camera_id: str,
+        version: int,
+    ) -> CameraRoiConfig | None:
+        with self._session_factory() as session:
+            target_statement = (
+                select(CameraRoiConfigRecord)
+                .where(
+                    CameraRoiConfigRecord.store_id == store_id,
+                    CameraRoiConfigRecord.camera_id == camera_id,
+                    CameraRoiConfigRecord.version == version,
+                )
+                .with_for_update()
+            )
+            target = session.scalar(target_statement)
+            if target is None:
+                return None
+            session.execute(
+                update(CameraRoiConfigRecord)
+                .where(
+                    CameraRoiConfigRecord.store_id == store_id,
+                    CameraRoiConfigRecord.camera_id == camera_id,
+                    CameraRoiConfigRecord.status == RoiConfigStatus.APPROVED.value,
+                )
+                .values(status=RoiConfigStatus.ARCHIVED.value)
+            )
+            target.status = RoiConfigStatus.APPROVED.value
+            target.approved_at = datetime.now(timezone.utc)
+            session.commit()
+            session.refresh(target)
+            return _roi_config_from_record(target)
 
 def _get_order_event_record(
     session: Session,
@@ -350,4 +477,22 @@ def _order_event_from_record(record: OrderEventRecord) -> OrderEvent:
             )
             for item in sorted(record.items, key=lambda item: item.id or 0)
         ],
+    )
+
+
+def _roi_config_from_record(record: CameraRoiConfigRecord) -> CameraRoiConfig:
+    return CameraRoiConfig(
+        store_id=record.store_id,
+        camera_id=record.camera_id,
+        version=record.version,
+        coordinate_space=record.coordinate_space,
+        image_size={
+            "width": record.image_width,
+            "height": record.image_height,
+        },
+        zones=record.zones,
+        source=record.source,
+        status=record.status,
+        created_at=record.created_at,
+        approved_at=record.approved_at,
     )

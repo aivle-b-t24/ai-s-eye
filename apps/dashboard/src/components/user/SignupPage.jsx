@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import { ROLES, STORES, ENDPOINTS } from '../../constants/auth';
 
-export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose }) {
+export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose, initialRole = ROLES.STORE_MANAGER, onRoleChange }) {
   const [step, setStep] = useState(1);
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreePrivacy, setAgreePrivacy] = useState(false);
@@ -23,8 +24,15 @@ export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose }) {
     setAgreeMarketing(nextVal);
   };
 
-  const [role, setRole] = useState('store_manager');
-  const [storeId, setStoreId] = useState('store-001');
+  const [role, setRoleState] = useState(initialRole);
+  const setRole = (newRole) => {
+    setRoleState(newRole);
+    if (onRoleChange) {
+      onRoleChange(newRole);
+    }
+  };
+
+  const [storeId, setStoreId] = useState(STORES.DONGMYEONG);
   const [userId, setUserId] = useState('');
   const [userName, setUserName] = useState('');
   const [email, setEmail] = useState('');
@@ -114,17 +122,6 @@ export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose }) {
           </svg>
         </button>
 
-        {/* 우측 상단 X자 닫기 버튼 */}
-        <button
-          type="button"
-          className="auth-close-x-btn"
-          onClick={onClose}
-          aria-label="닫기"
-          title="닫기"
-        >
-          ✕
-        </button>
-
 
 
         <div className="auth-header">
@@ -149,7 +146,9 @@ export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose }) {
               <div className="naver-all-agree-text">
                 <strong>전체 동의하기</strong>
                 <p>
-                  AI's Eye 서비스 이용약관, 개인정보 수집 및 이용(필수), AI 비전 데이터 위탁(필수), 장비 및 마케팅 알림(선택) 동의를 포함합니다.
+                  {role === ROLES.STORE_MANAGER
+                    ? "AI's Eye 가맹점 매장 관제 서비스 이용약관, 점주 개인정보 수집(필수), 매장 AI 비전 데이터 위탁(필수), 매장 장애 및 알림(선택) 동의를 포함합니다."
+                    : "AI's Eye 본사 통합 관제 시스템 이용약관, 본사 관리자 정보 수집(필수), 전 가맹점 통합 데이터 처리(필수), 긴급 알림(선택) 동의를 포함합니다."}
                 </p>
               </div>
             </div>
@@ -165,7 +164,11 @@ export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose }) {
                   />
                   <span className={`naver-check-circle ${agreeTerms ? 'checked' : ''}`}>✓</span>
                   <span className="badge-required">필수</span>
-                  <span className="item-title">AI's Eye 서비스 이용약관</span>
+                  <span className="item-title">
+                    {role === ROLES.STORE_MANAGER
+                      ? "AI's Eye 가맹점 매장 관제 서비스 이용약관"
+                      : "AI's Eye 본사 통합 관제 시스템 이용약관"}
+                  </span>
                 </label>
                 <button type="button" className="view-link-btn" onClick={() => setShowPrivacyGuide(true)}>보기</button>
               </li>
@@ -179,7 +182,11 @@ export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose }) {
                   />
                   <span className={`naver-check-circle ${agreePrivacy ? 'checked' : ''}`}>✓</span>
                   <span className="badge-required">필수</span>
-                  <span className="item-title">개인정보 수집 및 이용 동의</span>
+                  <span className="item-title">
+                    {role === ROLES.STORE_MANAGER
+                      ? "점주 개인정보 및 매장 정보 수집·이용 동의"
+                      : "본사 관리자 사번 및 시스템 접속 권한 정보 수집·이용 동의"}
+                  </span>
                 </label>
                 <button type="button" className="view-link-btn" onClick={() => setShowPrivacyGuide(true)}>보기</button>
               </li>
@@ -193,7 +200,11 @@ export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose }) {
                   />
                   <span className={`naver-check-circle ${agreeThirdParty ? 'checked' : ''}`}>✓</span>
                   <span className="badge-required">필수</span>
-                  <span className="item-title">AI CCTV 비전 분석 및 처리 위탁 동의</span>
+                  <span className="item-title">
+                    {role === ROLES.STORE_MANAGER
+                      ? "매장 AI CCTV 비전 분석 및 객체 감지 데이터 위탁 동의"
+                      : "전 가맹점 통합 모니터링 데이터 접근 및 처리 위탁 동의"}
+                  </span>
                 </label>
                 <button type="button" className="view-link-btn" onClick={() => setShowPrivacyGuide(true)}>보기</button>
               </li>
@@ -207,7 +218,11 @@ export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose }) {
                   />
                   <span className={`naver-check-circle ${agreeAlerts ? 'checked' : ''}`}>✓</span>
                   <span className="badge-optional">선택</span>
-                  <span className="item-title">시스템 긴급 장비 장애 및 AI 모니터링 알림 수신</span>
+                  <span className="item-title">
+                    {role === ROLES.STORE_MANAGER
+                      ? "매장 긴급 장비 장애 및 AI 모니터링 알림 수신"
+                      : "가맹점 통합 이상징후 및 슈퍼바이저 긴급 알림 수신"}
+                  </span>
                 </label>
               </li>
 
@@ -220,7 +235,11 @@ export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose }) {
                   />
                   <span className={`naver-check-circle ${agreeMarketing ? 'checked' : ''}`}>✓</span>
                   <span className="badge-optional">선택</span>
-                  <span className="item-title">마케팅 정보 활용 및 맞춤형 AI 인사이트 수신</span>
+                  <span className="item-title">
+                    {role === ROLES.STORE_MANAGER
+                      ? "점주 맞춤형 매장 매출·혼잡도 분석 인사이트 수신"
+                      : "전 가맹점 통합 운영 리포트 및 마케팅 인사이트 수신"}
+                  </span>
                 </label>
               </li>
             </ul>
@@ -230,7 +249,11 @@ export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose }) {
               <div className="accordion-header" onClick={() => setShowPrivacyGuide(!showPrivacyGuide)}>
                 <div className="accordion-title">
                   <span className="dot">•</span>
-                  <strong>개인정보 수집 및 이용 안내</strong>
+                  <strong>
+                    {role === ROLES.STORE_MANAGER
+                      ? "점주 개인정보 및 매장 비전 데이터 수집·이용 안내"
+                      : "본사 관리자 권한 및 통합 관제 데이터 수집·이용 안내"}
+                  </strong>
                   <span className="arrow-icon">{showPrivacyGuide ? '▲' : '▼'}</span>
                 </div>
                 <span className="sub-link">정부 규제 준수 가이드 기준</span>
@@ -239,15 +262,25 @@ export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose }) {
               {showPrivacyGuide && (
                 <div className="accordion-body">
                   <div className={`scroll-box ${isGuideExpanded ? 'expanded' : ''}`}>
-                    <p>
-                      <strong>[개인정보 보호법 제15조 및 제17조(수집·이용 및 위탁 고지)]</strong><br /><br />
-                      개인정보 보호법 제15조제1항제4호(계약 체결/이행) 및 제17조에 따라, 아래와 같이 개인정보를 수집·이용 및 위탁 처리합니다.<br />
-                      AI's Eye 회원가입 시 하나의 계정으로 전체 매장 관제 및 본사 통합 시스템 이용이 가능하며, 수집된 정보는 서비스 제공 목적 외 용도로 활용되지 않습니다.<br /><br />
-                      1. <strong>수집·이용 목적:</strong> 계정 생성, 매장 AI 관제 권한 확인 및 본인 식별<br />
-                      2. <strong>수집 항목:</strong> 성명, 아이디, 비밀번호, 이메일 주소, 담당 매장 정보<br />
-                      3. <strong>처리 위탁:</strong> AI 실시간 CCTV 객체 감지 및 비전 분석 스트림 데이터 수탁 처리<br />
-                      4. <strong>보유 및 이용 기간:</strong> 회원 탈퇴 시까지 또는 관계 법령이 정한 일정 기간 동안 보존
-                    </p>
+                    {role === ROLES.STORE_MANAGER ? (
+                      <p>
+                        <strong>[점주 전용: 개인정보 보호법 제15조 및 제17조(수집·이용 및 위탁 고지)]</strong><br /><br />
+                        개인정보 보호법 제15조제1항제4호(계약 체결/이행) 및 제17조에 따라, 가맹점 관제 서비스 제공을 위해 개별 매장 점주님의 정보를 수집·이용 및 위탁 처리합니다.<br /><br />
+                        1. <strong>수집·이용 목적:</strong> 가맹점 계정 생성, 개별 매장(동명점/수완점 등) AI 관제 권한 확인 및 본인 식별<br />
+                        2. <strong>수집 항목:</strong> 성명, 아이디, 비밀번호, 이메일 주소, 담당 가맹점 정보<br />
+                        3. <strong>처리 위탁:</strong> 매장 실시간 CCTV 객체 감지, 대기시간 및 매장 혼잡도 AI 스트림 분석 처리<br />
+                        4. <strong>보유 및 이용 기간:</strong> 회원 탈퇴 시 또는 관계 법령이 정한 일정 기간 보존
+                      </p>
+                    ) : (
+                      <p>
+                        <strong>[본사 관리자 전용: 개인정보 보호법 제15조 및 제17조(수집·이용 및 위탁 고지)]</strong><br /><br />
+                        개인정보 보호법 제15조제1항제4호(계약 체결/이행) 및 제17조에 따라, 본사 슈퍼바이저 통제 및 가맹점 통합 관제 서비스를 위해 아래와 같이 정보를 처리합니다.<br /><br />
+                        1. <strong>수집·이용 목적:</strong> 본사 관리자 계정 생성, 전 가맹점 통합 관제 및 슈퍼바이저 관리 권한 부여<br />
+                        2. <strong>수집 항목:</strong> 성명, 사번/아이디, 비밀번호, 이메일 주소, 본사 담당 부서 정보<br />
+                        3. <strong>처리 위탁:</strong> 전 가맹점 통합 AI 관제 모니터링 및 이상상황 긴급 알림 데이터 처리<br />
+                        4. <strong>보유 및 이용 기간:</strong> 관리자 퇴사/보직해임 시까지 또는 관계 법령이 정한 일정 기간 보존
+                      </p>
+                    )}
                   </div>
                   <button
                     type="button"
@@ -275,64 +308,29 @@ export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose }) {
           <form onSubmit={handleSubmit} className="auth-form">
             <div className="form-group">
               <label>회원 구분 (권한)</label>
-              <div className="role-selector-radios">
-                <label className={`radio-pill ${role === 'store_manager' ? 'selected' : ''}`}>
-                  <input
-                    type="radio"
-                    name="signupRole"
-                    value="store_manager"
-                    checked={role === 'store_manager'}
-                    onChange={() => setRole('store_manager')}
-                  />
-                  점주 (매장 관제)
-                </label>
-                <label className={`radio-pill ${role === 'admin' ? 'selected' : ''}`}>
-                  <input
-                    type="radio"
-                    name="signupRole"
-                    value="admin"
-                    checked={role === 'admin'}
-                    onChange={() => setRole('admin')}
-                  />
-                  본사 관리자 (슈퍼바이저)
-                </label>
+              <div className="auth-select-box text-center">
+                {role === ROLES.STORE_MANAGER ? '점주 (매장 관제)' : '본사 관리자 (슈퍼바이저)'}
               </div>
             </div>
 
             <div className="form-group">
               <label htmlFor="storeIdSelect">
-                {role === 'store_manager' ? '담당 매장 선택' : '담당 관제 영역'}
+                {role === ROLES.STORE_MANAGER ? '담당 매장 선택' : '담당 관제 영역'}
               </label>
-              {role === 'store_manager' ? (
+              {role === ROLES.STORE_MANAGER ? (
                 <select
                   id="storeIdSelect"
                   value={storeId}
                   onChange={(e) => setStoreId(e.target.value)}
                   className="auth-select"
                 >
-                  <option value="store-001">매장 1 (강남점)</option>
-                  <option value="store-002">매장 2 (홍대점)</option>
+                  <option value={STORES.DONGMYEONG}>매장 1 (동명점)</option>
+                  <option value={STORES.SUWAN}>매장 2 (수완점)</option>
                 </select>
               ) : (
-                <div
-                  className="auth-select"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    background: '#fafcfb',
-                    border: '1px solid var(--border-light, #d0d7de)',
-                    color: '#1a1a1a',
-                    fontFamily: 'inherit',
-                    fontSize: '0.95rem',
-                    fontWeight: 'normal',
-                    cursor: 'default',
-                    userSelect: 'none'
-                  }}
-                >
+                <div className="auth-select-box text-center">
                   전 가맹점 통합 관제 (본사 직속)
                 </div>
-
-
               )}
             </div>
 
@@ -421,12 +419,9 @@ export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose }) {
               )}
             </div>
 
-            <div className="btn-row">
-              <button type="button" className="secondary-btn" onClick={() => setStep(1)}>
-                ← 이전 단계
-              </button>
-              <button type="submit" className="auth-submit-btn">
-                회원가입 완료 및 가입신청
+            <div className="btn-row justify-center">
+              <button type="submit" className="auth-submit-btn text-only-submit-btn">
+                회원가입 완료 및 로그인
               </button>
             </div>
           </form>

@@ -1,16 +1,22 @@
 import React, { useState, useEffect } from 'react'
 
+import RoleBanner from '../common/RoleBanner'
 import KpiSummaryBar from './KpiSummaryBar'
 import ZoneBreakdownTable from './ZoneBreakdownTable'
 import VisionMonitorPanel from './VisionMonitorPanel'
 import MenuListPanel from './MenuListPanel'
 import PolicyListPanel from './PolicyListPanel'
 import EmptyStorePanel from './EmptyStorePanel'
+import StoreChatbotWidget from './StoreChatbotWidget'
 
 export default function StoreDashboardView({
   page,
   dashboard,
   soldOutCount,
+  apiBaseUrl,
+  isUsingMock,
+  error,
+  loading,
 }) {
   const [isPolicyExpanded, setIsPolicyExpanded] = useState(false)
   const [isMenuExpanded, setIsMenuExpanded] = useState(false)
@@ -31,6 +37,13 @@ export default function StoreDashboardView({
   return (
 
     <section className="store-dashboard-view">
+      <RoleBanner
+        page={page}
+        apiBaseUrl={apiBaseUrl}
+        isUsingMock={isUsingMock}
+        error={error}
+        loading={loading}
+      />
       {dashboard?.state?.quality_status !== 'normal' && (
         <section className="alert-banner warning-alert">
           ⚠️ <strong>점주 알림:</strong> AI 카메라 스트림 화질 점검이
@@ -57,6 +70,7 @@ export default function StoreDashboardView({
             실시간 업데이트
           </span>
         </div>
+
 
         <KpiSummaryBar
           dashboard={dashboard}
@@ -94,6 +108,9 @@ export default function StoreDashboardView({
           />
         </div>
       </section>
+
+      {/* JBNU Inspired Store Chatbot Widget */}
+      <StoreChatbotWidget page={page} />
 
     </section>
   )

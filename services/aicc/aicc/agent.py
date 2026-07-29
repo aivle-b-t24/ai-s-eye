@@ -1,8 +1,11 @@
+import logging
 from typing import Any
 
 from .config import get_settings
 from .router import QuestionRouter
 from .tools import StoreTools
+
+logger = logging.getLogger(__name__)
 
 
 SYSTEM_PROMPT = """너는 카페 'AI's Eye 데모점'의 안내 직원이다.
@@ -75,6 +78,8 @@ class StoreAgent:
                     location=settings.vertex_location,
                 )
             except Exception:
+                # 연결 실패해도 앱은 키워드 방식으로 넘어간다. 다만 원인은 로그로 남긴다.
+                logger.warning("Vertex Gemini 클라이언트 생성 실패", exc_info=True)
                 return None
 
         if not settings.gemini_api_key:
@@ -177,9 +182,51 @@ class StoreAgent:
         result = self._router.handle(question, store_id)
         return {
             "question": question,
-            "answer": None,
+            "answer": _fallback_answer(result),
             "source": "keyword_fallback",
             "notice": FALLBACK_NOTICE,
             "reason": reason,
             "result": result,
         }
+
+
+def _fallback_answer(routed: dict[str, Any]) -> str:
+    """Gemini를 못 쓸 때, 키워드 분기 결과를 고객이 읽을 문장으로 바꾼다.
+
+    Gemini가 죽어도 raw 데이터 대신 사람이 읽는 답을 주기 위한 것이다.
+    """
+    inner = routed.get("result")
+    if not isinstance(inner, dict):
+        return FALLBACK_NOTICE
+    # 도구가 오류(ok=False)면 그 message는 이미 고객에게 보여줄 문장이다.
+    if inner.get("ok") is False:
+        return str(inner.get("message") or "요청을 처리하지 못했습니다.")
+
+    tool = routed.get("tool")
+    if tool == "state":
+        return (
+            f"현재 매장에 {inner.get('visible_person_count')}명이 있고, "
+            f"대기 인원은 {inner.get('queue_count_estimate')}명입니다."
+        )
+    if tool == "eta":
+        return f"예상 대기시간은 약 {inner.get('estimated_wait_minutes')}분입니다."
+    if tool == "order":
+        return str(inner.get("status_message") or "주문 상태를 확인했습니다.")
+    if tool == "menu":
+        if inner.get("message"):
+            return str(inner["message"])
+        menus = inner.get("menus") or []
+        if not menus:
+            return "해당 메뉴 정보를 찾지 못했습니다."
+        parts = []
+        for m in menus[:5]:
+            price = f"{m.get('price')}원" if m.get("price") is not None else ""
+            sold = " (품절)" if m.get("available") is False else ""
+            parts.append(f"{m.get('name')} {price}{sold}".strip())
+        return "메뉴 안내: " + ", ".join(parts)
+    if tool == "policy":
+        policies = inner.get("policies") or []
+        if not policies:
+            return "관련 정책 정보를 찾지 못했습니다."
+        return " ".join(f"[{p.get('title')}] {p.get('content')}" for p in policies[:3])
+    return FALLBACK_NOTICE

@@ -12,24 +12,17 @@ import GnbHeader from './components/common/GnbHeader'
 import RoleBanner from './components/common/RoleBanner'
 import HeroSection from './components/HeroSection'
 import Sidebar from './components/Sidebar'
+import ProfileModal from './components/user/ProfileModal'
+
+import {
+  ROLES,
+  STORES,
+  ENDPOINTS,
+  DEFAULT_STORE_DATA,
+} from './constants/auth'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
 const AICC_BASE_URL = import.meta.env.VITE_AICC_BASE_URL ?? 'http://localhost:8100'
-
-const DEFAULT_STORE_DATA = {
-  'store-001': {
-    state: null,
-    eta: null,
-    menus: [],
-    policies: []
-  },
-  'store-002': {
-    state: null,
-    eta: null,
-    menus: [],
-    policies: []
-  }
-}
 
 async function fetchStoreState(storeId) {
   const response = await fetch(`${API_BASE_URL}/api/stores/${storeId}/state`)
@@ -59,34 +52,194 @@ async function fetchStorePolicies(storeId) {
 
 function App() {
   const [authMode, setAuthMode] = useState('login')
+  const [authRole, setAuthRole] = useState('store_manager')
   const [currentUser, setCurrentUser] = useState(null)
 
   const [page, setPage] = useState("store-001")
   const [storesData, setStoresData] = useState(DEFAULT_STORE_DATA)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isProfileOpen, setIsProfileOpen] = useState(false)
 
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [isUsingMock, setIsUsingMock] = useState(false)
-  const isDedicatedHeadOffice =
-    page === 'head-office' && window.location.pathname === '/hq'
+  const isDedicatedHeadOffice = page === STORES.HEAD_OFFICE
+
+  // 🔒 Strict Auth Guard & Role Endpoint Router Sync Effect (.aicafe URL endpoints)
+  useEffect(() => {
+    const handleUrlRouting = () => {
+      const pathname = window.location.pathname
+
+      // 1. Role-based Signup Endpoints (/storesignup.aicafe, /hqsignup.aicafe)
+      if (
+        pathname === ENDPOINTS.STORE_SIGNUP ||
+        pathname === '/storesignup' ||
+        pathname === '/aicafe/storesignup'
+      ) {
+        setAuthMode('signup')
+        setAuthRole(ROLES.STORE_MANAGER)
+        if (pathname !== ENDPOINTS.STORE_SIGNUP) {
+          window.history.replaceState({}, '', ENDPOINTS.STORE_SIGNUP)
+        }
+        return
+      }
+
+      if (
+        pathname === ENDPOINTS.HQ_SIGNUP ||
+        pathname === '/hqsignup' ||
+        pathname === '/aicafe/hqsignup'
+      ) {
+        setAuthMode('signup')
+        setAuthRole(ROLES.ADMIN)
+        if (pathname !== ENDPOINTS.HQ_SIGNUP) {
+          window.history.replaceState({}, '', ENDPOINTS.HQ_SIGNUP)
+        }
+        return
+      }
+
+      if (pathname === '/signup.aicafe' || pathname === '/signup' || pathname === '/aicafe/signup') {
+        setAuthMode('signup')
+        setAuthRole(ROLES.STORE_MANAGER)
+        window.history.replaceState({}, '', ENDPOINTS.STORE_SIGNUP)
+        return
+      }
+
+      // 2. Role-based Login Endpoints (/storelogin.aicafe, /hqlogin.aicafe)
+      if (
+        pathname === ENDPOINTS.STORE_LOGIN ||
+        pathname === '/storelogin' ||
+        pathname === '/aicafe/storelogin'
+      ) {
+        setAuthMode('login')
+        setAuthRole(ROLES.STORE_MANAGER)
+        if (pathname !== ENDPOINTS.STORE_LOGIN) {
+          window.history.replaceState({}, '', ENDPOINTS.STORE_LOGIN)
+        }
+        return
+      }
+
+      if (
+        pathname === ENDPOINTS.HQ_LOGIN ||
+        pathname === '/hqlogin' ||
+        pathname === '/aicafe/hqlogin'
+      ) {
+        setAuthMode('login')
+        setAuthRole(ROLES.ADMIN)
+        if (pathname !== ENDPOINTS.HQ_LOGIN) {
+          window.history.replaceState({}, '', ENDPOINTS.HQ_LOGIN)
+        }
+        return
+      }
+
+      if (
+        pathname === '/login.aicafe' ||
+        pathname === '/aicafe/login' ||
+        pathname === '/' ||
+        pathname === ''
+      ) {
+        setAuthMode('login')
+        setAuthRole(ROLES.STORE_MANAGER)
+        if (pathname !== ENDPOINTS.STORE_LOGIN) {
+          window.history.replaceState({}, '', ENDPOINTS.STORE_LOGIN)
+        }
+        return
+      }
+
+      // 3. Strict Auth Guard: If not logged in during this active React session (currentUser is null)
+      if (!currentUser) {
+        setAuthMode('login')
+        setAuthRole(ROLES.STORE_MANAGER)
+        window.history.replaceState({}, '', ENDPOINTS.STORE_LOGIN)
+        return
+      }
+
+      // 4. Role-Based Authorization Guard & Endpoint Parsing (.aicafe endpoints)
+      if (
+        pathname === ENDPOINTS.HQ_DASHBOARD ||
+        pathname === '/aicafe/hq' ||
+        pathname === '/hq'
+      ) {
+        if (currentUser.role !== ROLES.ADMIN && currentUser.storeId !== STORES.HEAD_OFFICE) {
+          // Block non-admin from accessing HQ endpoint, redirect to store endpoint
+          const userStore = currentUser.storeId || STORES.DONGMYEONG
+          setPage(userStore)
+          setAuthMode('dashboard')
+          window.history.replaceState({}, '', `/${userStore}.aicafe`)
+          return
+        }
+        setPage(STORES.HEAD_OFFICE)
+        setAuthMode('dashboard')
+        if (pathname !== ENDPOINTS.HQ_DASHBOARD) {
+          window.history.replaceState({}, '', ENDPOINTS.HQ_DASHBOARD)
+        }
+      } else if (pathname.endsWith('.aicafe')) {
+        const storeId = pathname.replace('/', '').replace('.aicafe', '')
+        setPage(storeId || STORES.DONGMYEONG)
+        setAuthMode('dashboard')
+      } else if (pathname.startsWith('/aicafe/store/')) {
+        const storeId = pathname.replace('/aicafe/store/', '')
+        setPage(storeId || STORES.DONGMYEONG)
+        setAuthMode('dashboard')
+        window.history.replaceState({}, '', `/${storeId || STORES.DONGMYEONG}.aicafe`)
+      } else if (pathname.startsWith('/store/')) {
+        const storeId = pathname.replace('/store/', '')
+        setPage(storeId || STORES.DONGMYEONG)
+        setAuthMode('dashboard')
+        window.history.replaceState({}, '', `/${storeId || STORES.DONGMYEONG}.aicafe`)
+      } else {
+        setAuthMode('login')
+        setAuthRole(ROLES.STORE_MANAGER)
+        window.history.replaceState({}, '', ENDPOINTS.STORE_LOGIN)
+      }
+    }
+
+    handleUrlRouting()
+    window.addEventListener('popstate', handleUrlRouting)
+    return () => window.removeEventListener('popstate', handleUrlRouting)
+  }, [currentUser])
+
+  const handleLoginRoleChange = (newRole) => {
+    setAuthRole(newRole)
+    const newEndpoint = newRole === ROLES.STORE_MANAGER ? ENDPOINTS.STORE_LOGIN : ENDPOINTS.HQ_LOGIN
+    window.history.pushState({}, '', newEndpoint)
+  }
+
+  const handleSignupRoleChange = (newRole) => {
+    setAuthRole(newRole)
+    const newEndpoint = newRole === ROLES.STORE_MANAGER ? ENDPOINTS.STORE_SIGNUP : ENDPOINTS.HQ_SIGNUP
+    window.history.pushState({}, '', newEndpoint)
+  }
+
+  const handleGoToSignup = () => {
+    setAuthMode('signup')
+    const targetEndpoint = authRole === ROLES.STORE_MANAGER ? ENDPOINTS.STORE_SIGNUP : ENDPOINTS.HQ_SIGNUP
+    window.history.pushState({}, '', targetEndpoint)
+  }
+
+  const handleGoToLogin = () => {
+    setAuthMode('login')
+    const targetEndpoint = authRole === ROLES.STORE_MANAGER ? ENDPOINTS.STORE_LOGIN : ENDPOINTS.HQ_LOGIN
+    window.history.pushState({}, '', targetEndpoint)
+  }
+
 
   const handleLoginSuccess = (userData) => {
-    const nextPage = userData.storeId ?? 'store-001'
+    const nextPage = userData.storeId ?? STORES.DONGMYEONG
     setCurrentUser(userData)
     setPage(nextPage)
     setAuthMode('dashboard')
-    window.history.replaceState(
-      {},
-      '',
-      nextPage === 'head-office' ? '/hq' : `/store/${nextPage}`,
-    )
+
+    const targetEndpoint = nextPage === STORES.HEAD_OFFICE
+      ? ENDPOINTS.HQ_DASHBOARD
+      : `/${nextPage}.aicafe`
+
+    window.history.pushState({}, '', targetEndpoint)
   }
 
   const handleLogout = () => {
     setCurrentUser(null)
     setAuthMode('login')
-    window.history.replaceState({}, '', '/')
+    window.history.pushState({}, '', ENDPOINTS.STORE_LOGIN)
   }
 
   const loadStateOnly = useCallback(async (targetStoreId, isInitial = false) => {
@@ -138,28 +291,51 @@ function App() {
     }
   }, [])
 
+  // ⏱ Smart Polling: Pauses automatically when tab is hidden (document.hidden) to save battery/network
   useEffect(() => {
     let timerId = null
 
-    if (authMode === 'dashboard') {
-      if (page === 'store-001' || page === 'store-002') {
-        loadStaticData(page)
-        loadStateOnly(page, true)
-
-        timerId = setInterval(() => {
-          loadStateOnly(page, false)
-        }, 2000)
-      } else if (page === 'head-office' && !isDedicatedHeadOffice) {
-        loadStateOnly('store-001', false)
-        loadStateOnly('store-002', false)
-        timerId = null
-      } else if (page === 'head-office' || page === 'setting') {
-        timerId = null
+    const startTimer = () => {
+      if (timerId) clearInterval(timerId)
+      if (!document.hidden && authMode === 'dashboard') {
+        if (page === STORES.DONGMYEONG || page === STORES.SUWAN) {
+          timerId = setInterval(() => {
+            loadStateOnly(page, false)
+          }, 2000)
+        }
       }
     }
 
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (timerId) {
+          clearInterval(timerId)
+          timerId = null
+        }
+      } else {
+        if (authMode === 'dashboard' && (page === STORES.DONGMYEONG || page === STORES.SUWAN)) {
+          loadStateOnly(page, false)
+          startTimer()
+        }
+      }
+    }
+
+    if (authMode === 'dashboard') {
+      if (page === STORES.DONGMYEONG || page === STORES.SUWAN) {
+        loadStaticData(page)
+        loadStateOnly(page, true)
+        startTimer()
+      } else if (page === STORES.HEAD_OFFICE && !isDedicatedHeadOffice) {
+        loadStateOnly(STORES.DONGMYEONG, false)
+        loadStateOnly(STORES.SUWAN, false)
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
     return () => {
       if (timerId) clearInterval(timerId)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [
     authMode,
@@ -181,10 +357,8 @@ function App() {
     <main
       className={[
         'page-shell',
-        authMode === 'dashboard' && !isDedicatedHeadOffice ? 'has-hero' : '',
-        authMode === 'dashboard' && isDedicatedHeadOffice
-          ? 'supervisor-shell no-hero'
-          : '',
+        !isDedicatedHeadOffice ? 'has-hero' : '',
+        isDedicatedHeadOffice ? 'supervisor-shell no-hero' : '',
       ].filter(Boolean).join(' ')}
     >
       {authMode === 'dashboard' && !isDedicatedHeadOffice && (
@@ -198,6 +372,7 @@ function App() {
             loading={loading}
             user={currentUser}
             onLogout={handleLogout}
+            onOpenProfile={() => setIsProfileOpen(true)}
           />
         </div>
       )}
@@ -206,10 +381,19 @@ function App() {
         <HeadOfficeHeader
           user={currentUser}
           onLogout={handleLogout}
+          onOpenProfile={() => setIsProfileOpen(true)}
         />
       )}
 
-      {!isDedicatedHeadOffice && (
+      {isProfileOpen && currentUser && (
+        <ProfileModal
+          user={currentUser}
+          onClose={() => setIsProfileOpen(false)}
+          onLogout={handleLogout}
+        />
+      )}
+
+      {(authMode === 'login' || authMode === 'signup' || !isDedicatedHeadOffice) && (
         <HeroSection
           page={page}
           authMode={authMode}
@@ -217,6 +401,7 @@ function App() {
           onMenuOpen={() => setIsSidebarOpen(true)}
         />
       )}
+
 
       {!isDedicatedHeadOffice && (
         <Sidebar
@@ -231,15 +416,19 @@ function App() {
         <div className="auth-modal-overlay">
           {authMode === 'login' && (
             <LoginPage
+              initialRole={authRole}
+              onRoleChange={handleLoginRoleChange}
               onLogin={handleLoginSuccess}
-              onGoToSignup={() => setAuthMode('signup')}
+              onGoToSignup={handleGoToSignup}
               onClose={() => setAuthMode('dashboard')}
             />
           )}
           {authMode === 'signup' && (
             <SignupPage
-              onGoToLogin={() => setAuthMode('login')}
-              onCompleteSignup={() => setAuthMode('login')}
+              initialRole={authRole}
+              onRoleChange={handleSignupRoleChange}
+              onGoToLogin={handleGoToLogin}
+              onCompleteSignup={handleGoToLogin}
               onClose={() => setAuthMode('dashboard')}
             />
           )}
@@ -247,25 +436,18 @@ function App() {
       )}
 
 
+
       {authMode === 'dashboard' && (
         <section id="dashboard" className="dashboard-content">
-          
-
-          {!isDedicatedHeadOffice && (
-            <RoleBanner
-              page={page}
-              apiBaseUrl={API_BASE_URL}
-              isUsingMock={isUsingMock}
-              error={error}
-              loading={loading}
-            />
-          )}
-
           {(page === 'store-001' || page === 'store-002') && (
             <StoreDashboardView
               page={page}
               dashboard={activeDashboard}
               soldOutCount={soldOutCount}
+              apiBaseUrl={API_BASE_URL}
+              isUsingMock={isUsingMock}
+              error={error}
+              loading={loading}
             />
           )}
 
@@ -281,6 +463,11 @@ function App() {
             <SettingsView
               apiBaseUrl={API_BASE_URL}
               setPage={setPage}
+              storeId={
+                currentUser?.role === ROLES.STORE_MANAGER
+                  ? currentUser.storeId
+                  : STORES.DONGMYEONG
+              }
             />
           )}
         </section>

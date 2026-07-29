@@ -8,9 +8,17 @@ import pytest
 from sqlalchemy import create_engine, delete, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.db_models import OrderEventRecord, StoreStateRecord
+from app.db_models import CameraRoiConfigRecord, OrderEventRecord, StoreStateRecord
 from app.db_repository import DatabaseRepository
-from app.models import OrderEvent, OrderItem, OrderStatus, QualityStatus, StoreState
+from app.models import (
+    CameraRoiConfigInput,
+    OrderEvent,
+    OrderItem,
+    OrderStatus,
+    QualityStatus,
+    RoiConfigSource,
+    StoreState,
+)
 
 
 def _test_database_url() -> str:
@@ -39,6 +47,11 @@ def database_repository() -> tuple[DatabaseRepository, sessionmaker[Session], st
     finally:
         with session_factory() as session:
             session.execute(
+                delete(CameraRoiConfigRecord).where(
+                    CameraRoiConfigRecord.store_id.like(f"{test_id}%")
+                )
+            )
+            session.execute(
                 delete(OrderEventRecord).where(
                     OrderEventRecord.event_id.like(f"{test_id}%")
                 )
@@ -50,6 +63,48 @@ def database_repository() -> tuple[DatabaseRepository, sessionmaker[Session], st
             )
             session.commit()
         engine.dispose()
+
+
+def test_roi_versions_are_saved_and_previous_version_can_be_restored(
+    database_repository: tuple[DatabaseRepository, sessionmaker[Session], str],
+) -> None:
+    repository, _, test_id = database_repository
+    payload = CameraRoiConfigInput(
+        image_size={"width": 1920, "height": 1080},
+        zones=[
+            {
+                "id": "staff-1",
+                "type": "staff",
+                "label": "직원 구역",
+                "polygon": [
+                    {"x": 100, "y": 100},
+                    {"x": 400, "y": 100},
+                    {"x": 400, "y": 400},
+                ],
+            }
+        ],
+    )
+
+    first = repository.save_roi_config(test_id, "cam-1", payload)
+    second = repository.save_roi_config(
+        test_id,
+        "cam-1",
+        payload.model_copy(update={"source": RoiConfigSource.AI_ASSISTED}),
+    )
+
+    assert first.version == 1
+    assert second.version == 2
+    assert repository.get_approved_roi_config(test_id, "cam-1").version == 2
+    assert [item.status.value for item in repository.list_roi_configs(test_id, "cam-1")] == [
+        "approved",
+        "archived",
+    ]
+
+    restored = repository.approve_roi_config(test_id, "cam-1", 1)
+
+    assert restored is not None
+    assert restored.version == 1
+    assert repository.get_approved_roi_config(test_id, "cam-1").version == 1
 
 
 def test_latest_store_state_is_returned(

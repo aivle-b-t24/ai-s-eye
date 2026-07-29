@@ -70,6 +70,42 @@ def test_new_snapshot_replaces_previous_image(
     assert (snapshot_dir / "store-001" / "latest").read_bytes() == second_image
 
 
+def test_raw_snapshot_is_kept_separately_from_analysis_snapshot(
+    client: TestClient,
+    snapshot_dir: Path,
+) -> None:
+    client.post(
+        "/internal/stores/store-001/vision-snapshot",
+        files={"image": ("analysis.jpg", JPEG_IMAGE, "image/jpeg")},
+    )
+    raw_image = b"\xff\xd8\xff\xe0raw-image\xff\xd9"
+
+    upload = client.post(
+        "/internal/stores/store-001/vision-raw",
+        files={"image": ("raw.jpg", raw_image, "image/jpeg")},
+    )
+    read = client.get("/api/stores/store-001/vision/raw/latest")
+
+    assert upload.status_code == 201
+    assert upload.json()["image_url"] == (
+        "/api/stores/store-001/vision/raw/latest"
+    )
+    assert read.status_code == 200
+    assert read.content == raw_image
+    assert client.get("/api/stores/store-001/vision/latest").content == JPEG_IMAGE
+    assert (snapshot_dir / "store-001" / "latest-raw").read_bytes() == raw_image
+
+
+def test_missing_raw_snapshot_returns_404(
+    client: TestClient,
+    snapshot_dir: Path,
+) -> None:
+    response = client.get("/api/stores/store-001/vision/raw/latest")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Raw vision snapshot not found"
+
+
 def test_missing_snapshot_returns_404(
     client: TestClient,
     snapshot_dir: Path,

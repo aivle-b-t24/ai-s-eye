@@ -85,14 +85,19 @@ py services/vision-worker/cafe_stores.py --limit 60  # 앞 60세그만(빠른 �
 py services/vision-worker/cafe_stores.py
 #    → samples/cafe_stores_states.json          (상태 시계열)
 #    → outputs/snapshots/frames/<store_id>/{i:04d}.jpg  (매장별 폴더, 매장별 순서의 분석 이미지)
+#    → outputs/snapshots/raw-frames/<store_id>/{i:04d}.jpg (ROI 설정용 원본)
 
 # 2) 재생: 상태 POST + 해당 이미지를 API로 업로드
 python services/vision-worker/replay_states.py \
-    --frames-dir services/vision-worker/outputs/snapshots/frames --loop
+    --frames-dir services/vision-worker/outputs/snapshots/frames \
+    --raw-frames-dir services/vision-worker/outputs/snapshots/raw-frames \
+    --loop
 ```
 - replay가 상태를 보낼 때마다 **그 인덱스의 이미지를 `POST .../vision-snapshot`로 업로드** → 이미지·숫자 동기.
+- 원본 프레임이 준비된 경우 `--raw-frames-dir`로 `POST .../vision-raw`에도 전송한다.
 - 대시보드: `<img src="{API}/api/stores/store-001/vision/latest">` (매장별 store_id).
-- `--frames-dir` 없이 재생하면 **숫자만**(이미지 없이).
+- ROI 편집기: `{API}/api/stores/store-001/vision/raw/latest`를 사용한다.
+- 이미지 옵션 없이 재생하면 **숫자만** 전송한다.
 
 **실시간(`--live`)** — 모델·GPU·데이터 있는 머신에서 세그먼트마다 생성+상태 POST+이미지 업로드:
 ```bash

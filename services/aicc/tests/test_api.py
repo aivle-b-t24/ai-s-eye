@@ -155,6 +155,78 @@ def test_healthz() -> None:
     assert tc.get("/healthz").json() == {"status": "ok"}
 
 
+# --- 챗봇 (/chat) ---
+
+
+class FakeAgent:
+    """StoreAgent 대역. ask()가 정해둔 답을 돌려준다."""
+
+    def __init__(self, reply: dict[str, Any]) -> None:
+        self._reply = reply
+        self.seen: dict[str, Any] = {}
+
+    def ask(self, question: str, store_id: str | None = None) -> dict[str, Any]:
+        self.seen = {"question": question, "store_id": store_id}
+        return self._reply
+
+
+def test_chat_ok() -> None:
+    agent = FakeAgent({"question": "지금 붐벼?", "answer": "현재 5명 있습니다.", "source": "gemini"})
+    tc = TestClient(api.app)
+    tc.app.state.agent = agent
+    r = tc.post("/chat", json={"question": "지금 붐벼?", "store_id": "store-001"})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["answer"] == "현재 5명 있습니다."
+    assert data["source"] == "gemini"
+    assert agent.seen == {"question": "지금 붐벼?", "store_id": "store-001"}
+
+
+def test_chat_fallback_source() -> None:
+    agent = FakeAgent({"question": "메뉴?", "answer": "아메리카노 4500원", "source": "keyword_fallback"})
+    tc = TestClient(api.app)
+    tc.app.state.agent = agent
+    r = tc.post("/chat", json={"question": "메뉴?"})
+    assert r.status_code == 200
+    assert r.json()["source"] == "keyword_fallback"
+
+
+def test_chat_empty_question_returns_422() -> None:
+    tc = TestClient(api.app)
+    tc.app.state.agent = FakeAgent({})
+    r = tc.post("/chat", json={"question": ""})  # 빈 질문
+    assert r.status_code == 422
+
+
+def test_chat_too_long_question_returns_422() -> None:
+    tc = TestClient(api.app)
+    tc.app.state.agent = FakeAgent({})
+    r = tc.post("/chat", json={"question": "가" * 501})  # 500자 초과
+    assert r.status_code == 422
+
+
+def test_chat_blank_question_returns_422() -> None:
+    """공백만 있는 질문도 막는다."""
+    tc = TestClient(api.app)
+    tc.app.state.agent = FakeAgent({})
+    r = tc.post("/chat", json={"question": "   "})
+    assert r.status_code == 422
+
+
+class RaisingAgent:
+    def ask(self, question: str, store_id: str | None = None) -> dict[str, Any]:
+        raise RuntimeError("예상 밖 오류")
+
+
+def test_chat_agent_error_returns_503_not_500() -> None:
+    """agent가 예상 밖 예외를 던져도 500이 아니라 깔끔한 503을 준다."""
+    tc = TestClient(api.app)
+    tc.app.state.agent = RaisingAgent()
+    r = tc.post("/chat", json={"question": "테스트"})
+    assert r.status_code == 503
+    assert r.json()["detail"]["error"] == "chat_unavailable"
+
+
 def test_insights_cors_preflight() -> None:
     tc = TestClient(api.app)
     response = tc.options(

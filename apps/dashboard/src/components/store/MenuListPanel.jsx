@@ -54,7 +54,7 @@ export default function MenuListPanel({ menus, soldOutCount, isExpanded, onToggl
               border: '1px solid rgba(255, 255, 255, 0.18)',
               borderRadius: '20px',
               padding: '7px 20px',
-              color: '#ffffff',
+              color: '#111827',
               fontSize: '13px',
               fontWeight: '600',
               cursor: 'pointer',

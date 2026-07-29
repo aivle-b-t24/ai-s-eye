@@ -82,7 +82,7 @@ py services/vision-worker/cafe_stores.py --limit 60  # 앞 60세그만(빠른 �
 **생성 + 재생(이미지·숫자 동기)** — 미리 생성해 두고 재생하며 업로드(재생엔 GPU 불필요):
 ```bash
 # 1) GPU 머신에서 상태 + 분석 이미지 배치 생성 (1회)
-py services/vision-worker/cafe_stores.py
+python services/vision-worker/cafe_stores.py
 #    → samples/cafe_stores_states.json          (상태 시계열)
 #    → outputs/snapshots/frames/<store_id>/{i:04d}.jpg  (매장별 폴더, 매장별 순서의 분석 이미지)
 #    → outputs/snapshots/raw-frames/<store_id>/{i:04d}.jpg (ROI 설정용 원본)
@@ -106,6 +106,39 @@ py services/vision-worker/cafe_stores.py --live --post http://localhost:8000 --i
 
 > **주의:** 분석 이미지는 CAFE 원본 프레임을 포함하므로 **GitHub에 올리지 않는다**(원본·가중치 미업로드).
 > `frames/`는 데모 머신/드라이브로 옮기고, replay가 API로 업로드한다. (`--snapshot`은 로컬 1장 빠른 확인용.)
+
+### 승인 ROI로 다시 분석하기
+
+ROI 편집 화면에서 `저장 및 적용`한 설정은 Vision 분석을 새로 시작할 때 API에서
+한 번 불러온다. 기존 JSON과 분석 이미지는 자동으로 다시 계산되지 않는다.
+
+```bash
+python3 -m venv .venv-vision
+source .venv-vision/bin/activate
+pip install -r services/vision-worker/requirements.txt
+
+export AISEYE_CAFE_ROOT=/home/kokdo/datasets/ai-s-eye/cafe-selected/Cafe_Dataset/Dataset/cafe
+export AISEYE_CAFE_MODEL=/path/to/best.pt
+export AISEYE_API_BASE_URL=http://localhost:8000
+
+# 기존 재생 결과가 테스트 값을 덮지 않게 중지
+docker compose --profile demo stop vision-replay
+
+# 매장별 한 구간으로 승인 ROI 연결 확인
+python services/vision-worker/cafe_stores.py \
+  --live --limit 1 --post http://localhost:8000 --interval 0
+
+# 로그에서 아래처럼 API 버전을 확인한 뒤 전체 재분석
+# ROI store-001/store-001-cam1: api v5
+python services/vision-worker/cafe_stores.py
+
+# 새 JSON과 frames/ 결과 재생
+docker compose --profile demo up -d --force-recreate vision-replay
+```
+
+파인튜닝 가중치가 없으면 일반 `yolo11s.pt`로 대체되므로 연결 확인에는 사용할 수
+있지만 기존 성능평가 결과와 같은 모델로 취급하면 안 된다. ROI를 다시 저장한 뒤에는
+Vision 프로세스를 재시작해야 새 승인 버전을 읽는다.
 
 ## 팀원용: 영상 없이 매장 상태 재생하기
 
@@ -168,6 +201,10 @@ docker compose --profile demo logs -f vision-replay
 # 재생만 종료
 docker compose --profile demo stop vision-replay
 ```
+
+`outputs/snapshots/raw-frames`가 준비되어 있으면 Compose 재생기가 분석 이미지와
+ROI 표시가 없는 원본 CCTV 이미지를 같은 순서로 함께 전송한다. 원본 폴더가 없으면
+상태·사람 위치·분석 이미지만 계속 재생한다.
 
 `vision-replay`는 상태를 보낼 때마다 PostgreSQL에 이력을 추가한다. 팀원 여러 명이
 동시에 실행하지 않고 시연 담당자 한 명만 실행하며, 시연이 끝나면 중지한다.

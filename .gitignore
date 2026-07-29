@@ -3,6 +3,7 @@
 !.env.example
 backups/
 .venv/
+.venv-vision/
 __pycache__/
 .pytest_cache/
 *.py[cod]

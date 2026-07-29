@@ -71,6 +71,17 @@ Vision Worker가 사람 탐지 박스와 ROI를 표시한 최신 분석 이미�
 없으면 `404`를 반환한다. 브라우저 캐시로 이전 이미지가 계속 보이지 않도록
 응답에 `Cache-Control: no-store`를 포함한다.
 
+## POST /internal/stores/{store_id}/vision-raw
+
+ROI 설정에 사용할 탐지 박스·기존 ROI 오버레이가 없는 원본 CCTV 프레임을 전송한다.
+요청 형식과 용량 제한은 분석 이미지 업로드와 동일하다. 분석 이미지와 원본 이미지는
+서로 다른 최신 파일로 보관하며 PostgreSQL에는 저장하지 않는다.
+
+## GET /api/stores/{store_id}/vision/raw/latest
+
+해당 매장의 최신 원본 CCTV 프레임을 반환한다. ROI 편집기는 이 주소만 사용하며,
+원본이 없을 때 분석 이미지로 자동 대체하지 않는다.
+
 ## GET /api/stores/{store_id}/orders/{order_id}
 
 매장 ID와 주문번호가 모두 일치하는 가장 최근 주문 상태를 반환한다.
@@ -222,3 +233,52 @@ docker compose exec api python -m app.scenario_loader
 
 - `packages/contracts/store_state.schema.json`
 - `packages/contracts/order_event.schema.json`
+- `packages/contracts/camera_roi_config.schema.json`
+## 카메라 ROI 설정
+
+ROI 좌표는 이미지 해상도와 무관한 `normalized_1000` 좌표계를 사용한다.
+왼쪽 위가 `(0, 0)`, 오른쪽 아래가 `(1000, 1000)`이다.
+
+- `GET /api/stores/{store_id}/cameras/{camera_id}/roi-config`: 현재 승인본
+- `PUT /api/stores/{store_id}/cameras/{camera_id}/roi-config`: 새 버전 저장·적용
+- `GET /api/stores/{store_id}/cameras/{camera_id}/roi-configs`: 버전 이력
+- `POST /api/stores/{store_id}/cameras/{camera_id}/roi-configs/{version}/approve`: 이전 버전 재적용
+- `GET /internal/stores/{store_id}/cameras/{camera_id}/roi-config`: Vision용 승인본
+
+지원 구역은 `staff`, `waiting`, `entrance`, `seating`이다. 폴리곤은 꼭짓점
+3~20개로 구성하며 좌표 범위, 면적, 자기 교차 여부를 API가 검증한다.
+
+점주는 원본 프레임 위에서 구역을 직접 그린다. `waiting`은 이미지 한 장만으로
+결정하지 않고 사람 추적·체류 자료와 실제 매장 운영 기준을 함께 참고한다.
+
+```json
+{
+  "coordinate_space": "normalized_1000",
+  "image_size": {"width": 1920, "height": 1080},
+  "source": "manual",
+  "zones": [
+    {
+      "id": "staff-1",
+      "type": "staff",
+      "label": "직원 구역",
+      "polygon": [
+        {"x": 530, "y": 20},
+        {"x": 995, "y": 20},
+        {"x": 995, "y": 540}
+      ]
+    }
+  ]
+}
+```
+
+## CCTV 디지털 트윈
+
+별도 매장 도면을 가정하지 않고 원본 CCTV 화면을 공간 기준으로 사용한다.
+Vision Worker는 사람의 발 좌표를 이미지 너비·높이에 대한 `0~1` 좌표로 정규화해
+`POST /internal/stores/{store_id}/occupancy`로 보낸다.
+
+`GET /api/stores/{store_id}/occupancy/latest`는 해당 카메라의 최신 위치를 반환한다.
+각 사람에는 `track_id`, 역할, 상태와 ROI 구역이 포함된다. 대시보드는 승인된 ROI,
+발 좌표와 최근 이동 궤적을 원본 CCTV 이미지 위에 표시한다.
+
+도면 좌표 변환이나 여러 카메라 위치의 공간 통합은 현재 범위에 포함하지 않는다.

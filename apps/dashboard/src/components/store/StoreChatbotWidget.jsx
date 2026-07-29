@@ -50,7 +50,7 @@ export default function StoreChatbotWidget({ page }) {
     // Generate intelligent AI Cafe response
     setTimeout(() => {
       let botReply = '죄송해요, 문의하신 내용에 대한 답변을 준비 중입니다. 매장 설정 또는 본사 고객센터로 문의해 주세요.'
-      
+
       const lower = query.toLowerCase()
       if (lower.includes('운영') || lower.includes('시간') || lower.includes('학사') || lower.includes('매장')) {
         botReply = '🏪 [매장 운영 안내]\n현재 동명점은 실시간 AI 관제 모드로 24시간 가동 중입니다. 기본 영업시간은 07:00 ~ 23:00 이며, 무인 관제 상태는 실시간 Polling(2s)으로 유지됩니다.'
@@ -147,7 +147,7 @@ export default function StoreChatbotWidget({ page }) {
             const input = document.getElementById('userInput');
             const val = input.value.trim();
             if(!val) return;
-            
+
             const chatArea = document.getElementById('chatArea');
             const userHtml = '<div class="msg-row user"><div><div class="msg-bubble">' + val + '</div></div></div>';
             chatArea.insertAdjacentHTML('beforeend', userHtml);

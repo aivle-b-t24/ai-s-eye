@@ -19,7 +19,8 @@
 - 모델: CAFE로 파인튜닝한 `yolo11s`(전신 라벨 → 발 위치 산출). 가중치 경로는
   `AISEYE_CAFE_MODEL`, 데이터 경로는 `AISEYE_CAFE_ROOT` 환경변수로 지정.
 - 집계: **인원수 = 파인튜닝 탐지 − 직원(손님)**, **대기 = 대기 구역 + 서있음(pose) +
-  체류(ByteTrack)**, **직원 = 직원 구역(카운터 뒤)**. 구역은 `zones/<store_id>_zones.json`.
+  체류(ByteTrack)**, **직원 = 직원 구역 누적 체류 상위 K명**(매장별 `STAFF_COUNT`,
+  ByteTrack track_id 기준). 구역은 승인 ROI(API)→`zones/<store_id>_zones.json` 순.
 - **매장을 늘리려면** `cafe_stores.py`의 `STORES`에 항목을 추가하고 해당 매장 zones를
   그린 뒤 다시 실행한다.
 
@@ -44,7 +45,7 @@ py services/vision-worker/cafe_stores.py --limit 60  # 앞 60세그만(빠른 �
 | 값 | StoreState 필드 | 산출 |
 |---|---|---|
 | 전체(손님) 인원 | `visible_person_count` | 파인튜닝 탐지 − 직원 |
-| 직원 인원 | `zone_counts.staff` | 직원 구역(카운터 뒤) 탐지 |
+| 직원 인원 | `zone_counts.staff` | 직원 구역 누적 체류 상위 K명(track_id) |
 | 대기 인원 | `queue_count_estimate` = `zone_counts.waiting` | 대기 구역 + 서있음 + 체류 |
 
 **미지원 값 (현재 제공 못 함 — StoreState에 넣지 않음)**
@@ -60,7 +61,9 @@ py services/vision-worker/cafe_stores.py --limit 60  # 앞 60세그만(빠른 �
 **ROI 기준** — 매장별 `zones/<store_id>_zones.json`에 지정.
 
 - **대기** = 대기 구역(카운터 앞) 안에서 서있고 N프레임 이상 체류한 사람.
-- **직원** = 직원 구역(카운터 뒤) 탐지(손님 수에서 제외).
+- **직원** = 직원 구역(카운터 뒤) **누적 체류 상위 K명**(매장별 `STAFF_COUNT`).
+  실행 내내 track_id별 직원구역 프레임을 누적해 매 순간 상위 K명만 직원으로 세고
+  손님 수에서 제외한다. 직원 구역은 좌석과 겹치지 않게 **좁게** 그려야 정확하다.
 
 **모델·가중치**
 

@@ -9,6 +9,7 @@
 - Gemini(분석) 오류      → 503 insights_unavailable
 """
 
+import logging
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -21,6 +22,8 @@ from .client import StoreApiClient
 from .config import get_settings
 from .errors import ToolError
 from .franchise_insights import InsightsUnavailableError, generate_insights
+
+logger = logging.getLogger(__name__)
 
 
 class InsightsRequest(BaseModel):
@@ -134,11 +137,21 @@ def create_chat(req: ChatRequest) -> Any:
     Gemini가 질문을 이해해 필요한 매장 정보를 조회하고 답변을 만든다.
     Gemini를 못 쓰면 키워드 방식으로 넘어가며, 어느 쪽이든 answer는 사람이 읽는 문장이다.
     """
+    store = req.store_id or "-"
+    logger.info("chat 질문 store=%s: %s", store, req.question)
     try:
-        return app.state.agent.ask(req.question, req.store_id)
+        result = app.state.agent.ask(req.question, req.store_id)
     except Exception as exc:
         # ask()는 대개 내부에서 오류를 흡수하지만, 예상 밖 예외가 새도 500으로 터지지 않게 막는다.
+        logger.warning("chat 실패 store=%s: %s", store, exc, exc_info=True)
         raise HTTPException(
             status_code=503,
             detail={"error": "chat_unavailable", "message": f"답변을 생성하지 못했습니다: {exc}"},
         ) from exc
+    logger.info(
+        "chat 답변 store=%s source=%s: %s",
+        store,
+        result.get("source"),
+        result.get("answer"),
+    )
+    return result

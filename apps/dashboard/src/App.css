@@ -4707,15 +4707,6 @@ font-size: 16px !important;
   fill: #b78cff;
 }
 
-.camera-agent-id {
-  fill: #fff;
-  font-size: 21px;
-  font-weight: 800;
-  paint-order: stroke;
-  stroke: rgba(0, 0, 0, 0.85);
-  stroke-width: 6;
-}
-
 .camera-position-message {
   fill: #fff;
   font-size: 30px;

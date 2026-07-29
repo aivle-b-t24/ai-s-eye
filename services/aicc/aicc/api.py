@@ -16,6 +16,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, model_validator
 
+from .agent import StoreAgent
 from .client import StoreApiClient
 from .config import get_settings
 from .errors import ToolError
@@ -56,13 +57,35 @@ class InsightsResponse(BaseModel):
     comparison: Comparison = Field(default_factory=Comparison)
 
 
+class ChatRequest(BaseModel):
+    """챗봇 질문. question은 필수, 너무 긴 입력은 막는다(토큰 낭비 방지)."""
+
+    question: str = Field(min_length=1, max_length=500, description="고객 질문")
+    store_id: str | None = Field(default=None, description="매장 ID. 없으면 기본 매장")
+
+    @model_validator(mode="after")
+    def _check_not_blank(self) -> "ChatRequest":
+        # 공백만 있는 질문은 빈 질문과 같으므로 막는다.
+        if not self.question.strip():
+            raise ValueError("question은 공백만으로 이루어질 수 없습니다.")
+        return self
+
+
+class ChatResponse(BaseModel):
+    question: str
+    answer: str | None = None
+    source: str  # "gemini" 또는 "keyword_fallback"
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.client = StoreApiClient()
+    app.state.agent = StoreAgent()
     try:
         yield
     finally:
         app.state.client.close()
+        app.state.agent.close()
 
 
 app = FastAPI(title="AICC Insights API", lifespan=lifespan)
@@ -102,3 +125,20 @@ def create_insights(req: InsightsRequest) -> Any:
         ) from exc
 
     return result
+
+
+@app.post("/chat", response_model=ChatResponse, tags=["chat"])
+def create_chat(req: ChatRequest) -> Any:
+    """고객 질문에 답한다.
+
+    Gemini가 질문을 이해해 필요한 매장 정보를 조회하고 답변을 만든다.
+    Gemini를 못 쓰면 키워드 방식으로 넘어가며, 어느 쪽이든 answer는 사람이 읽는 문장이다.
+    """
+    try:
+        return app.state.agent.ask(req.question, req.store_id)
+    except Exception as exc:
+        # ask()는 대개 내부에서 오류를 흡수하지만, 예상 밖 예외가 새도 500으로 터지지 않게 막는다.
+        raise HTTPException(
+            status_code=503,
+            detail={"error": "chat_unavailable", "message": f"답변을 생성하지 못했습니다: {exc}"},
+        ) from exc

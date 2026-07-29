@@ -202,6 +202,10 @@ docker compose --profile demo logs -f vision-replay
 docker compose --profile demo stop vision-replay
 ```
 
+`outputs/snapshots/raw-frames`가 준비되어 있으면 Compose 재생기가 분석 이미지와
+ROI 표시가 없는 원본 CCTV 이미지를 같은 순서로 함께 전송한다. 원본 폴더가 없으면
+상태·사람 위치·분석 이미지만 계속 재생한다.
+
 `vision-replay`는 상태를 보낼 때마다 PostgreSQL에 이력을 추가한다. 팀원 여러 명이
 동시에 실행하지 않고 시연 담당자 한 명만 실행하며, 시연이 끝나면 중지한다.
 

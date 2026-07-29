@@ -146,7 +146,9 @@ export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose, ini
               <div className="naver-all-agree-text">
                 <strong>전체 동의하기</strong>
                 <p>
-                  AI's Eye 서비스 이용약관, 개인정보 수집 및 이용(필수), AI 비전 데이터 위탁(필수), 장비 및 마케팅 알림(선택) 동의를 포함합니다.
+                  {role === ROLES.STORE_MANAGER
+                    ? "AI's Eye 가맹점 매장 관제 서비스 이용약관, 점주 개인정보 수집(필수), 매장 AI 비전 데이터 위탁(필수), 매장 장애 및 알림(선택) 동의를 포함합니다."
+                    : "AI's Eye 본사 통합 관제 시스템 이용약관, 본사 관리자 정보 수집(필수), 전 가맹점 통합 데이터 처리(필수), 긴급 알림(선택) 동의를 포함합니다."}
                 </p>
               </div>
             </div>
@@ -162,7 +164,11 @@ export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose, ini
                   />
                   <span className={`naver-check-circle ${agreeTerms ? 'checked' : ''}`}>✓</span>
                   <span className="badge-required">필수</span>
-                  <span className="item-title">AI's Eye 서비스 이용약관</span>
+                  <span className="item-title">
+                    {role === ROLES.STORE_MANAGER
+                      ? "AI's Eye 가맹점 매장 관제 서비스 이용약관"
+                      : "AI's Eye 본사 통합 관제 시스템 이용약관"}
+                  </span>
                 </label>
                 <button type="button" className="view-link-btn" onClick={() => setShowPrivacyGuide(true)}>보기</button>
               </li>
@@ -176,7 +182,11 @@ export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose, ini
                   />
                   <span className={`naver-check-circle ${agreePrivacy ? 'checked' : ''}`}>✓</span>
                   <span className="badge-required">필수</span>
-                  <span className="item-title">개인정보 수집 및 이용 동의</span>
+                  <span className="item-title">
+                    {role === ROLES.STORE_MANAGER
+                      ? "점주 개인정보 및 매장 정보 수집·이용 동의"
+                      : "본사 관리자 사번 및 시스템 접속 권한 정보 수집·이용 동의"}
+                  </span>
                 </label>
                 <button type="button" className="view-link-btn" onClick={() => setShowPrivacyGuide(true)}>보기</button>
               </li>
@@ -190,7 +200,11 @@ export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose, ini
                   />
                   <span className={`naver-check-circle ${agreeThirdParty ? 'checked' : ''}`}>✓</span>
                   <span className="badge-required">필수</span>
-                  <span className="item-title">AI CCTV 비전 분석 및 처리 위탁 동의</span>
+                  <span className="item-title">
+                    {role === ROLES.STORE_MANAGER
+                      ? "매장 AI CCTV 비전 분석 및 객체 감지 데이터 위탁 동의"
+                      : "전 가맹점 통합 모니터링 데이터 접근 및 처리 위탁 동의"}
+                  </span>
                 </label>
                 <button type="button" className="view-link-btn" onClick={() => setShowPrivacyGuide(true)}>보기</button>
               </li>
@@ -204,7 +218,11 @@ export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose, ini
                   />
                   <span className={`naver-check-circle ${agreeAlerts ? 'checked' : ''}`}>✓</span>
                   <span className="badge-optional">선택</span>
-                  <span className="item-title">시스템 긴급 장비 장애 및 AI 모니터링 알림 수신</span>
+                  <span className="item-title">
+                    {role === ROLES.STORE_MANAGER
+                      ? "매장 긴급 장비 장애 및 AI 모니터링 알림 수신"
+                      : "가맹점 통합 이상징후 및 슈퍼바이저 긴급 알림 수신"}
+                  </span>
                 </label>
               </li>
 
@@ -217,7 +235,11 @@ export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose, ini
                   />
                   <span className={`naver-check-circle ${agreeMarketing ? 'checked' : ''}`}>✓</span>
                   <span className="badge-optional">선택</span>
-                  <span className="item-title">마케팅 정보 활용 및 맞춤형 AI 인사이트 수신</span>
+                  <span className="item-title">
+                    {role === ROLES.STORE_MANAGER
+                      ? "점주 맞춤형 매장 매출·혼잡도 분석 인사이트 수신"
+                      : "전 가맹점 통합 운영 리포트 및 마케팅 인사이트 수신"}
+                  </span>
                 </label>
               </li>
             </ul>
@@ -227,7 +249,11 @@ export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose, ini
               <div className="accordion-header" onClick={() => setShowPrivacyGuide(!showPrivacyGuide)}>
                 <div className="accordion-title">
                   <span className="dot">•</span>
-                  <strong>개인정보 수집 및 이용 안내</strong>
+                  <strong>
+                    {role === ROLES.STORE_MANAGER
+                      ? "점주 개인정보 및 매장 비전 데이터 수집·이용 안내"
+                      : "본사 관리자 권한 및 통합 관제 데이터 수집·이용 안내"}
+                  </strong>
                   <span className="arrow-icon">{showPrivacyGuide ? '▲' : '▼'}</span>
                 </div>
                 <span className="sub-link">정부 규제 준수 가이드 기준</span>
@@ -236,15 +262,25 @@ export default function SignupPage({ onGoToLogin, onCompleteSignup, onClose, ini
               {showPrivacyGuide && (
                 <div className="accordion-body">
                   <div className={`scroll-box ${isGuideExpanded ? 'expanded' : ''}`}>
-                    <p>
-                      <strong>[개인정보 보호법 제15조 및 제17조(수집·이용 및 위탁 고지)]</strong><br /><br />
-                      개인정보 보호법 제15조제1항제4호(계약 체결/이행) 및 제17조에 따라, 아래와 같이 개인정보를 수집·이용 및 위탁 처리합니다.<br />
-                      AI's Eye 회원가입 시 하나의 계정으로 전체 매장 관제 및 본사 통합 시스템 이용이 가능하며, 수집된 정보는 서비스 제공 목적 외 용도로 활용되지 않습니다.<br /><br />
-                      1. <strong>수집·이용 목적:</strong> 계정 생성, 매장 AI 관제 권한 확인 및 본인 식별<br />
-                      2. <strong>수집 항목:</strong> 성명, 아이디, 비밀번호, 이메일 주소, 담당 매장 정보<br />
-                      3. <strong>처리 위탁:</strong> AI 실시간 CCTV 객체 감지 및 비전 분석 스트림 데이터 수탁 처리<br />
-                      4. <strong>보유 및 이용 기간:</strong> 회원 탈퇴 시까지 또는 관계 법령이 정한 일정 기간 동안 보존
-                    </p>
+                    {role === ROLES.STORE_MANAGER ? (
+                      <p>
+                        <strong>[점주 전용: 개인정보 보호법 제15조 및 제17조(수집·이용 및 위탁 고지)]</strong><br /><br />
+                        개인정보 보호법 제15조제1항제4호(계약 체결/이행) 및 제17조에 따라, 가맹점 관제 서비스 제공을 위해 개별 매장 점주님의 정보를 수집·이용 및 위탁 처리합니다.<br /><br />
+                        1. <strong>수집·이용 목적:</strong> 가맹점 계정 생성, 개별 매장(동명점/수완점 등) AI 관제 권한 확인 및 본인 식별<br />
+                        2. <strong>수집 항목:</strong> 성명, 아이디, 비밀번호, 이메일 주소, 담당 가맹점 정보<br />
+                        3. <strong>처리 위탁:</strong> 매장 실시간 CCTV 객체 감지, 대기시간 및 매장 혼잡도 AI 스트림 분석 처리<br />
+                        4. <strong>보유 및 이용 기간:</strong> 회원 탈퇴 시 또는 관계 법령이 정한 일정 기간 보존
+                      </p>
+                    ) : (
+                      <p>
+                        <strong>[본사 관리자 전용: 개인정보 보호법 제15조 및 제17조(수집·이용 및 위탁 고지)]</strong><br /><br />
+                        개인정보 보호법 제15조제1항제4호(계약 체결/이행) 및 제17조에 따라, 본사 슈퍼바이저 통제 및 가맹점 통합 관제 서비스를 위해 아래와 같이 정보를 처리합니다.<br /><br />
+                        1. <strong>수집·이용 목적:</strong> 본사 관리자 계정 생성, 전 가맹점 통합 관제 및 슈퍼바이저 관리 권한 부여<br />
+                        2. <strong>수집 항목:</strong> 성명, 사번/아이디, 비밀번호, 이메일 주소, 본사 담당 부서 정보<br />
+                        3. <strong>처리 위탁:</strong> 전 가맹점 통합 AI 관제 모니터링 및 이상상황 긴급 알림 데이터 처리<br />
+                        4. <strong>보유 및 이용 기간:</strong> 관리자 퇴사/보직해임 시까지 또는 관계 법령이 정한 일정 기간 보존
+                      </p>
+                    )}
                   </div>
                   <button
                     type="button"

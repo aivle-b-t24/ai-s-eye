@@ -25,6 +25,7 @@ export default function GnbHeader({
   loading,
   user,
   onLogout,
+  onOpenProfile,
 }) {
   return (
     <header className="gnb-header">
@@ -90,7 +91,13 @@ export default function GnbHeader({
 
         {user && (
           <div className="user-profile-badge">
-            <span className="user-name">{maskName(user.name)}</span>
+            <span
+              className="user-name clickable"
+              onClick={onOpenProfile}
+              title="프로필 상세정보 보기"
+            >
+              {maskName(user.name)}
+            </span>
             <button
               type="button"
               className="logout-btn"

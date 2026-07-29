@@ -88,8 +88,28 @@ def test_falls_back_when_gemini_errors() -> None:
         result = agent.ask("메뉴 알려줘")
 
     assert result["source"] == "keyword_fallback"
-    assert result["answer"] is None
+    # Gemini가 죽어도 raw 데이터가 아니라 사람이 읽는 문장을 준다.
+    assert isinstance(result["answer"], str) and result["answer"]
+    assert "아메리카노" in result["answer"]
     assert result["reason"]
+
+
+def test_fallback_answer_is_readable_sentence_by_tool() -> None:
+    """Gemini 없이도 도구별로 읽을 수 있는 문장을 만든다."""
+    from aicc.agent import _fallback_answer
+
+    # 매장 상태
+    s = _fallback_answer({"tool": "state", "result": {"ok": True, "visible_person_count": 5, "queue_count_estimate": 2}})
+    assert "5명" in s and "2명" in s
+    # 대기시간
+    e = _fallback_answer({"tool": "eta", "result": {"ok": True, "estimated_wait_minutes": 6}})
+    assert "6분" in e
+    # 주문
+    o = _fallback_answer({"tool": "order", "result": {"ok": True, "status_message": "접수되었습니다."}})
+    assert o == "접수되었습니다."
+    # 오류(ok=False)면 message 그대로
+    f = _fallback_answer({"tool": "state", "result": {"ok": False, "message": "매장 시스템에 연결하지 못했습니다."}})
+    assert f == "매장 시스템에 연결하지 못했습니다."
 
 
 def test_falls_back_when_gemini_returns_empty() -> None:

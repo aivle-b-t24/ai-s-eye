@@ -254,6 +254,16 @@ def prepare_occupancy(
 
     agents = []
     queue_remaining = max(int(state.get("queue_count_estimate", 0)), 0)
+    valid_states = {
+        "entering",
+        "queue",
+        "ordering",
+        "waiting",
+        "seated",
+        "exiting",
+        "working",
+        "unknown",
+    }
     for position in positions:
         role = (
             "staff"
@@ -261,13 +271,16 @@ def prepare_occupancy(
             else "customer"
         )
         zone = position.get("zone")
-        if role == "staff":
+        explicit_state = position.get("state")
+        if explicit_state in valid_states:
+            agent_state = explicit_state
+            if agent_state == "queue" and queue_remaining > 0:
+                queue_remaining -= 1
+        elif role == "staff":
             agent_state = "working"
         elif zone == "waiting" and queue_remaining > 0:
             agent_state = "queue"
             queue_remaining -= 1
-        elif zone == "seating":
-            agent_state = "seated"
         elif zone == "waiting":
             agent_state = "waiting"
         else:

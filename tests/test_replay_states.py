@@ -149,6 +149,36 @@ def test_waiting_zone_does_not_overstate_detected_queue() -> None:
     assert frame["agents"][0]["state"] == "waiting"
 
 
+def test_seating_zone_without_pose_confirmation_remains_unknown() -> None:
+    original = sample_state()
+    original["positions"][0]["zone"] = "seating"
+    original["queue_count_estimate"] = 0
+
+    frame = replay_states.prepare_occupancy(
+        original,
+        preserve_timestamp=True,
+    )
+
+    assert frame["agents"][0]["zone"] == "seating"
+    assert frame["agents"][0]["state"] == "unknown"
+
+
+def test_explicit_pose_state_is_preserved() -> None:
+    original = sample_state()
+    original["positions"][0].update({
+        "zone": "seating",
+        "state": "seated",
+    })
+    original["queue_count_estimate"] = 0
+
+    frame = replay_states.prepare_occupancy(
+        original,
+        preserve_timestamp=True,
+    )
+
+    assert frame["agents"][0]["state"] == "seated"
+
+
 def test_normalize_coordinate_clamps_image_boundaries() -> None:
     assert replay_states.normalize_coordinate(-10, 1920) == 0
     assert replay_states.normalize_coordinate(1920, 1920) == round(1919 / 1920, 6)

@@ -461,6 +461,11 @@ function App() {
             <SettingsView
               apiBaseUrl={API_BASE_URL}
               setPage={setPage}
+              storeId={
+                currentUser?.role === ROLES.STORE_MANAGER
+                  ? currentUser.storeId
+                  : STORES.DONGMYEONG
+              }
             />
           )}
         </section>

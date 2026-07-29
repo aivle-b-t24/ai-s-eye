@@ -12,6 +12,7 @@ import GnbHeader from './components/common/GnbHeader'
 import RoleBanner from './components/common/RoleBanner'
 import HeroSection from './components/HeroSection'
 import Sidebar from './components/Sidebar'
+import ProfileModal from './components/user/ProfileModal'
 
 import {
   ROLES,
@@ -57,6 +58,7 @@ function App() {
   const [page, setPage] = useState("store-001")
   const [storesData, setStoresData] = useState(DEFAULT_STORE_DATA)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isProfileOpen, setIsProfileOpen] = useState(false)
 
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -370,6 +372,7 @@ function App() {
             loading={loading}
             user={currentUser}
             onLogout={handleLogout}
+            onOpenProfile={() => setIsProfileOpen(true)}
           />
         </div>
       )}
@@ -377,6 +380,15 @@ function App() {
       {authMode === 'dashboard' && isDedicatedHeadOffice && (
         <HeadOfficeHeader
           user={currentUser}
+          onLogout={handleLogout}
+          onOpenProfile={() => setIsProfileOpen(true)}
+        />
+      )}
+
+      {isProfileOpen && currentUser && (
+        <ProfileModal
+          user={currentUser}
+          onClose={() => setIsProfileOpen(false)}
           onLogout={handleLogout}
         />
       )}
@@ -427,25 +439,15 @@ function App() {
 
       {authMode === 'dashboard' && (
         <section id="dashboard" className="dashboard-content">
-
-
-          
-
-          {!isDedicatedHeadOffice && (
-            <RoleBanner
-              page={page}
-              apiBaseUrl={API_BASE_URL}
-              isUsingMock={isUsingMock}
-              error={error}
-              loading={loading}
-            />
-          )}
-
           {(page === 'store-001' || page === 'store-002') && (
             <StoreDashboardView
               page={page}
               dashboard={activeDashboard}
               soldOutCount={soldOutCount}
+              apiBaseUrl={API_BASE_URL}
+              isUsingMock={isUsingMock}
+              error={error}
+              loading={loading}
             />
           )}
 
@@ -461,6 +463,11 @@ function App() {
             <SettingsView
               apiBaseUrl={API_BASE_URL}
               setPage={setPage}
+              storeId={
+                currentUser?.role === ROLES.STORE_MANAGER
+                  ? currentUser.storeId
+                  : STORES.DONGMYEONG
+              }
             />
           )}
         </section>

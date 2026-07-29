@@ -39,7 +39,7 @@ const maskName = (name) => {
   return name
 }
 
-export default function HeadOfficeHeader({ user, onLogout }) {
+export default function HeadOfficeHeader({ user, onLogout, onOpenProfile }) {
 
   const [activeSection, setActiveSection] = useState(getSectionFromHash)
   const navigationTargetRef = useRef(null)
@@ -177,7 +177,13 @@ export default function HeadOfficeHeader({ user, onLogout }) {
         <div className="head-office-user">
           <div>
             <span>본사 슈퍼바이저</span>
-            <strong>{maskName(user?.name ?? '관리자')}</strong>
+            <strong
+              className="clickable"
+              onClick={onOpenProfile}
+              title="프로필 상세정보 보기"
+            >
+              {maskName(user?.name ?? '관리자')}
+            </strong>
           </div>
           <button type="button" onClick={onLogout}>로그아웃</button>
         </div>

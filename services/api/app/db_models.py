@@ -128,3 +128,48 @@ class CameraRoiConfigRecord(Base):
         sa.DateTime(timezone=True),
         nullable=True,
     )
+
+
+class CameraSceneConfigRecord(Base):
+    """매장·카메라별 디지털 트윈 장면 설정 버전."""
+
+    __tablename__ = "camera_scene_configs"
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "store_id",
+            "camera_id",
+            "version",
+            name="uq_camera_scene_configs_store_camera_version",
+        ),
+        sa.Index(
+            "uq_camera_scene_configs_one_approved",
+            "store_id",
+            "camera_id",
+            unique=True,
+            postgresql_where=sa.text("status = 'approved'"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    store_id: Mapped[str] = mapped_column(sa.String(100), nullable=False)
+    camera_id: Mapped[str] = mapped_column(sa.String(200), nullable=False)
+    version: Mapped[int] = mapped_column(nullable=False)
+    coordinate_space: Mapped[str] = mapped_column(
+        sa.String(30),
+        nullable=False,
+        server_default="normalized_1000",
+    )
+    image_width: Mapped[int] = mapped_column(nullable=False)
+    image_height: Mapped[int] = mapped_column(nullable=False)
+    objects: Mapped[list[dict]] = mapped_column(JSONB, nullable=False)
+    source: Mapped[str] = mapped_column(sa.String(30), nullable=False)
+    status: Mapped[str] = mapped_column(sa.String(30), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True),
+        nullable=False,
+        server_default=sa.text("CURRENT_TIMESTAMP"),
+    )
+    approved_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True),
+        nullable=True,
+    )

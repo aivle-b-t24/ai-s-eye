@@ -53,6 +53,20 @@ function agentClass(agent) {
   return 'customer'
 }
 
+function agentMotion(agent) {
+  const current = agent.trail.at(-1)
+  const previous = agent.trail.at(-2)
+  if (!current || !previous || agent.state === 'seated') {
+    return { moving: false, direction: 1 }
+  }
+  const deltaX = current.x - previous.x
+  const deltaY = current.y - previous.y
+  return {
+    moving: Math.hypot(deltaX, deltaY) > 0.006,
+    direction: deltaX < -0.001 ? -1 : 1,
+  }
+}
+
 function buildTrackKey(agent, index) {
   if (agent.id) return agent.id
   return `anonymous-${index}-${Math.round(agent.x * 100)}-${Math.round(agent.y * 100)}`
@@ -101,7 +115,18 @@ function updateTracks(current, agents, observedAt) {
 }
 
 export default function CameraSceneTwin({ storeId, onSummaryChange }) {
-  const scene = useMemo(() => getCameraScene(storeId), [storeId])
+  const fallbackScene = useMemo(() => getCameraScene(storeId), [storeId])
+  const [sceneConfig, setSceneConfig] = useState(null)
+  const scene = useMemo(() => {
+    if (!fallbackScene || !sceneConfig) return fallbackScene
+    return {
+      ...fallbackScene,
+      objects: sceneConfig.objects.map((item) => ({
+        ...item,
+        polygon: item.polygon.map(({ x, y }) => [x, y]),
+      })),
+    }
+  }, [fallbackScene, sceneConfig])
   const [tracks, setTracks] = useState({})
   const [roiConfig, setRoiConfig] = useState(null)
   const [status, setStatus] = useState('loading')
@@ -153,6 +178,7 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
     latestCapturedAtRef.current = null
     setTracks({})
     setRoiConfig(null)
+    setSceneConfig(null)
     setCapturedAt(null)
     setStatus('loading')
     setViewMode('twin')
@@ -173,19 +199,34 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
   }, [loadOccupancy, scene])
 
   useEffect(() => {
-    if (!scene) return undefined
+    if (!fallbackScene) return undefined
     const controller = new AbortController()
     fetch(
-      `${API_BASE_URL}/api/stores/${storeId}/cameras/${scene.cameraId}/roi-config`,
+      `${API_BASE_URL}/api/stores/${storeId}/cameras/${fallbackScene.cameraId}/roi-config`,
       { signal: controller.signal },
     )
       .then((response) => (response.ok ? response.json() : null))
       .then(setRoiConfig)
       .catch((error) => {
         if (error.name !== 'AbortError') setRoiConfig(null)
+    })
+    return () => controller.abort()
+  }, [fallbackScene, storeId])
+
+  useEffect(() => {
+    if (!fallbackScene) return undefined
+    const controller = new AbortController()
+    fetch(
+      `${API_BASE_URL}/api/stores/${storeId}/cameras/${fallbackScene.cameraId}/scene-config`,
+      { signal: controller.signal },
+    )
+      .then((response) => (response.ok ? response.json() : null))
+      .then(setSceneConfig)
+      .catch((error) => {
+        if (error.name !== 'AbortError') setSceneConfig(null)
       })
     return () => controller.abort()
-  }, [scene, storeId])
+  }, [fallbackScene, storeId])
 
   const trackList = useMemo(() => Object.values(tracks), [tracks])
   const roiZoneTypes = useMemo(
@@ -349,7 +390,7 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
               </defs>
 
               <rect width="1000" height="1000" className="camera-scene-background" />
-              {scene.objects.map((object) => {
+              {scene.objects.filter((object) => object.type !== 'occluder').map((object) => {
                 const center = objectCenter(object.polygon)
                 return (
                   <g key={object.id} className={`camera-scene-object camera-scene-${object.type}`}>
@@ -388,12 +429,15 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
             <div className="camera-scene-agent-layer" aria-live="polite">
               {displayTrackList.map((track) => {
                 const scale = Math.min(Math.max(0.7 + track.y * 0.65, 0.7), 1.35)
+                const motion = agentMotion(track)
                 return (
                   <div
                     key={track.id}
                     className={[
                       'camera-scene-agent',
                       `camera-scene-agent-${agentClass(track)}`,
+                      track.state === 'seated' ? 'is-seated' : '',
+                      motion.moving ? 'is-moving' : '',
                       track.missing ? 'is-missing' : '',
                     ].filter(Boolean).join(' ')}
                     style={{
@@ -401,6 +445,7 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
                       top: `${track.y * 100}%`,
                       zIndex: Math.round(track.y * 1000) + 100,
                       '--agent-scale': scale,
+                      '--agent-direction': motion.direction,
                       '--position-transition': `${POSITION_TRANSITION_MS}ms`,
                     }}
                     title={`${agentLabel(track)} · ${track.zone ?? '구역 미지정'} · ID ${track.id}`}
@@ -409,13 +454,26 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
                     <span className="camera-scene-agent-body">
                       <i className="camera-scene-agent-head" />
                       <i className="camera-scene-agent-torso" />
+                      <i className="camera-scene-agent-arms" />
                       <i className="camera-scene-agent-legs" />
                     </span>
-                    <small>{track.id}</small>
                   </div>
                 )
               })}
             </div>
+
+            <svg
+              className="camera-scene-foreground"
+              viewBox="0 0 1000 1000"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              {scene.objects.filter((object) => object.type === 'occluder').map((object) => (
+                <g key={object.id} className="camera-scene-object camera-scene-occluder">
+                  <polygon points={polygonPoints(object.polygon)} />
+                </g>
+              ))}
+            </svg>
           </>
         )}
 

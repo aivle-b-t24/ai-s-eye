@@ -2169,6 +2169,7 @@ radial-gradient(circle at 50% 110%, rgba(71, 85, 105, 0.24), transparent 56%),
 }
 .camera-scene-source,
 .camera-scene-map,
+.camera-scene-foreground,
 .camera-scene-agent-layer {
 position: absolute;
 inset: 0;
@@ -2182,6 +2183,10 @@ filter: saturate(0.72) contrast(0.92);
 }
 .camera-scene-map {
 z-index: 2;
+}
+.camera-scene-foreground {
+z-index: 8;
+pointer-events: none;
 }
 .camera-scene-background {
 fill: #dce5e8;
@@ -2213,6 +2218,11 @@ fill: #61cdb1;
 stroke: #16856a;
 stroke-dasharray: 6 4;
 }
+.camera-scene-occluder polygon {
+fill: #7b5b37;
+stroke: #4a3420;
+stroke-width: 2;
+}
 .camera-scene-object text {
 fill: #f8fafc;
 font-size: 25px;
@@ -2228,6 +2238,9 @@ fill-opacity: 0.08;
 .camera-scene-mode-raw .camera-scene-object polygon {
 fill-opacity: 0.13;
 stroke-opacity: 0.8;
+}
+.camera-scene-mode-raw .camera-scene-foreground .camera-scene-occluder polygon {
+fill-opacity: 0.22;
 }
 .camera-scene-mode-raw .camera-scene-source {
 filter: none;
@@ -2335,6 +2348,8 @@ filter: blur(2px);
 position: absolute;
 inset: 0;
 filter: drop-shadow(0 3px 2px rgba(15, 23, 42, 0.26));
+transform: scaleX(var(--agent-direction));
+transform-origin: 50% 100%;
 }
 .camera-scene-agent-body i {
 position: absolute;
@@ -2357,6 +2372,16 @@ height: 25px;
 border: 2px solid rgba(255, 255, 255, 0.78);
 border-radius: 9px 9px 5px 5px;
 }
+.camera-scene-agent-arms {
+top: 20px;
+left: 4px;
+width: 29px;
+height: 15px;
+border-right: 4px solid var(--agent-color);
+border-left: 4px solid var(--agent-color);
+border-radius: 8px;
+background: transparent !important;
+}
 .camera-scene-agent-legs {
 top: 37px;
 left: 12px;
@@ -2366,18 +2391,62 @@ border-right: 4px solid var(--agent-color);
 border-left: 4px solid var(--agent-color);
 background: transparent !important;
 }
-.camera-scene-agent small {
-position: absolute;
-left: 50%;
-bottom: -17px;
-padding: 2px 5px;
-border-radius: 5px;
-color: #fff;
-background: rgba(15, 23, 42, 0.82);
-font-size: 7px;
-font-weight: 750;
-white-space: nowrap;
-transform: translateX(-50%);
+.camera-scene-agent.is-moving .camera-scene-agent-body {
+animation: camera-agent-walk 0.55s ease-in-out infinite alternate;
+}
+.camera-scene-agent.is-moving .camera-scene-agent-legs {
+animation: camera-agent-step 0.55s ease-in-out infinite alternate;
+}
+.camera-scene-agent.is-moving .camera-scene-agent-arms {
+animation: camera-agent-arms 0.55s ease-in-out infinite alternate-reverse;
+}
+.camera-scene-agent.is-seated {
+width: 44px;
+height: 43px;
+}
+.camera-scene-agent.is-seated .camera-scene-agent-head {
+top: 1px;
+left: 14px;
+}
+.camera-scene-agent.is-seated .camera-scene-agent-torso {
+top: 15px;
+left: 11px;
+height: 19px;
+transform: rotate(-7deg);
+}
+.camera-scene-agent.is-seated .camera-scene-agent-arms {
+top: 22px;
+left: 9px;
+width: 25px;
+height: 11px;
+transform: rotate(-12deg);
+}
+.camera-scene-agent.is-seated .camera-scene-agent-legs {
+top: 31px;
+left: 20px;
+width: 20px;
+height: 8px;
+border: 0;
+border-top: 5px solid var(--agent-color);
+border-right: 5px solid var(--agent-color);
+transform: skewX(-18deg);
+}
+.camera-scene-agent.is-seated .camera-scene-agent-shadow {
+left: 9px;
+bottom: -2px;
+width: 30px;
+}
+@keyframes camera-agent-walk {
+from { transform: scaleX(var(--agent-direction)) translateY(0); }
+to { transform: scaleX(var(--agent-direction)) translateY(-2px); }
+}
+@keyframes camera-agent-step {
+from { transform: skewX(-8deg); }
+to { transform: skewX(8deg); }
+}
+@keyframes camera-agent-arms {
+from { transform: skewX(-5deg); }
+to { transform: skewX(5deg); }
 }
 .camera-scene-message,
 .camera-scene-empty {
@@ -4889,6 +4958,129 @@ font-size: 16px !important;
   color: #198038;
 }
 
+.space-setting-tabs {
+  display: flex;
+  gap: 0;
+  margin-top: 20px;
+  border-bottom: 1px solid #c6c6c6;
+}
+
+.space-setting-tabs button {
+  min-height: 44px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: #f4f4f4;
+  padding: 0 22px;
+  color: #525252;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.space-setting-tabs button.active {
+  border-bottom-color: #0f62fe;
+  background: #fff;
+  color: #161616;
+}
+
+.scene-heading-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.scene-guide {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-left: 4px solid #f1c21b;
+  background: #fff8e1;
+  color: #525252;
+  font-size: 13px;
+}
+
+.scene-guide strong {
+  flex: 0 0 auto;
+  color: #161616;
+}
+
+.scene-settings .roi-canvas-wrap {
+  align-self: start;
+}
+
+.scene-editor-object polygon {
+  fill: rgba(120, 169, 255, 0.26);
+  stroke: #78a9ff;
+  stroke-width: 5;
+  vector-effect: non-scaling-stroke;
+  cursor: pointer;
+}
+
+.scene-editor-floor polygon {
+  fill: rgba(141, 141, 141, 0.2);
+  stroke: #c6c6c6;
+}
+
+.scene-editor-wall polygon {
+  fill: rgba(82, 82, 82, 0.34);
+  stroke: #a8a8a8;
+}
+
+.scene-editor-table polygon {
+  fill: rgba(180, 126, 54, 0.36);
+  stroke: #f1c21b;
+}
+
+.scene-editor-counter polygon {
+  fill: rgba(0, 67, 206, 0.34);
+  stroke: #4589ff;
+}
+
+.scene-editor-entrance polygon {
+  fill: rgba(0, 157, 154, 0.3);
+  stroke: #3ddbd9;
+  stroke-dasharray: 10 7;
+}
+
+.scene-editor-occluder polygon {
+  fill: rgba(218, 30, 40, 0.4);
+  stroke: #ff8389;
+  stroke-dasharray: 12 7;
+}
+
+.scene-editor-object.is-selected polygon {
+  stroke: #fff;
+  stroke-width: 8;
+}
+
+.scene-editor-object text {
+  fill: #fff;
+  font-size: 28px;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: #161616;
+  stroke-width: 7;
+  pointer-events: none;
+}
+
+.scene-editor-object circle {
+  fill: #fff;
+  stroke: #0f62fe;
+  stroke-width: 5;
+  cursor: move;
+}
+
+.scene-editor-object circle.is-selected {
+  fill: #f1c21b;
+}
+
+.scene-swatch-floor { background: #8d8d8d; }
+.scene-swatch-wall { background: #525252; }
+.scene-swatch-table { background: #b47e36; }
+.scene-swatch-counter { background: #0f62fe; }
+.scene-swatch-entrance { background: #009d9a; }
+.scene-swatch-occluder { background: #da1e28; }
+
 @media (max-width: 900px) {
   .roi-editor-layout {
     grid-template-columns: 1fr;
@@ -4926,6 +5118,17 @@ font-size: 16px !important;
 
   .roi-toolbar > * {
     width: 100%;
+  }
+
+  .space-setting-tabs button {
+    flex: 1;
+    padding-inline: 10px;
+  }
+
+  .scene-heading-actions,
+  .scene-guide {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .roi-canvas {

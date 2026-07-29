@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import RoiEditor from './RoiEditor';
+import SceneEditor from './SceneEditor';
 
 export default function SettingsView({
   apiBaseUrl,
@@ -9,6 +10,7 @@ export default function SettingsView({
   onToggleChatbot,
 }) {
   const [activeTab, setActiveTab] = useState('space');
+  const [activeSpaceTab, setActiveSpaceTab] = useState('roi');
 
   return (
     <section className="setting-view">
@@ -58,16 +60,38 @@ export default function SettingsView({
               <p>CCTV 원본 화면에서 직원·대기·좌석·출입구 구역을 설정합니다.</p>
             </div>
             <ol>
-              <li>구역 직접 그리기</li>
-              <li>현재 탐지점 검증</li>
-              <li>ROI 저장 및 적용</li>
+              <li>ROI로 인원 판정 구역 설정</li>
+              <li>테이블·카운터 장면 보정</li>
+              <li>저장 및 적용</li>
             </ol>
           </div>
 
-          <RoiEditor
-            apiBaseUrl={apiBaseUrl}
-            storeId={storeId}
-          />
+          <div className="space-setting-tabs" role="tablist" aria-label="공간 설정 종류">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeSpaceTab === 'roi'}
+              className={activeSpaceTab === 'roi' ? 'active' : ''}
+              onClick={() => setActiveSpaceTab('roi')}
+            >
+              ROI·인원 판정
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeSpaceTab === 'scene'}
+              className={activeSpaceTab === 'scene' ? 'active' : ''}
+              onClick={() => setActiveSpaceTab('scene')}
+            >
+              디지털 트윈 장면
+            </button>
+          </div>
+
+          {activeSpaceTab === 'roi' ? (
+            <RoiEditor apiBaseUrl={apiBaseUrl} storeId={storeId} />
+          ) : (
+            <SceneEditor apiBaseUrl={apiBaseUrl} storeId={storeId} />
+          )}
         </div>
       )}
 

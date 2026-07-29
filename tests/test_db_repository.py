@@ -8,10 +8,16 @@ import pytest
 from sqlalchemy import create_engine, delete, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.db_models import CameraRoiConfigRecord, OrderEventRecord, StoreStateRecord
+from app.db_models import (
+    CameraRoiConfigRecord,
+    CameraSceneConfigRecord,
+    OrderEventRecord,
+    StoreStateRecord,
+)
 from app.db_repository import DatabaseRepository
 from app.models import (
     CameraRoiConfigInput,
+    CameraSceneConfigInput,
     OrderEvent,
     OrderItem,
     OrderStatus,
@@ -49,6 +55,11 @@ def database_repository() -> tuple[DatabaseRepository, sessionmaker[Session], st
             session.execute(
                 delete(CameraRoiConfigRecord).where(
                     CameraRoiConfigRecord.store_id.like(f"{test_id}%")
+                )
+            )
+            session.execute(
+                delete(CameraSceneConfigRecord).where(
+                    CameraSceneConfigRecord.store_id.like(f"{test_id}%")
                 )
             )
             session.execute(
@@ -105,6 +116,44 @@ def test_roi_versions_are_saved_and_previous_version_can_be_restored(
     assert restored is not None
     assert restored.version == 1
     assert repository.get_approved_roi_config(test_id, "cam-1").version == 1
+
+
+def test_scene_versions_are_saved_and_previous_version_can_be_restored(
+    database_repository: tuple[DatabaseRepository, sessionmaker[Session], str],
+) -> None:
+    repository, _, test_id = database_repository
+    payload = CameraSceneConfigInput(
+        image_size={"width": 1920, "height": 1080},
+        objects=[
+            {
+                "id": "table-1",
+                "type": "table",
+                "label": "테이블",
+                "polygon": [
+                    {"x": 100, "y": 100},
+                    {"x": 400, "y": 100},
+                    {"x": 400, "y": 400},
+                ],
+            }
+        ],
+    )
+
+    first = repository.save_scene_config(test_id, "cam-1", payload)
+    second = repository.save_scene_config(test_id, "cam-1", payload)
+
+    assert first.version == 1
+    assert second.version == 2
+    assert repository.get_approved_scene_config(test_id, "cam-1").version == 2
+    assert [
+        item.status.value
+        for item in repository.list_scene_configs(test_id, "cam-1")
+    ] == ["approved", "archived"]
+
+    restored = repository.approve_scene_config(test_id, "cam-1", 1)
+
+    assert restored is not None
+    assert restored.version == 1
+    assert repository.get_approved_scene_config(test_id, "cam-1").version == 1
 
 
 def test_latest_store_state_is_returned(

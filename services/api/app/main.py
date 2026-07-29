@@ -13,6 +13,8 @@ from .db_repository import DatabaseRepository
 from .models import (
     CameraRoiConfig,
     CameraRoiConfigInput,
+    CameraSceneConfig,
+    CameraSceneConfigInput,
     EtaResponse,
     OrderEvent,
     StoreState,
@@ -343,6 +345,63 @@ def get_internal_camera_roi_config(
     config = repository.get_approved_roi_config(store_id, camera_id)
     if config is None:
         raise HTTPException(status_code=404, detail="ROI config not found")
+    return config
+
+
+@app.get(
+    "/api/stores/{store_id}/cameras/{camera_id}/scene-config",
+    response_model=CameraSceneConfig,
+    tags=["scene"],
+)
+def get_camera_scene_config(store_id: str, camera_id: str) -> CameraSceneConfig:
+    validate_vision_store_id(store_id)
+    config = repository.get_approved_scene_config(store_id, camera_id)
+    if config is None:
+        raise HTTPException(status_code=404, detail="Scene config not found")
+    return config
+
+
+@app.put(
+    "/api/stores/{store_id}/cameras/{camera_id}/scene-config",
+    response_model=CameraSceneConfig,
+    tags=["scene"],
+)
+def save_camera_scene_config(
+    store_id: str,
+    camera_id: str,
+    config: CameraSceneConfigInput,
+) -> CameraSceneConfig:
+    validate_vision_store_id(store_id)
+    return repository.save_scene_config(store_id, camera_id, config)
+
+
+@app.get(
+    "/api/stores/{store_id}/cameras/{camera_id}/scene-configs",
+    response_model=list[CameraSceneConfig],
+    tags=["scene"],
+)
+def list_camera_scene_configs(
+    store_id: str,
+    camera_id: str,
+) -> list[CameraSceneConfig]:
+    validate_vision_store_id(store_id)
+    return repository.list_scene_configs(store_id, camera_id)
+
+
+@app.post(
+    "/api/stores/{store_id}/cameras/{camera_id}/scene-configs/{version}/approve",
+    response_model=CameraSceneConfig,
+    tags=["scene"],
+)
+def approve_camera_scene_config(
+    store_id: str,
+    camera_id: str,
+    version: int,
+) -> CameraSceneConfig:
+    validate_vision_store_id(store_id)
+    config = repository.approve_scene_config(store_id, camera_id, version)
+    if config is None:
+        raise HTTPException(status_code=404, detail="Scene config version not found")
     return config
 
 

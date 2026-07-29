@@ -4,8 +4,11 @@ from datetime import datetime, timezone
 from .models import (
     CameraRoiConfig,
     CameraRoiConfigInput,
+    CameraSceneConfig,
+    CameraSceneConfigInput,
     OrderEvent,
     RoiConfigStatus,
+    SceneConfigStatus,
     StoreState,
 )
 
@@ -17,6 +20,7 @@ class InMemoryRepository:
         self._store_states: dict[str, StoreState] = {}
         self._order_events: dict[str, OrderEvent] = {}
         self._roi_configs: dict[tuple[str, str], list[CameraRoiConfig]] = {}
+        self._scene_configs: dict[tuple[str, str], list[CameraSceneConfig]] = {}
         self._lock = RLock()
 
     def save_store_state(self, state: StoreState) -> StoreState:
@@ -137,4 +141,84 @@ class InMemoryRepository:
                     item = item.model_copy(update={"status": RoiConfigStatus.ARCHIVED})
                 updated.append(item)
             self._roi_configs[(store_id, camera_id)] = updated
+            return approved
+
+    def save_scene_config(
+        self,
+        store_id: str,
+        camera_id: str,
+        config: CameraSceneConfigInput,
+    ) -> CameraSceneConfig:
+        with self._lock:
+            key = (store_id, camera_id)
+            history = self._scene_configs.setdefault(key, [])
+            history[:] = [
+                item.model_copy(update={"status": SceneConfigStatus.ARCHIVED})
+                if item.status == SceneConfigStatus.APPROVED
+                else item
+                for item in history
+            ]
+            now = datetime.now(timezone.utc)
+            saved = CameraSceneConfig(
+                **config.model_dump(),
+                store_id=store_id,
+                camera_id=camera_id,
+                version=len(history) + 1,
+                status=SceneConfigStatus.APPROVED,
+                created_at=now,
+                approved_at=now,
+            )
+            history.append(saved)
+            return saved
+
+    def get_approved_scene_config(
+        self,
+        store_id: str,
+        camera_id: str,
+    ) -> CameraSceneConfig | None:
+        with self._lock:
+            return next(
+                (
+                    item
+                    for item in reversed(self._scene_configs.get((store_id, camera_id), []))
+                    if item.status == SceneConfigStatus.APPROVED
+                ),
+                None,
+            )
+
+    def list_scene_configs(
+        self,
+        store_id: str,
+        camera_id: str,
+    ) -> list[CameraSceneConfig]:
+        with self._lock:
+            return list(reversed(self._scene_configs.get((store_id, camera_id), [])))
+
+    def approve_scene_config(
+        self,
+        store_id: str,
+        camera_id: str,
+        version: int,
+    ) -> CameraSceneConfig | None:
+        with self._lock:
+            history = self._scene_configs.get((store_id, camera_id), [])
+            target = next((item for item in history if item.version == version), None)
+            if target is None:
+                return None
+            now = datetime.now(timezone.utc)
+            updated: list[CameraSceneConfig] = []
+            approved: CameraSceneConfig | None = None
+            for item in history:
+                if item.version == version:
+                    item = item.model_copy(
+                        update={
+                            "status": SceneConfigStatus.APPROVED,
+                            "approved_at": now,
+                        }
+                    )
+                    approved = item
+                elif item.status == SceneConfigStatus.APPROVED:
+                    item = item.model_copy(update={"status": SceneConfigStatus.ARCHIVED})
+                updated.append(item)
+            self._scene_configs[(store_id, camera_id)] = updated
             return approved

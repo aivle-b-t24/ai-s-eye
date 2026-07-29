@@ -54,6 +54,26 @@ const STORE_ONE_SCENE = {
       type: 'table',
       polygon: [[375, 750], [650, 685], [785, 880], [500, 1000], [330, 955]],
     },
+    {
+      id: 'counter-front-mask',
+      type: 'occluder',
+      polygon: [[580, 285], [770, 405], [1000, 470], [1000, 520], [760, 455], [565, 330]],
+    },
+    {
+      id: 'table-left-front-mask',
+      type: 'occluder',
+      polygon: [[90, 680], [310, 600], [310, 640], [90, 725]],
+    },
+    {
+      id: 'table-center-front-mask',
+      type: 'occluder',
+      polygon: [[435, 730], [650, 650], [650, 690], [435, 780]],
+    },
+    {
+      id: 'table-front-mask',
+      type: 'occluder',
+      polygon: [[330, 900], [500, 945], [785, 830], [785, 880], [500, 1000], [330, 955]],
+    },
   ],
 }
 
@@ -113,6 +133,21 @@ const STORE_TWO_SCENE = {
       id: 'entrance-right',
       type: 'entrance',
       polygon: [[900, 250], [1000, 245], [1000, 520], [910, 505]],
+    },
+    {
+      id: 'counter-front-mask',
+      type: 'occluder',
+      polygon: [[65, 680], [330, 545], [330, 600], [65, 735], [0, 655], [0, 610]],
+    },
+    {
+      id: 'table-right-front-mask',
+      type: 'occluder',
+      polygon: [[730, 590], [945, 565], [945, 610], [730, 635]],
+    },
+    {
+      id: 'table-front-mask',
+      type: 'occluder',
+      polygon: [[480, 820], [620, 940], [825, 810], [825, 860], [620, 990], [480, 865]],
     },
   ],
 }

@@ -10,7 +10,7 @@ export default function StoreChatbotWidget({ page }) {
     {
       id: 1,
       sender: 'bot',
-      text: '안녕하세요? AI Cafe 챗봇 서비스예요. 궁금하신 매장 운영 내용을 질문해 주세요.',
+      text: '안녕하세요! AI 카페 매니저예요. 매장 운영시간, 품절 메뉴, 주차, 실시간 관제 등 궁금하신 점을 편하게 질문해 주세요.',
       source: '',
       time: getCurrentTime(),
     },
@@ -97,7 +97,7 @@ export default function StoreChatbotWidget({ page }) {
     }
   }
 
-  // Open external dedicated standalone popup window (matching image 1 & 3 [ ↗ ] button)
+  // Open external dedicated standalone popup window
   const openExternalPopupWindow = () => {
     const width = 450
     const height = 680
@@ -111,42 +111,42 @@ export default function StoreChatbotWidget({ page }) {
       <html lang="ko">
       <head>
         <meta charset="UTF-8" />
-        <title>AI Cafe 챗봇 서비스 - 독립 창 (${activeStoreId})</title>
+        <title>AI's Eye 카페 매니저 - 독립 창 (${activeStoreId})</title>
         <style>
           * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Pretendard', 'Noto Sans KR', sans-serif; }
-          body { background: #eef3f6; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-          .header { background: #004b8d; color: white; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; font-weight: 700; }
+          body { background: #fdfbf7; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+          .header { background: #173f3a; color: white; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; font-weight: 700; border-bottom: 2px solid #316f68; }
           .header-title { display: flex; align-items: center; gap: 8px; font-size: 16px; }
-          .hero-banner { background: #d9e5f3; padding: 16px; text-align: center; border-bottom: 1px solid #c8d8ea; }
-          .mascot { width: 64px; height: 64px; background: #004b8d; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 8px; }
-          .welcome-title { font-size: 15px; font-weight: 800; color: #003366; margin-bottom: 4px; }
-          .welcome-sub { font-size: 12px; color: #4a5568; }
+          .hero-banner { background: #f4efe6; padding: 16px; text-align: center; border-bottom: 1px solid #e5ded3; }
+          .mascot { width: 56px; height: 56px; background: #173f3a; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-size: 28px; margin: 0 auto 8px; border: 2px solid #316f68; box-shadow: 0 4px 12px rgba(23, 63, 58, 0.2); }
+          .welcome-title { font-size: 15px; font-weight: 800; color: #173f3a; margin-bottom: 4px; }
+          .welcome-sub { font-size: 12px; color: #5c4b37; }
           .faq-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
-          .faq-btn { background: white; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px 6px; font-size: 11px; font-weight: 700; color: #1e293b; cursor: pointer; transition: all 0.2s; }
-          .faq-btn:hover { background: #004b8d; color: white; border-color: #004b8d; }
-          .chat-area { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: #f8fafc; }
+          .faq-btn { background: white; border: 1px solid #e2d8c9; border-radius: 10px; padding: 10px 6px; font-size: 11px; font-weight: 700; color: #2c1e16; cursor: pointer; transition: all 0.2s; }
+          .faq-btn:hover { background: #173f3a; color: white; border-color: #173f3a; }
+          .chat-area { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: #faf8f5; }
           .msg-row { display: flex; gap: 10px; align-items: flex-start; }
           .msg-row.user { justify-content: flex-end; }
-          .avatar { width: 36px; height: 36px; background: #004b8d; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px; flex-shrink: 0; }
+          .avatar { width: 36px; height: 36px; background: #173f3a; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px; flex-shrink: 0; }
           .msg-bubble { max-width: 78%; padding: 10px 14px; border-radius: 14px; font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
-          .msg-row.bot .msg-bubble { background: #e2e8f0; color: #0f172a; border-top-left-radius: 2px; }
-          .msg-row.user .msg-bubble { background: #004b8d; color: white; border-top-right-radius: 2px; }
-          .source-tag { font-size: 10px; color: #047857; margin-top: 4px; font-weight: 700; background: #d1fae5; padding: 2px 6px; border-radius: 4px; display: inline-block; }
-          .msg-time { font-size: 10px; color: #94a3b8; margin-top: 4px; align-self: flex-end; }
-          .input-area { background: white; padding: 12px 16px; border-top: 1px solid #e2e8f0; display: flex; gap: 10px; align-items: center; }
-          .input-area input { flex: 1; border: 1px solid #cbd5e1; border-radius: 20px; padding: 10px 16px; font-size: 13px; outline: none; }
-          .send-btn { width: 38px; height: 38px; background: #9d174d; border: none; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; }
+          .msg-row.bot .msg-bubble { background: #eee9e0; color: #1f2937; border-top-left-radius: 2px; }
+          .msg-row.user .msg-bubble { background: #173f3a; color: white; border-top-right-radius: 2px; }
+          .source-tag { font-size: 11px; color: #365e56; margin-top: 6px; font-weight: 700; background: #e8f3f0; border: 1px solid #c2e2db; padding: 3px 8px; border-radius: 6px; display: inline-block; }
+          .msg-time { font-size: 10px; color: #8c7e72; margin-top: 4px; align-self: flex-end; }
+          .input-area { background: white; padding: 12px 16px; border-top: 1px solid #e5ded3; display: flex; gap: 10px; align-items: center; }
+          .input-area input { flex: 1; border: 1px solid #d8cdbe; border-radius: 20px; padding: 10px 16px; font-size: 13px; outline: none; }
+          .send-btn { width: 38px; height: 38px; background: #173f3a; border: none; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; }
         </style>
       </head>
       <body>
         <div class="header">
-          <div class="header-title"><span>🐱</span> AI Cafe 챗봇 서비스 (${activeStoreId})</div>
+          <div class="header-title"><span>☕</span> AI Cafe 매니저 (${activeStoreId})</div>
           <div><button onclick="window.close()" style="background:none;border:none;color:white;font-size:18px;cursor:pointer;">✕</button></div>
         </div>
         <div class="hero-banner">
-          <div class="mascot">🐱</div>
-          <div class="welcome-title">안녕하세요! 저는 AI Cafe 마스코트 아이봇이에요!</div>
-          <div class="welcome-sub">궁금하신 매장 운영 내용을 편하게 질문해 주세요.</div>
+          <div class="mascot">☕</div>
+          <div class="welcome-title">안녕하세요! 저는 AI's Eye 카페 매니저예요!</div>
+          <div class="welcome-sub">매장 운영시간, 품절 메뉴, 주차, AI 관제 현황을 알려드릴게요.</div>
           <div class="faq-grid">
             <button class="faq-btn" onclick="sendFaq('매장 운영 안내')">📅 매장 운영<br/>안내</button>
             <button class="faq-btn" onclick="sendFaq('품절 및 재고 안내')">☕ 품절 재고<br/>안내</button>
@@ -155,9 +155,9 @@ export default function StoreChatbotWidget({ page }) {
         </div>
         <div class="chat-area" id="chatArea">
           <div class="msg-row bot">
-            <div class="avatar">🐱</div>
+            <div class="avatar">☕</div>
             <div>
-              <div class="msg-bubble">안녕하세요? AI Cafe 챗봇 서비스예요. 궁금하신 내용을 질문해 주세요.</div>
+              <div class="msg-bubble">안녕하세요! AI 카페 매니저예요. 궁금하신 내용을 질문해 주세요.</div>
               <div class="msg-time">실시간 연동 가동 중</div>
             </div>
           </div>
@@ -183,7 +183,7 @@ export default function StoreChatbotWidget({ page }) {
             chatArea.scrollTop = chatArea.scrollHeight;
 
             const loadingId = 'loading-' + Date.now();
-            const loadingHtml = '<div class="msg-row bot" id="' + loadingId + '"><div class="avatar">🐱</div><div><div class="msg-bubble">답변을 생성 중입니다...</div></div></div>';
+            const loadingHtml = '<div class="msg-row bot" id="' + loadingId + '"><div class="avatar">☕</div><div><div class="msg-bubble">답변을 생성 중입니다...</div></div></div>';
             chatArea.insertAdjacentHTML('beforeend', loadingHtml);
             chatArea.scrollTop = chatArea.scrollHeight;
 
@@ -200,17 +200,13 @@ export default function StoreChatbotWidget({ page }) {
               if(!res.ok) throw new Error('HTTP ' + res.status);
               const data = await res.json();
 
-              let sourceHtml = '';
-              if (data.source) {
-                sourceHtml = '<br/><span class="source-tag">📌 출처: ' + data.source + '</span>';
-              }
-              const botHtml = '<div class="msg-row bot"><div class="avatar">🐱</div><div><div class="msg-bubble">' + (data.answer || '답변을 가져올 수 없습니다.') + sourceHtml + '</div></div></div>';
+              const botHtml = '<div class="msg-row bot"><div class="avatar">☕</div><div><div class="msg-bubble">' + (data.answer || '답변을 가져올 수 없습니다.') + '</div></div></div>';
               chatArea.insertAdjacentHTML('beforeend', botHtml);
               chatArea.scrollTop = chatArea.scrollHeight;
             } catch(err) {
               const loader = document.getElementById(loadingId);
               if(loader) loader.remove();
-              const errHtml = '<div class="msg-row bot"><div class="avatar">🐱</div><div><div class="msg-bubble" style="color:#b91c1c;">챗봇 서버(8100)와 통신 중 오류가 발생했습니다.</div></div></div>';
+              const errHtml = '<div class="msg-row bot"><div class="avatar">☕</div><div><div class="msg-bubble" style="color:#b91c1c;">챗봇 서버(8100)와 통신 중 오류가 발생했습니다.</div></div></div>';
               chatArea.insertAdjacentHTML('beforeend', errHtml);
               chatArea.scrollTop = chatArea.scrollHeight;
             }
@@ -237,7 +233,7 @@ export default function StoreChatbotWidget({ page }) {
       {/* Floating Trigger Button on Bottom Left (Position Fixed, follows scroll) */}
       <div className="store-chatbot-trigger-container">
         <div className="store-chatbot-speech-bubble">
-          <span>궁금한 걸 물어봐!</span>
+          <span>카페 운영 질문 언제든 가능!</span>
           <div className="speech-arrow" />
         </div>
         <button
@@ -247,9 +243,9 @@ export default function StoreChatbotWidget({ page }) {
           title="AI Cafe 챗봇 열기"
         >
           <div className="chatbot-icon-wrapper">
-            <span className="chatbot-avatar-emoji">🐱</span>
+            <span className="chatbot-avatar-emoji">☕</span>
           </div>
-          <span className="chatbot-btn-text">JBNU 챗봇</span>
+          <span className="chatbot-btn-text">카페 매니저</span>
         </button>
       </div>
 
@@ -263,12 +259,12 @@ export default function StoreChatbotWidget({ page }) {
                 ☰
               </button>
               <div className="chatbot-header-title">
-                <span className="header-icon">🐱</span>
-                <span>AI Cafe 챗봇 서비스 ({page || 'store-001'})</span>
+                <span className="header-icon">☕</span>
+                <span>AI Cafe 매니저 ({page === 'store-002' ? '상무점' : '동명점'})</span>
               </div>
             </div>
             <div className="chatbot-header-right">
-              {/* External New Window Popup Button (Matching Image 1 & 3) */}
+              {/* External New Window Popup Button */}
               <button
                 type="button"
                 className="chatbot-external-btn"
@@ -301,17 +297,17 @@ export default function StoreChatbotWidget({ page }) {
             </div>
           </div>
 
-          {/* Hero Greeting & Mascot Banner (Matching Image 2 & 3) */}
+          {/* Hero Greeting & Mascot Banner */}
           <div className="chatbot-hero-banner">
             <div className="mascot-circle">
-              <span>🐱</span>
+              <span>☕</span>
             </div>
             <h4 className="hero-greeting">
               안녕하세요!<br />
-              저는 AI Cafe <strong>마스코트 아이봇</strong>이에요!
+              저는 AI's Eye <strong>카페 매니저</strong>예요!
             </h4>
             <p className="hero-subtext">
-              "자주하는 질문 모음"을 누르시면 FAQ를 빠르게 확인하실 수 있어요.
+              매장 영업시간, 품절 메뉴, 주차, AI 관제 현황을 알려드릴게요.
             </p>
 
             <div className="faq-quick-grid">
@@ -358,18 +354,13 @@ export default function StoreChatbotWidget({ page }) {
               >
                 {msg.sender === 'bot' && (
                   <div className="bot-avatar-small">
-                    <span>🐱</span>
+                    <span>☕</span>
                   </div>
                 )}
 
                 <div className="message-content-group">
                   <div className="message-bubble-box">
                     {msg.text}
-                    {msg.source && msg.source !== 'system_error' && (
-                      <div className="message-source-tag">
-                        📌 출처: {msg.source}
-                      </div>
-                    )}
                   </div>
                   <span className="message-time-stamp">{msg.time}</span>
                 </div>
@@ -380,7 +371,7 @@ export default function StoreChatbotWidget({ page }) {
             {isLoading && (
               <div className="chat-message-row is-bot">
                 <div className="bot-avatar-small">
-                  <span>🐱</span>
+                  <span>☕</span>
                 </div>
                 <div className="message-content-group">
                   <div className="message-bubble-box chatbot-loading-dots">

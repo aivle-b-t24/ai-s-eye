@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function RoleBanner({ page, apiBaseUrl, isUsingMock, error, loading }) {
+export default function RoleBanner({ page, apiBaseUrl, error, loading }) {
   return (
     <>
       <div className="role-banner-container">
@@ -25,7 +25,7 @@ export default function RoleBanner({ page, apiBaseUrl, isUsingMock, error, loadi
 
 
 
-      {error && !isUsingMock && (
+      {error && (
         <section className="notice error-notice">
           <strong> API 오류 발생:</strong> {error}
         </section>

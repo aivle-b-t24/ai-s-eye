@@ -379,7 +379,7 @@ export default function RoiEditor({
       await loadVersions()
       setStatus({
         kind: 'success',
-        message: `ROI v${saved.version}을 적용했습니다. 기존 재생 데이터는 Vision 분석을 다시 실행해야 바뀝니다.`,
+        message: `ROI v${saved.version}을 적용했습니다. Vision이 최신 사람 좌표를 2초 안에 새 구역으로 다시 판정합니다.`,
       })
     } catch (error) {
       setStatus({ kind: 'error', message: error.message })
@@ -400,7 +400,10 @@ export default function RoiEditor({
       setSource(approved.source)
       setSelectedZoneId(approved.zones[0]?.id ?? null)
       await loadVersions()
-      setStatus({ kind: 'success', message: `ROI v${version}을 다시 적용했습니다.` })
+      setStatus({
+        kind: 'success',
+        message: `ROI v${version}을 다시 적용했습니다. Vision이 2초 안에 새 구역으로 다시 판정합니다.`,
+      })
     } catch (error) {
       setStatus({ kind: 'error', message: error.message })
     }

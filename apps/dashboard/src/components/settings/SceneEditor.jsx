@@ -8,7 +8,6 @@ const OBJECT_OPTIONS = [
   { value: 'entrance', label: '출입구' },
   { value: 'wall', label: '벽·고정 구조물' },
   { value: 'floor', label: '바닥' },
-  { value: 'occluder', label: '가림 영역' },
 ]
 
 const OBJECT_LABELS = Object.fromEntries(
@@ -27,6 +26,25 @@ function polygonPoints(points) {
   return points.map((point) => `${point.x},${point.y}`).join(' ')
 }
 
+function movePolygonWithinCanvas(polygon, startPoint, currentPoint) {
+  const minX = Math.min(...polygon.map((point) => point.x))
+  const maxX = Math.max(...polygon.map((point) => point.x))
+  const minY = Math.min(...polygon.map((point) => point.y))
+  const maxY = Math.max(...polygon.map((point) => point.y))
+  const deltaX = Math.max(
+    -minX,
+    Math.min(1000 - maxX, currentPoint.x - startPoint.x),
+  )
+  const deltaY = Math.max(
+    -minY,
+    Math.min(1000 - maxY, currentPoint.y - startPoint.y),
+  )
+  return polygon.map((point) => ({
+    x: point.x + deltaX,
+    y: point.y + deltaY,
+  }))
+}
+
 function formatDate(value) {
   if (!value) return '-'
   const date = new Date(value)
@@ -38,14 +56,18 @@ function makeObject(type, polygon, index) {
   return {
     id: `${type}-${Date.now()}-${index}`,
     type,
-    label: type === 'occluder' ? '' : OBJECT_LABELS[type],
+    label: OBJECT_LABELS[type],
     polygon,
   }
 }
 
+function supportedObjects(objects = []) {
+  return objects.filter((item) => item.type !== 'occluder')
+}
+
 function defaultObjects(storeId) {
   const scene = getCameraScene(storeId)
-  return (scene?.objects ?? []).map((item) => ({
+  return supportedObjects(scene?.objects).map((item) => ({
     ...item,
     label: item.label ?? '',
     polygon: item.polygon.map(([x, y]) => ({ x, y })),
@@ -110,10 +132,11 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
       }
       if (!response.ok) throw new Error(`장면 설정 조회 실패 (${response.status})`)
       const config = await response.json()
-      setObjects(config.objects)
+      const loadedObjects = supportedObjects(config.objects)
+      setObjects(loadedObjects)
       setImageSize(config.image_size)
       setSource(config.source)
-      setSelectedObjectId(config.objects[0]?.id ?? null)
+      setSelectedObjectId(loadedObjects[0]?.id ?? null)
       try {
         await loadVersions()
       } catch (historyError) {
@@ -200,9 +223,7 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
     setSelectedVertex(null)
     setStatus({
       kind: 'idle',
-      message: drawType === 'occluder'
-        ? '사람을 가려야 하는 테이블·카운터 앞면을 3개 이상의 점으로 표시하세요.'
-        : '오브젝트 외곽을 따라 꼭짓점을 3개 이상 지정하세요.',
+      message: '오브젝트 외곽을 따라 꼭짓점을 3개 이상 지정하세요.',
     })
   }
 
@@ -232,9 +253,15 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
       item.id === dragging.objectId
         ? {
             ...item,
-            polygon: item.polygon.map((vertex, index) => (
-              index === dragging.vertexIndex ? point : vertex
-            )),
+            polygon: dragging.kind === 'object'
+              ? movePolygonWithinCanvas(
+                  dragging.originalPolygon,
+                  dragging.startPoint,
+                  point,
+                )
+              : item.polygon.map((vertex, index) => (
+                  index === dragging.vertexIndex ? point : vertex
+                )),
           }
         : item
     )))
@@ -331,7 +358,7 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
         throw new Error(detail?.detail?.[0]?.msg ?? detail?.detail ?? `저장 실패 (${response.status})`)
       }
       const saved = await response.json()
-      setObjects(saved.objects)
+      setObjects(supportedObjects(saved.objects))
       setSource(saved.source)
       await loadVersions()
       setStatus({
@@ -352,10 +379,11 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
       )
       if (!response.ok) throw new Error(`이전 버전 적용 실패 (${response.status})`)
       const approved = await response.json()
-      setObjects(approved.objects)
+      const loadedObjects = supportedObjects(approved.objects)
+      setObjects(loadedObjects)
       setImageSize(approved.image_size)
       setSource(approved.source)
-      setSelectedObjectId(approved.objects[0]?.id ?? null)
+      setSelectedObjectId(loadedObjects[0]?.id ?? null)
       await loadVersions()
       setStatus({ kind: 'success', message: `장면 v${version}을 다시 적용했습니다.` })
     } catch (error) {
@@ -379,11 +407,6 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
             적용 설정 다시 불러오기
           </button>
         </div>
-      </div>
-
-      <div className="scene-guide">
-        <strong>가림 처리 방법</strong>
-        <span>테이블·카운터 위치를 먼저 맞춘 뒤, 사람 앞에 보여야 하는 앞면만 `가림 영역`으로 짧게 그립니다.</span>
       </div>
 
       <div className="roi-toolbar">
@@ -442,7 +465,7 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
             onPointerDown={handleCanvasPointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={() => setDragging(null)}
-            onPointerLeave={() => setDragging(null)}
+            onPointerCancel={() => setDragging(null)}
           >
             <image href={imageSrc} width="1000" height="1000" preserveAspectRatio="none" />
             {objects.map((item) => (
@@ -452,8 +475,16 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
                 onPointerDown={(event) => {
                   if (isDrawing) return
                   event.stopPropagation()
+                  event.preventDefault()
+                  event.currentTarget.setPointerCapture?.(event.pointerId)
                   setSelectedObjectId(item.id)
                   setSelectedVertex(null)
+                  setDragging({
+                    kind: 'object',
+                    objectId: item.id,
+                    startPoint: pointFromEvent(event, svgRef.current),
+                    originalPolygon: item.polygon.map((point) => ({ ...point })),
+                  })
                 }}
               >
                 <polygon points={polygonPoints(item.polygon)} />
@@ -475,8 +506,14 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
                     r="11"
                     onPointerDown={(event) => {
                       event.stopPropagation()
+                      event.preventDefault()
+                      event.currentTarget.setPointerCapture?.(event.pointerId)
                       setSelectedVertex(index)
-                      setDragging({ objectId: item.id, vertexIndex: index })
+                      setDragging({
+                        kind: 'vertex',
+                        objectId: item.id,
+                        vertexIndex: index,
+                      })
                     }}
                   />
                 ))}
@@ -522,9 +559,7 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
                   value={selectedObject.type}
                   onChange={(event) => updateSelectedObject({
                     type: event.target.value,
-                    label: event.target.value === 'occluder'
-                      ? ''
-                      : OBJECT_LABELS[event.target.value],
+                    label: OBJECT_LABELS[event.target.value],
                   })}
                 >
                   {OBJECT_OPTIONS.map((option) => (
@@ -536,7 +571,6 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
                 표시 이름
                 <input
                   value={selectedObject.label}
-                  placeholder={selectedObject.type === 'occluder' ? '화면에는 표시하지 않음' : ''}
                   onChange={(event) => updateSelectedObject({ label: event.target.value })}
                 />
               </label>

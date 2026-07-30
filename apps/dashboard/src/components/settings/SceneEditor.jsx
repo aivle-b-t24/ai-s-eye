@@ -8,7 +8,15 @@ const OBJECT_OPTIONS = [
   { value: 'entrance', label: '출입구' },
   { value: 'wall', label: '벽·고정 구조물' },
   { value: 'floor', label: '바닥' },
+  { value: 'occluder', label: '가림 영역' },
 ]
+
+const DEFAULT_PERSPECTIVE = {
+  far_y: 260,
+  near_y: 980,
+  far_scale: 0.62,
+  near_scale: 1.35,
+}
 
 const OBJECT_LABELS = Object.fromEntries(
   OBJECT_OPTIONS.map((option) => [option.value, option.label]),
@@ -62,7 +70,47 @@ function makeObject(type, polygon, index) {
 }
 
 function supportedObjects(objects = []) {
-  return objects.filter((item) => item.type !== 'occluder')
+  return objects
+}
+
+function objectCenter(polygon) {
+  if (!polygon.length) return { x: 0, y: 0 }
+  const total = polygon.reduce(
+    (result, point) => ({ x: result.x + point.x, y: result.y + point.y }),
+    { x: 0, y: 0 },
+  )
+  return { x: total.x / polygon.length, y: total.y / polygon.length }
+}
+
+function nearestTableId(point, objects) {
+  return objects
+    .filter((item) => item.type === 'table')
+    .map((item) => ({ item, center: objectCenter(item.polygon) }))
+    .sort((left, right) => (
+      Math.hypot(left.center.x - point.x, left.center.y - point.y)
+      - Math.hypot(right.center.x - point.x, right.center.y - point.y)
+    ))[0]?.item.id ?? null
+}
+
+function deriveSeatAnchors(objects) {
+  return objects
+    .filter((item) => item.type === 'table' && item.polygon.length >= 3)
+    .flatMap((item) => {
+      const edge = [...item.polygon]
+        .sort((left, right) => right.y - left.y)
+        .slice(0, 2)
+        .sort((left, right) => left.x - right.x)
+      if (edge.length < 2) return []
+      const [left, right] = edge
+      const y = Math.min(Math.round((left.y + right.y) / 2 + 24), 985)
+      const ratios = Math.abs(right.x - left.x) >= 125 ? [0.32, 0.68] : [0.5]
+      return ratios.map((ratio, index) => ({
+        id: `${item.id}-seat-${index + 1}`,
+        x: Math.round(left.x + (right.x - left.x) * ratio),
+        y,
+        table_id: item.id,
+      }))
+    })
 }
 
 function defaultObjects(storeId) {
@@ -72,6 +120,10 @@ function defaultObjects(storeId) {
     label: item.label ?? '',
     polygon: item.polygon.map(([x, y]) => ({ x, y })),
   }))
+}
+
+function defaultPerspective(storeId) {
+  return { ...DEFAULT_PERSPECTIVE, ...(getCameraScene(storeId)?.perspective ?? {}) }
 }
 
 export default function SceneEditor({ apiBaseUrl, storeId }) {
@@ -87,12 +139,15 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
     message: '장면 보정에 사용할 원본 CCTV 이미지를 확인하는 중입니다.',
   })
   const [objects, setObjects] = useState([])
+  const [perspective, setPerspective] = useState(DEFAULT_PERSPECTIVE)
+  const [seatAnchors, setSeatAnchors] = useState([])
   const [versions, setVersions] = useState([])
   const [selectedObjectId, setSelectedObjectId] = useState(null)
   const [selectedVertex, setSelectedVertex] = useState(null)
   const [drawType, setDrawType] = useState('table')
   const [draftPoints, setDraftPoints] = useState([])
   const [isDrawing, setIsDrawing] = useState(false)
+  const [isPlacingSeat, setIsPlacingSeat] = useState(false)
   const [dragging, setDragging] = useState(null)
   const [source, setSource] = useState('default_import')
   const [status, setStatus] = useState({ kind: 'idle', message: '' })
@@ -113,6 +168,8 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
   const applyDefaults = useCallback((message = '현재 매장의 기본 장면을 불러왔습니다.') => {
     const initialObjects = defaultObjects(storeId)
     setObjects(initialObjects)
+    setPerspective(defaultPerspective(storeId))
+    setSeatAnchors(deriveSeatAnchors(initialObjects))
     setSelectedObjectId(initialObjects[0]?.id ?? null)
     setSelectedVertex(null)
     setSource('default_import')
@@ -134,6 +191,10 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
       const config = await response.json()
       const loadedObjects = supportedObjects(config.objects)
       setObjects(loadedObjects)
+      setPerspective(config.perspective ?? defaultPerspective(storeId))
+      setSeatAnchors(config.seat_anchors?.length
+        ? config.seat_anchors
+        : deriveSeatAnchors(loadedObjects))
       setImageSize(config.image_size)
       setSource(config.source)
       setSelectedObjectId(loadedObjects[0]?.id ?? null)
@@ -160,6 +221,7 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
   useEffect(() => {
     setDraftPoints([])
     setIsDrawing(false)
+    setIsPlacingSeat(false)
     loadApproved()
   }, [loadApproved])
 
@@ -219,6 +281,7 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
   const startDrawing = () => {
     setDraftPoints([])
     setIsDrawing(true)
+    setIsPlacingSeat(false)
     setSelectedObjectId(null)
     setSelectedVertex(null)
     setStatus({
@@ -242,8 +305,22 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
   }
 
   const handleCanvasPointerDown = (event) => {
-    if (!isDrawing || event.target.dataset.vertex === 'true') return
-    setDraftPoints((current) => [...current, pointFromEvent(event, svgRef.current)])
+    if (event.target.dataset.vertex === 'true' || event.target.dataset.seat === 'true') return
+    const point = pointFromEvent(event, svgRef.current)
+    if (isPlacingSeat) {
+      const tableId = nearestTableId(point, objects)
+      setSeatAnchors((current) => [...current, {
+        id: `seat-${Date.now()}-${current.length + 1}`,
+        x: point.x,
+        y: point.y,
+        ...(tableId ? { table_id: tableId } : {}),
+      }])
+      setSource('manual')
+      setStatus({ kind: 'idle', message: '좌석 위치를 추가했습니다. 계속 찍거나 좌석 배치를 종료하세요.' })
+      return
+    }
+    if (!isDrawing) return
+    setDraftPoints((current) => [...current, point])
   }
 
   const handlePointerMove = (event) => {
@@ -328,6 +405,9 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
 
   const deleteSelectedObject = () => {
     setObjects((current) => current.filter((item) => item.id !== selectedObjectId))
+    setSeatAnchors((current) => current.filter(
+      (anchor) => anchor.table_id !== selectedObjectId,
+    ))
     setSelectedObjectId(null)
     setSelectedVertex(null)
     setSource('manual')
@@ -350,6 +430,8 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
             image_size: imageSize,
             source,
             objects,
+            perspective,
+            seat_anchors: seatAnchors,
           }),
         },
       )
@@ -359,6 +441,8 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
       }
       const saved = await response.json()
       setObjects(supportedObjects(saved.objects))
+      setPerspective(saved.perspective ?? DEFAULT_PERSPECTIVE)
+      setSeatAnchors(saved.seat_anchors ?? [])
       setSource(saved.source)
       await loadVersions()
       setStatus({
@@ -381,6 +465,10 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
       const approved = await response.json()
       const loadedObjects = supportedObjects(approved.objects)
       setObjects(loadedObjects)
+      setPerspective(approved.perspective ?? defaultPerspective(storeId))
+      setSeatAnchors(approved.seat_anchors?.length
+        ? approved.seat_anchors
+        : deriveSeatAnchors(loadedObjects))
       setImageSize(approved.image_size)
       setSource(approved.source)
       setSelectedObjectId(loadedObjects[0]?.id ?? null)
@@ -443,6 +531,22 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
             </button>
           </>
         )}
+        <button
+          type="button"
+          className={isPlacingSeat ? 'roi-primary-btn' : 'roi-secondary-btn'}
+          disabled={isDrawing}
+          onClick={() => {
+            setIsPlacingSeat((current) => !current)
+            setStatus({
+              kind: 'idle',
+              message: isPlacingSeat
+                ? '좌석 배치를 종료했습니다.'
+                : 'CCTV 화면에서 실제 의자 중심을 클릭하세요.',
+            })
+          }}
+        >
+          {isPlacingSeat ? '좌석 배치 종료' : '좌석 위치 찍기'}
+        </button>
       </div>
 
       <p className={`roi-status roi-status-${imageStatus.kind}`} role="status">
@@ -468,6 +572,12 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
             onPointerCancel={() => setDragging(null)}
           >
             <image href={imageSrc} width="1000" height="1000" preserveAspectRatio="none" />
+            <g className="scene-perspective-guides" aria-hidden="true">
+              <line x1="0" x2="1000" y1={perspective.far_y} y2={perspective.far_y} />
+              <text x="18" y={Math.max(perspective.far_y - 12, 24)}>원거리 기준</text>
+              <line x1="0" x2="1000" y1={perspective.near_y} y2={perspective.near_y} />
+              <text x="18" y={Math.max(perspective.near_y - 12, 24)}>근거리 기준</text>
+            </g>
             {objects.map((item) => (
               <g
                 key={item.id}
@@ -519,6 +629,12 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
                 ))}
               </g>
             ))}
+            {seatAnchors.map((anchor, index) => (
+              <g className="scene-seat-anchor" key={anchor.id}>
+                <circle data-seat="true" cx={anchor.x} cy={anchor.y} r="15" />
+                <text x={anchor.x + 22} y={anchor.y - 16}>{index + 1}</text>
+              </g>
+            ))}
             {draftPoints.length > 0 && (
               <g className="roi-draft">
                 <polyline points={polygonPoints(draftPoints)} />
@@ -531,6 +647,68 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
         </div>
 
         <aside className="roi-zone-panel">
+          <div className="scene-perspective-form">
+            <h4>원근 보정</h4>
+            <label>
+              원거리 기준선
+              <input
+                type="range"
+                min="0"
+                max={perspective.near_y - 1}
+                value={perspective.far_y}
+                onChange={(event) => {
+                  setPerspective((current) => ({ ...current, far_y: Number(event.target.value) }))
+                  setSource('manual')
+                }}
+              />
+              <span>{perspective.far_y}</span>
+            </label>
+            <label>
+              근거리 기준선
+              <input
+                type="range"
+                min={perspective.far_y + 1}
+                max="1000"
+                value={perspective.near_y}
+                onChange={(event) => {
+                  setPerspective((current) => ({ ...current, near_y: Number(event.target.value) }))
+                  setSource('manual')
+                }}
+              />
+              <span>{perspective.near_y}</span>
+            </label>
+            <div className="scene-scale-inputs">
+              <label>
+                원거리 크기
+                <input
+                  type="number"
+                  min="0.35"
+                  max="1"
+                  step="0.01"
+                  value={perspective.far_scale}
+                  onChange={(event) => {
+                    setPerspective((current) => ({ ...current, far_scale: Number(event.target.value) }))
+                    setSource('manual')
+                  }}
+                />
+              </label>
+              <label>
+                근거리 크기
+                <input
+                  type="number"
+                  min="0.8"
+                  max="2"
+                  step="0.01"
+                  value={perspective.near_scale}
+                  onChange={(event) => {
+                    setPerspective((current) => ({ ...current, near_scale: Number(event.target.value) }))
+                    setSource('manual')
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+
           <h4>장면 오브젝트</h4>
           {objects.length === 0 && <p className="roi-empty">설정된 오브젝트가 없습니다.</p>}
           <div className="roi-zone-list">
@@ -589,6 +767,37 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
               </button>
             </div>
           )}
+
+          <div className="scene-seat-list">
+            <div>
+              <h4>좌석 앵커</h4>
+              <button
+                type="button"
+                onClick={() => {
+                  setSeatAnchors(deriveSeatAnchors(objects))
+                  setSource('manual')
+                }}
+              >
+                테이블 기준 자동 배치
+              </button>
+            </div>
+            {seatAnchors.length === 0 ? (
+              <p className="roi-empty">등록된 좌석이 없습니다.</p>
+            ) : seatAnchors.map((anchor, index) => (
+              <div key={anchor.id}>
+                <span>좌석 {index + 1} · ({anchor.x}, {anchor.y})</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSeatAnchors((current) => current.filter((item) => item.id !== anchor.id))
+                    setSource('manual')
+                  }}
+                >
+                  삭제
+                </button>
+              </div>
+            ))}
+          </div>
         </aside>
       </div>
 

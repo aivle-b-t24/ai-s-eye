@@ -14,7 +14,7 @@ import Sidebar from './components/Sidebar'
 import ProfileModal from './components/user/ProfileModal'
 
 import { ROLES, STORES } from './constants/auth'
-import { API_BASE_URL } from './constants/env'
+import { API_BASE_URL, CHATBOT_BASE_URL } from './constants/env'
 import { useAuth } from './hooks/useAuth'
 import { useRouting } from './hooks/useRouting'
 import { useStorePolling } from './hooks/useStorePolling'
@@ -153,6 +153,7 @@ function App() {
           {(page === 'head-office' || isDedicatedHeadOffice) && (
             <SupervisorHeadOfficeView
               apiBaseUrl={API_BASE_URL}
+              aiccBaseUrl={CHATBOT_BASE_URL}
             />
           )}
 

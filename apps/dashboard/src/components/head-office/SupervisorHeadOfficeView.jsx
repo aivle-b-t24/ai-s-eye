@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import './SupervisorHeadOfficeView.css'
+import OperationsSimulator from './OperationsSimulator'
 
 const STORE_NAMES = {
   'store-001': '강남점',
@@ -560,6 +561,8 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
         </div>
       </section>
 
+      <OperationsSimulator apiBaseUrl={apiBaseUrl} />
+
       <section
         id="hq-ai"
         className="supervisor-ai-section"
@@ -680,6 +683,5 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
     </section>
   )
 }
-
 
 

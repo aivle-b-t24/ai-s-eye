@@ -232,6 +232,23 @@ PostgreSQL에 저장된 상태와 주문 이력을 기간별·매장별로 집�
 
 PostgreSQL이 설정되지 않은 환경에서는 `503`을 반환한다.
 
+## POST /api/simulations/operations
+
+슈퍼바이저 What-if 비교를 위한 이산사건 시뮬레이션을 한 번 실행한다.
+
+주요 입력:
+
+- `staff_count`: 제조 자원으로 사용할 직원 수
+- `arrivals_per_hour`, `event_multiplier`: 가상 고객 도착 강도
+- `average_service_minutes`: 주문·제조 평균 소요시간
+- `patience_minutes`: 고객의 평균 대기 인내시간
+- `seat_count`, `dine_in_rate`: 착석 자원과 매장 이용 비율
+- `seed`: 동일 조건 재현용 난수 seed
+
+응답에는 `metrics`와 2분 간격 `frames`가 포함된다. 모든 응답의 `source`는
+`simulation`이며 `run_id`는 `sim-` 접두사를 사용한다. 이 API는 실제 이력 API와
+분리된 순수 계산 API이며 PostgreSQL에 어떠한 이벤트도 저장하지 않는다.
+
 ## 두 매장 데모 시나리오 적재
 
 Docker의 API와 PostgreSQL을 빌드해 실행한 뒤 다음 명령으로

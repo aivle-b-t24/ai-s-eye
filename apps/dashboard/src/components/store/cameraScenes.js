@@ -2,6 +2,12 @@ const STORE_ONE_SCENE = {
   storeId: 'store-001',
   cameraId: 'store-001-cam1',
   label: 'CAM 01',
+  perspective: {
+    far_y: 250,
+    near_y: 980,
+    far_scale: 0.58,
+    near_scale: 1.42,
+  },
   objects: [
     {
       id: 'wall-back',
@@ -61,6 +67,12 @@ const STORE_TWO_SCENE = {
   storeId: 'store-002',
   cameraId: 'store-002-cam1',
   label: 'CAM 02',
+  perspective: {
+    far_y: 220,
+    near_y: 980,
+    far_scale: 0.6,
+    near_scale: 1.38,
+  },
   objects: [
     {
       id: 'wall-back',

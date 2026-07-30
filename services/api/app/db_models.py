@@ -300,6 +300,19 @@ class CameraSceneConfigRecord(Base):
     image_width: Mapped[int] = mapped_column(nullable=False)
     image_height: Mapped[int] = mapped_column(nullable=False)
     objects: Mapped[list[dict]] = mapped_column(JSONB, nullable=False)
+    perspective: Mapped[dict] = mapped_column(
+        JSONB,
+        nullable=False,
+        server_default=sa.text(
+            "jsonb_build_object('far_y', 260, 'near_y', 980, "
+            "'far_scale', 0.62, 'near_scale', 1.35)"
+        ),
+    )
+    seat_anchors: Mapped[list[dict]] = mapped_column(
+        JSONB,
+        nullable=False,
+        server_default=sa.text("'[]'::jsonb"),
+    )
     source: Mapped[str] = mapped_column(sa.String(30), nullable=False)
     status: Mapped[str] = mapped_column(sa.String(30), nullable=False)
     created_at: Mapped[datetime] = mapped_column(

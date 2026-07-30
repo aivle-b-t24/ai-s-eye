@@ -2171,7 +2171,8 @@ radial-gradient(circle at 50% 110%, rgba(71, 85, 105, 0.24), transparent 56%),
 }
 .camera-scene-source,
 .camera-scene-map,
-.camera-scene-agent-layer {
+.camera-scene-agent-layer,
+.camera-scene-depth-object {
 position: absolute;
 inset: 0;
 width: 100%;
@@ -2209,6 +2210,10 @@ stroke: #193d49;
 .camera-scene-table polygon {
 fill: #b88951;
 stroke: #76522d;
+}
+.camera-scene-occluder polygon {
+fill: #6f4d2f;
+stroke: #4a3422;
 }
 .camera-scene-entrance polygon {
 fill: #61cdb1;
@@ -2324,8 +2329,12 @@ stroke: #f97316;
 stroke: #9333ea;
 }
 .camera-scene-agent-layer {
-z-index: 5;
+z-index: auto;
 pointer-events: none;
+}
+.camera-scene-depth-object {
+pointer-events: none;
+overflow: visible;
 }
 .camera-scene-agent {
 --agent-color: #0284c7;
@@ -5064,6 +5073,12 @@ font-size: 16px !important;
   stroke-dasharray: 10 7;
 }
 
+.scene-editor-occluder polygon {
+  fill: rgba(218, 30, 40, 0.22);
+  stroke: #ff8389;
+  stroke-dasharray: 7 5;
+}
+
 .scene-editor-object.is-selected polygon {
   stroke: #fff;
   stroke-width: 8;
@@ -5095,6 +5110,95 @@ font-size: 16px !important;
 .scene-swatch-table { background: #b47e36; }
 .scene-swatch-counter { background: #0f62fe; }
 .scene-swatch-entrance { background: #009d9a; }
+.scene-swatch-occluder { background: #da1e28; }
+
+.scene-perspective-guides line {
+  stroke: #f1c21b;
+  stroke-width: 4;
+  stroke-dasharray: 14 10;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.scene-perspective-guides text,
+.scene-seat-anchor text {
+  fill: #fff;
+  font-size: 25px;
+  font-weight: 800;
+  paint-order: stroke;
+  stroke: #161616;
+  stroke-width: 6;
+  pointer-events: none;
+}
+
+.scene-seat-anchor circle {
+  fill: rgba(36, 161, 72, 0.86);
+  stroke: #fff;
+  stroke-width: 5;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.scene-perspective-form {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #c6c6c6;
+}
+
+.scene-perspective-form label {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.scene-perspective-form label input[type="range"] {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.scene-scale-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.scene-scale-inputs label {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+.scene-scale-inputs input {
+  width: 100%;
+}
+
+.scene-seat-list {
+  display: grid;
+  gap: 7px;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid #c6c6c6;
+}
+
+.scene-seat-list > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.scene-seat-list button {
+  border: 0;
+  color: #0f62fe;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
 
 @media (max-width: 900px) {
   .roi-editor-layout {

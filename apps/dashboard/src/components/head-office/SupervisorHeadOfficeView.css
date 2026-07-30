@@ -47,7 +47,7 @@
 
 .head-office-navigation {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .head-office-navigation a {
@@ -183,6 +183,7 @@
 }
 
 #hq-stores,
+#hq-simulation,
 #hq-ai {
   scroll-margin-top: 84px;
 }

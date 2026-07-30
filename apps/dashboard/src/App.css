@@ -2060,7 +2060,7 @@ gap: 2px;
 }
 .zone-overview-body {
 display: grid;
-grid-template-columns: minmax(300px, 0.9fr) minmax(390px, 1.1fr);
+grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.55fr);
 gap: 18px;
 padding: 18px 20px 22px;
 }
@@ -2161,7 +2161,9 @@ background: #e0f2fe;
 }
 .camera-scene-stage {
 position: relative;
-height: 300px;
+width: 100%;
+height: auto;
+aspect-ratio: 16 / 9;
 overflow: hidden;
 background:
 radial-gradient(circle at 50% 110%, rgba(71, 85, 105, 0.24), transparent 56%),
@@ -2169,7 +2171,6 @@ radial-gradient(circle at 50% 110%, rgba(71, 85, 105, 0.24), transparent 56%),
 }
 .camera-scene-source,
 .camera-scene-map,
-.camera-scene-foreground,
 .camera-scene-agent-layer {
 position: absolute;
 inset: 0;
@@ -2183,10 +2184,6 @@ filter: saturate(0.72) contrast(0.92);
 }
 .camera-scene-map {
 z-index: 2;
-}
-.camera-scene-foreground {
-z-index: 8;
-pointer-events: none;
 }
 .camera-scene-background {
 fill: #dce5e8;
@@ -2218,11 +2215,6 @@ fill: #61cdb1;
 stroke: #16856a;
 stroke-dasharray: 6 4;
 }
-.camera-scene-occluder polygon {
-fill: #7b5b37;
-stroke: #4a3420;
-stroke-width: 2;
-}
 .camera-scene-object text {
 fill: #f8fafc;
 font-size: 25px;
@@ -2239,16 +2231,39 @@ fill-opacity: 0.08;
 fill-opacity: 0.13;
 stroke-opacity: 0.8;
 }
-.camera-scene-mode-raw .camera-scene-foreground .camera-scene-occluder polygon {
-fill-opacity: 0.22;
-}
 .camera-scene-mode-raw .camera-scene-source {
 filter: none;
 }
 .camera-scene-mode-analysis .camera-scene-source {
-object-fit: contain;
-background: #0f172a;
+object-fit: fill;
+background: #dbe4e7;
 filter: none;
+}
+.camera-scene-analysis-overlay {
+z-index: 4;
+}
+.camera-scene-analysis-overlay .camera-scene-roi polygon {
+fill-opacity: 0.08;
+}
+.camera-scene-analysis-agent circle {
+fill: #0284c7;
+stroke: rgba(255, 255, 255, 0.96);
+stroke-width: 4;
+vector-effect: non-scaling-stroke;
+}
+.camera-scene-analysis-agent-queue circle {
+fill: #f97316;
+}
+.camera-scene-analysis-agent-staff circle {
+fill: #9333ea;
+}
+.camera-scene-analysis-agent text {
+fill: #ffffff;
+font-size: 22px;
+font-weight: 800;
+paint-order: stroke;
+stroke: rgba(15, 23, 42, 0.88);
+stroke-width: 5px;
 }
 .camera-scene-roi polygon {
 fill-opacity: 0.1;
@@ -2942,7 +2957,7 @@ grid-template-columns: 1fr;
 min-height: 310px;
 }
 .camera-scene-stage {
-height: 390px;
+height: auto;
 }
 }
 @media (max-width: 720px) {
@@ -3014,7 +3029,7 @@ flex-direction: column;
 gap: 12px;
 }
 .camera-scene-stage {
-height: 300px;
+height: auto;
 }
 .camera-scene-toolbar {
 align-items: flex-start;
@@ -5007,23 +5022,6 @@ font-size: 16px !important;
   gap: 8px;
 }
 
-.scene-guide {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 16px;
-  padding: 12px 14px;
-  border-left: 4px solid #f1c21b;
-  background: #fff8e1;
-  color: #525252;
-  font-size: 13px;
-}
-
-.scene-guide strong {
-  flex: 0 0 auto;
-  color: #161616;
-}
-
 .scene-settings .roi-canvas-wrap {
   align-self: start;
 }
@@ -5033,7 +5031,11 @@ font-size: 16px !important;
   stroke: #78a9ff;
   stroke-width: 5;
   vector-effect: non-scaling-stroke;
-  cursor: pointer;
+  cursor: grab;
+}
+
+.scene-editor-object polygon:active {
+  cursor: grabbing;
 }
 
 .scene-editor-floor polygon {
@@ -5060,12 +5062,6 @@ font-size: 16px !important;
   fill: rgba(0, 157, 154, 0.3);
   stroke: #3ddbd9;
   stroke-dasharray: 10 7;
-}
-
-.scene-editor-occluder polygon {
-  fill: rgba(218, 30, 40, 0.4);
-  stroke: #ff8389;
-  stroke-dasharray: 12 7;
 }
 
 .scene-editor-object.is-selected polygon {
@@ -5099,7 +5095,6 @@ font-size: 16px !important;
 .scene-swatch-table { background: #b47e36; }
 .scene-swatch-counter { background: #0f62fe; }
 .scene-swatch-entrance { background: #009d9a; }
-.scene-swatch-occluder { background: #da1e28; }
 
 @media (max-width: 900px) {
   .roi-editor-layout {
@@ -5145,8 +5140,7 @@ font-size: 16px !important;
     padding-inline: 10px;
   }
 
-  .scene-heading-actions,
-  .scene-guide {
+  .scene-heading-actions {
     align-items: stretch;
     flex-direction: column;
   }
@@ -6079,8 +6073,8 @@ font-size: 16px !important;
   }
 
   .zone-overview-body .camera-scene-stage {
-    flex: 1;
+    flex: 0 0 auto;
     height: auto;
-    min-height: 300px;
+    min-height: 0;
   }
 }

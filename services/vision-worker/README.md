@@ -19,8 +19,8 @@
 - 모델: CAFE로 파인튜닝한 `yolo11s`(전신 라벨 → 발 위치 산출). 가중치 경로는
   `AISEYE_CAFE_MODEL`, 데이터 경로는 `AISEYE_CAFE_ROOT` 환경변수로 지정.
 - 집계: **인원수 = 파인튜닝 탐지 − 직원(손님)**, **대기 = 대기 구역 + 서있음(pose) +
-  체류(ByteTrack)**, **직원 = 직원 구역 누적 체류 상위 K명**(매장별 `STAFF_COUNT`,
-  ByteTrack track_id 기준). 구역은 승인 ROI(API)→`zones/<store_id>_zones.json` 순.
+  체류(ByteTrack)**, **직원 = 현재 승인된 직원 ROI 안에서 탐지된 사람**. 구역은
+  승인 ROI(API)→`zones/<store_id>_zones.json` 순으로 불러온다.
 - **매장을 늘리려면** `cafe_stores.py`의 `STORES`에 항목을 추가하고 해당 매장 zones를
   그린 뒤 다시 실행한다.
 
@@ -46,7 +46,7 @@ py services/vision-worker/cafe_stores.py --limit 60  # 앞 60세그만(빠른 �
 | 값 | StoreState 필드 | 산출 |
 |---|---|---|
 | 전체(손님) 인원 | `visible_person_count` | 파인튜닝 탐지 − 직원 |
-| 직원 인원 | `zone_counts.staff` | 직원 구역 누적 체류 상위 K명(track_id) |
+| 직원 인원 | `zone_counts.staff` | 현재 승인된 직원 ROI 안에서 탐지된 사람 |
 | 대기 인원 | `queue_count_estimate` = `zone_counts.waiting` | 대기 구역 + 서있음 + 체류 |
 
 **미지원 값 (현재 제공 못 함 — StoreState에 넣지 않음)**
@@ -62,9 +62,9 @@ py services/vision-worker/cafe_stores.py --limit 60  # 앞 60세그만(빠른 �
 **ROI 기준** — 매장별 `zones/<store_id>_zones.json`에 지정.
 
 - **대기** = 대기 구역(카운터 앞) 안에서 서있고 N프레임 이상 체류한 사람.
-- **직원** = 직원 구역(카운터 뒤) **누적 체류 상위 K명**(매장별 `STAFF_COUNT`).
-  실행 내내 track_id별 직원구역 프레임을 누적해 매 순간 상위 K명만 직원으로 세고
-  손님 수에서 제외한다. 직원 구역은 좌석과 겹치지 않게 **좁게** 그려야 정확하다.
+- **직원** = 현재 승인된 직원 구역(카운터 뒤) 안에서 탐지된 사람. 직원 수를
+  미리 고정하지 않으며 해당 구역 안의 탐지를 손님 수에서 제외한다. 직원 구역은
+  좌석과 겹치지 않게 설정해야 한다.
 
 **모델·가중치**
 
@@ -142,8 +142,9 @@ docker compose --profile demo up -d --force-recreate vision-replay
 ```
 
 파인튜닝 가중치가 없으면 일반 `yolo11s.pt`로 대체되므로 연결 확인에는 사용할 수
-있지만 기존 성능평가 결과와 같은 모델로 취급하면 안 된다. ROI를 다시 저장한 뒤에는
-Vision 프로세스를 재시작해야 새 승인 버전을 읽는다.
+있지만 기존 성능평가 결과와 같은 모델로 취급하면 안 된다. `--live` Vision과
+`vision-replay`는 승인 ROI를 2초마다 다시 확인하므로 프로세스를 재시작하지 않아도
+새 승인 버전을 적용한다.
 
 ## 팀원용: 영상 없이 매장 상태 재생하기
 
@@ -169,10 +170,18 @@ python services/vision-worker/replay_states.py    # 기본: samples/cafe_stores_
 | `--limit` | 앞에서 N건만 전송 | 전체 |
 | `--loop` | 끝나면 처음부터 반복 | 꺼짐 |
 | `--preserve-timestamps` | `frame_id`가 없는 레거시 JSON도 원본 시각 유지 | 꺼짐 |
+| `--roi-refresh-seconds` | 승인 ROI를 다시 확인하는 간격 | `2` |
+| `--no-roi-reclassify` | 저장 당시 판정을 그대로 재생 | 꺼짐 |
 
 신규 결과는 `frame_id`가 있으므로 옵션과 관계없이 원래 `captured_at`을 보존한다.
 반복 재생은 `source=demo-replay`로 표시되고 동일 프레임은 원본 DB 이력에 중복
 저장하지 않는다.
+
+기본 재생 모드는 API에서 승인 ROI를 2초마다 확인한다. ROI 버전이 바뀌면 저장된
+YOLO·ByteTrack 좌표를 새 ROI에 다시 넣어 `zone`, `role`, `state`, StoreState
+집계를 즉시 갱신한다. 이 과정은 사람을 다시 탐지하는 것이 아니라 이미 생성된
+좌표의 공간 판정만 다시 수행한다. 대시보드의 분석 화면도 원본 CCTV 위에 현재 ROI와
+재판정 위치를 겹쳐 표시하므로 과거 ROI가 그려진 이미지를 새 결과처럼 사용하지 않는다.
 
 상황별 실행 예시:
 

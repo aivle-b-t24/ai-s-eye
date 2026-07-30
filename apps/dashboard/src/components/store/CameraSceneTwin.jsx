@@ -123,10 +123,12 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
     if (!fallbackScene || !sceneConfig) return fallbackScene
     return {
       ...fallbackScene,
-      objects: sceneConfig.objects.map((item) => ({
-        ...item,
-        polygon: item.polygon.map(({ x, y }) => [x, y]),
-      })),
+      objects: sceneConfig.objects
+        .filter((item) => item.type !== 'occluder')
+        .map((item) => ({
+          ...item,
+          polygon: item.polygon.map(({ x, y }) => [x, y]),
+        })),
     }
   }, [fallbackScene, sceneConfig])
   const [tracks, setTracks] = useState({})
@@ -318,9 +320,7 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
     )
   }
 
-  const imageEndpoint = (
-    viewMode === 'analysis' ? 'vision/latest' : 'vision/raw/latest'
-  )
+  const imageEndpoint = 'vision/raw/latest'
   const imageUrl = `${API_BASE_URL}/api/stores/${storeId}/${imageEndpoint}?t=${imageTick}`
   const showSource = viewMode !== 'twin'
 
@@ -402,7 +402,7 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
               </defs>
 
               <rect width="1000" height="1000" className="camera-scene-background" />
-              {scene.objects.filter((object) => object.type !== 'occluder').map((object) => {
+              {scene.objects.map((object) => {
                 const center = objectCenter(object.polygon)
                 return (
                   <g key={object.id} className={`camera-scene-object camera-scene-${object.type}`}>
@@ -474,19 +474,39 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
               })}
             </div>
 
-            <svg
-              className="camera-scene-foreground"
-              viewBox="0 0 1000 1000"
-              preserveAspectRatio="none"
-              aria-hidden="true"
-            >
-              {scene.objects.filter((object) => object.type === 'occluder').map((object) => (
-                <g key={object.id} className="camera-scene-object camera-scene-occluder">
-                  <polygon points={polygonPoints(object.polygon)} />
-                </g>
-              ))}
-            </svg>
           </>
+        )}
+
+        {viewMode === 'analysis' && (
+          <svg
+            className="camera-scene-map camera-scene-analysis-overlay"
+            viewBox="0 0 1000 1000"
+            preserveAspectRatio="none"
+            aria-label="현재 승인 ROI 판정 결과"
+          >
+            {(roiConfig?.zones ?? []).map((zone) => (
+              <g key={zone.id} className={`camera-scene-roi camera-scene-roi-${zone.type}`}>
+                <polygon points={roiPolygonPoints(zone.polygon)} />
+                <text
+                  x={zone.polygon[0]?.x ?? 0}
+                  y={Math.max((zone.polygon[0]?.y ?? 0) - 12, 22)}
+                >
+                  {zone.label}
+                </text>
+              </g>
+            ))}
+            {displayTrackList.map((track) => (
+              <g
+                key={track.id}
+                className={`camera-scene-analysis-agent camera-scene-analysis-agent-${agentClass(track)}`}
+              >
+                <circle cx={track.x * 1000} cy={track.y * 1000} r="13" />
+                <text x={track.x * 1000 + 18} y={track.y * 1000 - 15}>
+                  {track.id}
+                </text>
+              </g>
+            ))}
+          </svg>
         )}
 
         {(status === 'loading' || status === 'empty' || status === 'error') && (

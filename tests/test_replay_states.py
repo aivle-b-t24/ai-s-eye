@@ -36,6 +36,130 @@ def sample_state() -> dict:
     }
 
 
+def roi_config(*, version: int = 8, swapped: bool = False) -> dict:
+    staff_polygon = [
+        {"x": 0, "y": 0},
+        {"x": 500, "y": 0},
+        {"x": 500, "y": 1000},
+        {"x": 0, "y": 1000},
+    ]
+    seating_polygon = [
+        {"x": 500, "y": 0},
+        {"x": 1000, "y": 0},
+        {"x": 1000, "y": 1000},
+        {"x": 500, "y": 1000},
+    ]
+    if swapped:
+        staff_polygon, seating_polygon = seating_polygon, staff_polygon
+    return {
+        "store_id": "store-001",
+        "camera_id": "store-001-cam1",
+        "version": version,
+        "coordinate_space": "normalized_1000",
+        "zones": [
+            {
+                "id": "staff-1",
+                "type": "staff",
+                "label": "직원 구역",
+                "polygon": staff_polygon,
+            },
+            {
+                "id": "seating-1",
+                "type": "seating",
+                "label": "좌석 구역",
+                "polygon": seating_polygon,
+            },
+        ],
+    }
+
+
+def test_current_roi_reclassifies_roles_and_counts() -> None:
+    original = sample_state()
+    original["positions"] = [
+        {
+            "x": 200,
+            "y": 500,
+            "zone": "seating",
+            "type": "customer",
+            "state": "unknown",
+            "track_id": 1,
+        },
+        {
+            "x": 1500,
+            "y": 500,
+            "zone": "staff",
+            "type": "staff",
+            "state": "working",
+            "track_id": 2,
+        },
+    ]
+    processed_at = datetime(2026, 7, 30, 2, 0, tzinfo=timezone.utc)
+
+    updated = replay_states.reclassify_state_for_roi(
+        original,
+        roi_config(),
+        processed_at=processed_at,
+    )
+
+    assert updated["positions"][0]["type"] == "staff"
+    assert updated["positions"][0]["state"] == "working"
+    assert updated["positions"][1]["type"] == "customer"
+    assert updated["positions"][1]["zone"] == "seating"
+    assert updated["visible_person_count"] == 1
+    assert updated["zone_counts"] == {"staff": 1, "seating": 1}
+    assert updated["roi_version"] == 8
+    assert updated["processed_at"] == processed_at.isoformat()
+    assert original["positions"][0]["type"] == "customer"
+
+
+def test_swapped_roi_changes_role_without_running_yolo_again() -> None:
+    original = sample_state()
+    original["positions"] = [
+        {
+            "x": 200,
+            "y": 500,
+            "zone": "staff",
+            "type": "staff",
+            "state": "working",
+            "track_id": 1,
+        },
+        {
+            "x": 1500,
+            "y": 500,
+            "zone": "seating",
+            "type": "customer",
+            "state": "seated",
+            "track_id": 2,
+        },
+    ]
+
+    first = replay_states.reclassify_state_for_roi(
+        original,
+        roi_config(version=8),
+    )
+    swapped = replay_states.reclassify_state_for_roi(
+        original,
+        roi_config(version=9, swapped=True),
+    )
+
+    assert [item["type"] for item in first["positions"]] == [
+        "staff",
+        "customer",
+    ]
+    assert [item["type"] for item in swapped["positions"]] == [
+        "customer",
+        "staff",
+    ]
+    assert swapped["roi_version"] == 9
+
+
+def test_roi_polygon_boundary_is_included() -> None:
+    polygon = roi_config()["zones"][0]["polygon"]
+
+    assert replay_states.point_in_polygon((500, 300), polygon)
+    assert not replay_states.point_in_polygon((501, 300), polygon)
+
+
 def test_prepare_state_refreshes_timestamp_without_changing_source() -> None:
     original = sample_state()
     now = datetime(2026, 7, 24, 5, 0, tzinfo=timezone.utc)

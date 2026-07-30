@@ -6061,6 +6061,24 @@ font-size: 16px !important;
   color: inherit !important;
 }
 
+@media (min-width: 1181px) {
+  .dashboard-feature-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .zone-overview-body .camera-scene-twin {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  .zone-overview-body .camera-scene-stage {
+    flex: 1;
+    height: auto;
+    min-height: 300px;
+  }
+}
+
 /* =========================================================
    네이버(Naver) 스타일 단일 정중앙 래퍼 통일 아키텍처 (Option 1)
    ========================================================= */
@@ -6147,6 +6165,72 @@ body::before {
   margin-left: auto !important;
   margin-right: auto !important;
   box-sizing: border-box !important;
+}
+
+/* =========================================================
+   상단 검은색 헤더 100% 가로 확장 & 하단 흰색 패널 "매장 운영 인사이트" 부근 제한
+   (본사 및 점주 매장 화면 공통 적용)
+   ========================================================= */
+
+/* 1. 상단 헤더 검은색 100% 가로 꽉 차게 확장 (양옆 흰색 갭 제거) */
+.head-office-header {
+  position: sticky !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  background: #161616 !important;
+  color: #ffffff !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  z-index: 999 !important;
+}
+
+/* 2. 뒤로가기(←) 버튼 Al's Eye 로고 좌측 정밀 정렬 (겹침 100% 제거) */
+.head-office-header-inner {
+  position: relative !important;
+  padding-left: 68px !important;
+}
+
+.head-office-header .header-back-btn,
+.head-office-header .hq-back-btn {
+  position: absolute !important;
+  left: 12px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  z-index: 1000 !important;
+}
+
+/* 3. 2번 회색 띠 상자를 제거하고, 1번 메인 패널 상자를 상단바까지 2번 길이만큼 위로 확장 */
+.supervisor-shell,
+.head-office-container,
+.dashboard-content {
+  background: transparent !important;
+  min-height: auto !important;
+}
+
+.supervisor-dashboard,
+.store-dashboard-view {
+  width: 100% !important;
+  max-width: 1440px !important;
+  margin: 0 auto 0 !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-left-radius: 24px !important;
+  border-bottom-right-radius: 24px !important;
+  padding: 32px !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15) !important;
+  box-sizing: border-box !important;
+}
+
+/* 하단 외곽 바깥 띠 상자 제거 및 바닥 밀착 */
+.dashboard-content,
+.supervisor-shell {
+  padding-bottom: 0 !important;
+  margin-bottom: 0 !important;
 }
 
 

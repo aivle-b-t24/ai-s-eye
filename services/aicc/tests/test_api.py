@@ -46,7 +46,8 @@ def summary_body() -> dict[str, Any]:
 FAKE_INSIGHTS = {
     "insights": [
         {"store_id": "store-001", "insight_type": "congestion", "severity": "high",
-         "summary": "점심 혼잡", "evidence": {"peak_visible_person_count": 28}, "recommendation": "인력 보강"},
+         "summary": "점심 혼잡", "probable_cause": "인근 직장인 점심 수요로 추정됩니다.",
+         "evidence": {"peak_visible_person_count": 28}, "recommendation": "인력 보강"},
         {"store_id": "store-002", "insight_type": "afternoon_demand", "severity": "medium",
          "summary": "오후 수요", "evidence": {"peak_visible_person_count": 22}, "recommendation": "재고 보충"},
     ],
@@ -108,6 +109,9 @@ def test_insights_ok(monkeypatch) -> None:
     ids = {i["store_id"] for i in data["insights"]}
     assert ids == {"store-001", "store-002"}
     assert data["comparison"]["summary"]
+    # 추정 원인이 response_model에서 안 잘리고 그대로 나온다
+    s1 = next(i for i in data["insights"] if i["store_id"] == "store-001")
+    assert s1["probable_cause"] == "인근 직장인 점심 수요로 추정됩니다."
 
 
 def test_insights_ok_with_period(monkeypatch) -> None:

@@ -185,16 +185,27 @@ def post_snapshot(
     timeout: float = 10.0,
     *,
     raw: bool = False,
+    metadata: dict | None = None,
 ) -> int:
     """분석본 또는 ROI 설정용 원본 이미지를 API에 업로드한다."""
     boundary = "----visionsnapshotboundary"
-    body = (
+    parts = []
+    if metadata is not None:
+        parts.append(
+            f"--{boundary}\r\n".encode()
+            + b'Content-Disposition: form-data; name="metadata"\r\n'
+            + b"Content-Type: application/json\r\n\r\n"
+            + json.dumps(metadata, ensure_ascii=False).encode("utf-8")
+            + b"\r\n"
+        )
+    parts.append(
         f"--{boundary}\r\n".encode()
         + b'Content-Disposition: form-data; name="image"; filename="snapshot.jpg"\r\n'
         + b"Content-Type: image/jpeg\r\n\r\n"
         + image_bytes
-        + f"\r\n--{boundary}--\r\n".encode()
+        + b"\r\n"
     )
+    body = b"".join(parts) + f"--{boundary}--\r\n".encode()
     endpoint = "vision-raw" if raw else "vision-snapshot"
     url = api.rstrip("/") + f"/internal/stores/{store_id}/{endpoint}"
     req = urllib.request.Request(
@@ -210,17 +221,17 @@ def prepare_state(
     preserve_timestamp: bool = False,
     captured_at: datetime | None = None,
 ) -> dict:
-    """전송할 상태를 복사하고, 실시간 재생이면 측정 시각을 현재로 바꾼다.
+    """전송할 상태를 복사한다.
 
-    PostgreSQL은 captured_at이 가장 최근인 상태를 조회한다. 저장된 합성 시각을
-    그대로 반복 전송하면 한 바퀴 뒤의 데이터가 최신 상태가 되지 못하므로,
-    재생할 때는 현재 UTC 시각을 기본으로 사용한다.
+    프레임의 분석 신원을 보존하기 위해 신규 산출물은 원래 captured_at을 유지한다.
+    frame_id가 없는 이전 샘플만 기존 동작대로 재생 시각을 사용한다.
     """
     outgoing = state.copy()
     outgoing.pop("positions", None)  # 디지털 트윈용 필드 → API 스키마에 없으므로 제거
-    if not preserve_timestamp:
+    if not preserve_timestamp and not outgoing.get("frame_id"):
         current = captured_at or datetime.now(timezone.utc)
         outgoing["captured_at"] = current.isoformat()
+    outgoing["source"] = "demo-replay"
     return outgoing
 
 
@@ -243,7 +254,7 @@ def prepare_occupancy(
     id_prefix: str | None = None,
 ) -> dict:
     """Vision positions를 LIVE 디지털 트윈 공통 프레임으로 변환한다."""
-    if preserve_timestamp:
+    if preserve_timestamp or state.get("frame_id"):
         timestamp = state["captured_at"]
     else:
         timestamp = (captured_at or datetime.now(timezone.utc)).isoformat()
@@ -309,10 +320,42 @@ def prepare_occupancy(
         "schema_version": "1.0",
         "store_id": store_id,
         "camera_id": state.get("camera_id", f"{store_id}-cam1"),
+        "frame_id": state.get("frame_id"),
         "mode": "live",
         "captured_at": timestamp,
+        "published_at": (captured_at or datetime.now(timezone.utc)).isoformat(),
+        "processed_at": state.get("processed_at"),
+        "roi_version": state.get("roi_version"),
+        "source": "demo-replay",
+        "model_version": state.get("model_version"),
         "coordinate_space": "normalized_image",
         "agents": agents,
+    }
+
+
+def snapshot_metadata(state: dict) -> dict | None:
+    """StoreState와 분석 이미지가 공유할 프레임 신원 정보를 만든다."""
+    required = (
+        "store_id",
+        "camera_id",
+        "frame_id",
+        "captured_at",
+        "processed_at",
+        "model_version",
+        "source",
+    )
+    if any(state.get(field) in {None, ""} for field in required):
+        return None
+    return {
+        "schema_version": "1.0",
+        "store_id": state["store_id"],
+        "camera_id": state["camera_id"],
+        "frame_id": state["frame_id"],
+        "captured_at": state["captured_at"],
+        "processed_at": state["processed_at"],
+        "model_version": state["model_version"],
+        "roi_version": state.get("roi_version"),
+        "source": state["source"],
     }
 
 
@@ -376,6 +419,10 @@ def main():
                 current = datetime.now(timezone.utc)
                 for state in batch:
                     cycle_sent += 1
+                    sid = state["store_id"]
+                    idx = store_seq.get(sid, 0)
+                    if args.frames_dir or args.raw_frames_dir:
+                        store_seq[sid] = idx + 1
                     outgoing = prepare_state(
                         state,
                         preserve_timestamp=args.preserve_timestamps,
@@ -388,17 +435,19 @@ def main():
                         position_tracker=position_trackers[state["store_id"]],
                         id_prefix=f"cycle-{cycle_index}" if args.loop else None,
                     )
+                    metadata = snapshot_metadata(outgoing)
                     # 상태별 분석 이미지를 API로 업로드(이미지·숫자 동기)
                     # 이미지는 매장별 폴더: <frames-dir>/<store_id>/{k:04d}.jpg
-                    sid = state["store_id"]
-                    idx = store_seq.get(sid, 0)
-                    if args.frames_dir or args.raw_frames_dir:
-                        store_seq[sid] = idx + 1
                     if args.frames_dir:
                         src = args.frames_dir / sid / f"{idx:04d}.jpg"
                         if src.exists():
                             try:
-                                post_snapshot(args.api, sid, src.read_bytes())
+                                post_snapshot(
+                                    args.api,
+                                    sid,
+                                    src.read_bytes(),
+                                    metadata=metadata,
+                                )
                             except urllib.error.URLError as exc:
                                 print(
                                     f"  [{cycle_sent}] 이미지 업로드 실패: "
@@ -413,6 +462,7 @@ def main():
                                     sid,
                                     raw_src.read_bytes(),
                                     raw=True,
+                                    metadata=metadata,
                                 )
                             except urllib.error.URLError as exc:
                                 print(

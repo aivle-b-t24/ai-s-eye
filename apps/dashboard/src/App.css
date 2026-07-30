@@ -2485,6 +2485,22 @@ color: #64748b;
 font-size: 9px;
 font-weight: 700;
 }
+.camera-scene-identity,
+.camera-scene-times {
+display: flex;
+gap: 6px 10px;
+flex-wrap: wrap;
+color: #64748b;
+font-size: 9px;
+font-weight: 650;
+}
+.camera-scene-identity {
+margin-top: 5px;
+}
+.camera-scene-times {
+justify-content: flex-end;
+text-align: right;
+}
 .camera-scene-legend {
 display: flex;
 align-items: center;
@@ -3016,6 +3032,10 @@ flex: 1;
 .camera-scene-footer {
 align-items: flex-start;
 flex-direction: column;
+}
+.camera-scene-times {
+justify-content: flex-start;
+text-align: left;
 }
 .camera-scene-legend {
 flex-wrap: wrap;

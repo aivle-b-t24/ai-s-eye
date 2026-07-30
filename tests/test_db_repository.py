@@ -11,7 +11,10 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.db_models import (
     CameraRoiConfigRecord,
     CameraSceneConfigRecord,
+    CurrentStoreStateRecord,
+    HourlyStoreMetricRecord,
     OrderEventRecord,
+    StoreStateHistoryRecord,
     StoreStateRecord,
 )
 from app.db_repository import DatabaseRepository
@@ -65,6 +68,21 @@ def database_repository() -> tuple[DatabaseRepository, sessionmaker[Session], st
             session.execute(
                 delete(OrderEventRecord).where(
                     OrderEventRecord.event_id.like(f"{test_id}%")
+                )
+            )
+            session.execute(
+                delete(HourlyStoreMetricRecord).where(
+                    HourlyStoreMetricRecord.store_id.like(f"{test_id}%")
+                )
+            )
+            session.execute(
+                delete(StoreStateHistoryRecord).where(
+                    StoreStateHistoryRecord.store_id.like(f"{test_id}%")
+                )
+            )
+            session.execute(
+                delete(CurrentStoreStateRecord).where(
+                    CurrentStoreStateRecord.store_id.like(f"{test_id}%")
                 )
             )
             session.execute(
@@ -190,6 +208,28 @@ def test_latest_store_state_is_returned(
     assert saved_state.visible_person_count == 6
     assert saved_state.queue_count_estimate == 3
 
+    with database_repository[1]() as session:
+        raw_count = session.scalar(
+            select(func.count())
+            .select_from(StoreStateRecord)
+            .where(StoreStateRecord.store_id == test_id)
+        )
+        history_count = session.scalar(
+            select(func.count())
+            .select_from(StoreStateHistoryRecord)
+            .where(StoreStateHistoryRecord.store_id == test_id)
+        )
+        hourly = session.scalar(
+            select(HourlyStoreMetricRecord).where(
+                HourlyStoreMetricRecord.store_id == test_id
+            )
+        )
+    assert raw_count == 2
+    assert history_count == 1
+    assert hourly is not None
+    assert hourly.observation_count == 2
+    assert hourly.visible_person_sum == 8
+
 
 def test_same_store_state_payload_is_not_saved_twice(
     database_repository: tuple[DatabaseRepository, sessionmaker[Session], str],
@@ -224,7 +264,60 @@ def test_same_store_state_payload_is_not_saved_twice(
     assert state_count == 1
 
 
-def test_expired_states_are_deleted_but_latest_state_is_preserved(
+def test_replayed_frame_updates_current_without_growing_history(
+    database_repository: tuple[DatabaseRepository, sessionmaker[Session], str],
+) -> None:
+    repository, session_factory, test_id = database_repository
+    state = StoreState(
+        store_id=test_id,
+        camera_id="cam-replay",
+        frame_id=f"{test_id}-frame-001",
+        captured_at=datetime(2026, 7, 22, 9, 0, tzinfo=timezone.utc),
+        processed_at=datetime(2026, 7, 22, 9, 1, tzinfo=timezone.utc),
+        roi_version=3,
+        visible_person_count=8,
+        queue_count_estimate=2,
+        zone_counts={"waiting": 2, "seating": 6},
+        quality_status=QualityStatus.NORMAL,
+        source="demo-replay",
+        model_version="test-v1",
+    )
+
+    repository.save_store_state(state)
+    repository.save_store_state(
+        state.model_copy(update={"source": "vision-worker-batch"})
+    )
+
+    with session_factory() as session:
+        raw_count = session.scalar(
+            select(func.count())
+            .select_from(StoreStateRecord)
+            .where(StoreStateRecord.store_id == test_id)
+        )
+        history_count = session.scalar(
+            select(func.count())
+            .select_from(StoreStateHistoryRecord)
+            .where(StoreStateHistoryRecord.store_id == test_id)
+        )
+        metric = session.scalar(
+            select(HourlyStoreMetricRecord).where(
+                HourlyStoreMetricRecord.store_id == test_id
+            )
+        )
+        current_count = session.scalar(
+            select(func.count())
+            .select_from(CurrentStoreStateRecord)
+            .where(CurrentStoreStateRecord.store_id == test_id)
+        )
+
+    assert raw_count == 1
+    assert history_count == 1
+    assert current_count == 1
+    assert metric is not None
+    assert metric.observation_count == 1
+
+
+def test_expired_raw_states_are_deleted_but_current_state_is_preserved(
     database_repository: tuple[DatabaseRepository, sessionmaker[Session], str],
 ) -> None:
     repository, _, test_id = database_repository
@@ -261,8 +354,8 @@ def test_expired_states_are_deleted_but_latest_state_is_preserved(
         store_ids=[store_with_history, inactive_store],
     )
 
-    assert target_count == 2
-    assert deleted_count == 2
+    assert target_count == 3
+    assert deleted_count == 3
     assert repository.get_store_state(store_with_history).visible_person_count == 4
     assert repository.get_store_state(inactive_store).visible_person_count == 1
 

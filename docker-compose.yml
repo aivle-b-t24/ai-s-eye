@@ -53,6 +53,25 @@ services:
       retries: 5
       start_period: 10s
 
+  store-state-cleanup:
+    build:
+      context: ./services/api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-store}:${POSTGRES_PASSWORD:-change-me-for-local-development}@db:5432/${POSTGRES_DB:-store}
+      STORE_STATE_RETENTION_DAYS: ${STORE_STATE_RETENTION_DAYS:-7}
+      STORE_STATE_CLEANUP_INTERVAL_SECONDS: ${STORE_STATE_CLEANUP_INTERVAL_SECONDS:-21600}
+    command:
+      - /bin/sh
+      - -c
+      - >-
+        while true; do python -m app.cleanup_store_states --older-than-days
+        "$${STORE_STATE_RETENTION_DAYS}" --apply; sleep
+        "$${STORE_STATE_CLEANUP_INTERVAL_SECONDS}"; done
+    depends_on:
+      db:
+        condition: service_healthy
+
   dashboard:
     build:
       context: ./apps/dashboard

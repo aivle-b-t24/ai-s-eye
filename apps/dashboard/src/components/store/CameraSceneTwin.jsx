@@ -13,7 +13,9 @@ function formatCapturedAt(value) {
   if (!value) return '측정 시각 없음'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '측정 시각 없음'
-  return date.toLocaleTimeString('ko-KR', {
+  return date.toLocaleString('ko-KR', {
+    month: '2-digit',
+    day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
@@ -131,6 +133,7 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
   const [roiConfig, setRoiConfig] = useState(null)
   const [status, setStatus] = useState('loading')
   const [capturedAt, setCapturedAt] = useState(null)
+  const [frameMetadata, setFrameMetadata] = useState(null)
   const [viewMode, setViewMode] = useState('twin')
   const [imageTick, setImageTick] = useState(() => Date.now())
   const latestCapturedAtRef = useRef(null)
@@ -156,13 +159,21 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
       if (!response.ok) throw new Error(`위치 API 요청 실패 (${response.status})`)
 
       const frame = await response.json()
-      const frameTime = new Date(frame.captured_at).getTime()
+      const frameTime = new Date(frame.published_at ?? frame.captured_at).getTime()
       const isStale = !Number.isFinite(frameTime) || Date.now() - frameTime > STALE_AFTER_MS
-      const isNewFrame = frame.captured_at !== latestCapturedAtRef.current
+      const frameKey = `${frame.frame_id ?? frame.captured_at}:${frame.published_at ?? ''}`
+      const isNewFrame = frameKey !== latestCapturedAtRef.current
 
       if (isNewFrame) {
-        latestCapturedAtRef.current = frame.captured_at
+        latestCapturedAtRef.current = frameKey
         setCapturedAt(frame.captured_at)
+        setFrameMetadata({
+          frameId: frame.frame_id,
+          processedAt: frame.processed_at,
+          modelVersion: frame.model_version,
+          roiVersion: frame.roi_version,
+          source: frame.source,
+        })
         setTracks((current) => updateTracks(current, frame.agents ?? [], Date.now()))
         setImageTick(Date.now())
       }
@@ -180,6 +191,7 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
     setRoiConfig(null)
     setSceneConfig(null)
     setCapturedAt(null)
+    setFrameMetadata(null)
     setStatus('loading')
     setViewMode('twin')
   }, [storeId])
@@ -487,12 +499,23 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
       </div>
 
       <footer className="camera-scene-footer">
-        <div className="camera-scene-legend">
-          <span><i className="customer" />고객 {counts.customer}명</span>
-          <span><i className="queue" />대기 {counts.queue}명</span>
-          <span><i className="staff" />직원 {counts.staff}명</span>
+        <div>
+          <div className="camera-scene-legend">
+            <span><i className="customer" />고객 {counts.customer}명</span>
+            <span><i className="queue" />대기 {counts.queue}명</span>
+            <span><i className="staff" />직원 {counts.staff}명</span>
+          </div>
+          <div className="camera-scene-identity">
+            <span>프레임 {frameMetadata?.frameId ?? '확인 불가'}</span>
+            <span>모델 {frameMetadata?.modelVersion ?? '확인 불가'}</span>
+            <span>ROI v{frameMetadata?.roiVersion ?? '미지정'}</span>
+            <span>{frameMetadata?.source === 'demo-replay' ? '데모 재생' : 'Vision 분석'}</span>
+          </div>
         </div>
-        <time dateTime={capturedAt ?? undefined}>{formatCapturedAt(capturedAt)}</time>
+        <div className="camera-scene-times">
+          <span>촬영 {formatCapturedAt(capturedAt)}</span>
+          <span>분석 {formatCapturedAt(frameMetadata?.processedAt)}</span>
+        </div>
       </footer>
     </section>
   )

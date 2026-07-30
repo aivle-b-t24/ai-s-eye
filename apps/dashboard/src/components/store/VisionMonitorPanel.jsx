@@ -5,7 +5,7 @@ const POLLING_INTERVAL_MS = 2000
 const TRAIL_RETENTION_MS = 12000
 const MAX_TRAIL_POINTS = 12
 const ENABLE_CAMERA_TWIN_V2 = (
-  String(import.meta.env.VITE_ENABLE_CAMERA_TWIN_V2).toLowerCase() === 'true'
+  String(import.meta.env.VITE_ENABLE_CAMERA_TWIN_V2 ?? 'true').toLowerCase() !== 'false'
 )
 
 function formatCapturedAt(value) {

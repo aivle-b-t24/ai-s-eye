@@ -8,6 +8,13 @@ const POSITION_TRANSITION_MS = 1600
 const MISSING_RETENTION_MS = 4000
 const STALE_AFTER_MS = 6000
 const MAX_TRAIL_POINTS = 12
+const DEFAULT_PERSPECTIVE = {
+  far_y: 260,
+  near_y: 980,
+  far_scale: 0.62,
+  near_scale: 1.35,
+}
+const SEAT_SNAP_DISTANCE = 150
 
 function formatCapturedAt(value) {
   if (!value) return '측정 시각 없음'
@@ -42,6 +49,74 @@ function objectCenter(polygon) {
   }
 }
 
+function clamp(value, minimum, maximum) {
+  return Math.min(Math.max(value, minimum), maximum)
+}
+
+function perspectiveScale(y, perspective = DEFAULT_PERSPECTIVE) {
+  const depthY = y * 1000
+  const range = Math.max(perspective.near_y - perspective.far_y, 1)
+  const depth = clamp((depthY - perspective.far_y) / range, 0, 1)
+  const easedDepth = depth ** 1.18
+  return perspective.far_scale
+    + (perspective.near_scale - perspective.far_scale) * easedDepth
+}
+
+function deriveSeatAnchors(objects) {
+  return objects
+    .filter((item) => item.type === 'table' && item.polygon.length >= 3)
+    .flatMap((item) => {
+      const frontEdge = [...item.polygon]
+        .sort((left, right) => right[1] - left[1])
+        .slice(0, 2)
+        .sort((left, right) => left[0] - right[0])
+      if (frontEdge.length < 2) return []
+      const [left, right] = frontEdge
+      const anchorY = clamp(Math.round((left[1] + right[1]) / 2 + 24), 0, 985)
+      const width = Math.abs(right[0] - left[0])
+      const ratios = width >= 125 ? [0.32, 0.68] : [0.5]
+      return ratios.map((ratio, index) => ({
+        id: `${item.id}-derived-seat-${index + 1}`,
+        table_id: item.id,
+        x: Math.round(left[0] + (right[0] - left[0]) * ratio),
+        y: anchorY,
+      }))
+    })
+}
+
+function allocateRenderPositions(tracks, seatAnchors) {
+  const usedSeats = new Set()
+  return tracks.map((track) => {
+    if (track.state !== 'seated' || seatAnchors.length === 0) {
+      return { ...track, renderX: track.x, renderY: track.y, seatAnchorId: null }
+    }
+    const candidates = seatAnchors
+      .filter((anchor) => !usedSeats.has(anchor.id))
+      .map((anchor) => ({
+        anchor,
+        distance: Math.hypot(anchor.x / 1000 - track.x, anchor.y / 1000 - track.y) * 1000,
+      }))
+      .filter(({ distance }) => distance <= SEAT_SNAP_DISTANCE)
+      .sort((left, right) => left.distance - right.distance)
+    const nearest = candidates[0]?.anchor
+    if (!nearest) {
+      return { ...track, renderX: track.x, renderY: track.y, seatAnchorId: null }
+    }
+    usedSeats.add(nearest.id)
+    return {
+      ...track,
+      renderX: nearest.x / 1000,
+      renderY: nearest.y / 1000,
+      seatAnchorId: nearest.id,
+    }
+  })
+}
+
+function objectDepth(object) {
+  const frontY = Math.max(...object.polygon.map(([, y]) => y))
+  return frontY + (object.type === 'occluder' ? 115 : 85)
+}
+
 function agentLabel(agent) {
   if (agent.role === 'staff') return '직원'
   if (agent.state === 'queue') return '대기 고객'
@@ -74,11 +149,12 @@ function buildTrackKey(agent, index) {
   return `anonymous-${index}-${Math.round(agent.x * 100)}-${Math.round(agent.y * 100)}`
 }
 
-function updateTracks(current, agents, observedAt) {
+function updateTracks(current, agents, observedAt, { retainMissing = true } = {}) {
   const observedIds = new Set()
   const next = {}
 
   Object.entries(current).forEach(([id, track]) => {
+    if (!retainMissing) return
     if (observedAt - track.lastSeenAt <= MISSING_RETENTION_MS) {
       next[id] = { ...track, missing: true }
     }
@@ -116,19 +192,29 @@ function updateTracks(current, agents, observedAt) {
   return next
 }
 
-export default function CameraSceneTwin({ storeId, onSummaryChange }) {
+export default function CameraSceneTwin({
+  storeId,
+  onSummaryChange,
+  simulationResult = null,
+  simulationFrameIndex = 0,
+}) {
+  const isSimulation = Boolean(simulationResult)
+  const simulationFrame = simulationResult?.frames?.[simulationFrameIndex] ?? null
   const fallbackScene = useMemo(() => getCameraScene(storeId), [storeId])
   const [sceneConfig, setSceneConfig] = useState(null)
   const scene = useMemo(() => {
     if (!fallbackScene || !sceneConfig) return fallbackScene
+    const objects = sceneConfig.objects.map((item) => ({
+      ...item,
+      polygon: item.polygon.map(({ x, y }) => [x, y]),
+    }))
     return {
       ...fallbackScene,
-      objects: sceneConfig.objects
-        .filter((item) => item.type !== 'occluder')
-        .map((item) => ({
-          ...item,
-          polygon: item.polygon.map(({ x, y }) => [x, y]),
-        })),
+      objects,
+      perspective: sceneConfig.perspective ?? fallbackScene.perspective,
+      seatAnchors: sceneConfig.seat_anchors?.length
+        ? sceneConfig.seat_anchors
+        : deriveSeatAnchors(objects),
     }
   }, [fallbackScene, sceneConfig])
   const [tracks, setTracks] = useState({})
@@ -141,6 +227,7 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
   const latestCapturedAtRef = useRef(null)
 
   const loadOccupancy = useCallback(async (signal) => {
+    if (isSimulation) return
     if (!scene) {
       setStatus('empty')
       return
@@ -185,7 +272,7 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
       if (error.name === 'AbortError') return
       setStatus('error')
     }
-  }, [scene, storeId])
+  }, [isSimulation, scene, storeId])
 
   useEffect(() => {
     latestCapturedAtRef.current = null
@@ -196,10 +283,10 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
     setFrameMetadata(null)
     setStatus('loading')
     setViewMode('twin')
-  }, [storeId])
+  }, [simulationResult?.run_id, storeId])
 
   useEffect(() => {
-    if (!scene) return undefined
+    if (!scene || isSimulation) return undefined
     const controller = new AbortController()
     loadOccupancy(controller.signal)
     const timer = setInterval(
@@ -210,7 +297,27 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
       controller.abort()
       clearInterval(timer)
     }
-  }, [loadOccupancy, scene])
+  }, [isSimulation, loadOccupancy, scene])
+
+  useEffect(() => {
+    if (!isSimulation || !simulationFrame) return
+    setStatus('ready')
+    setCapturedAt(null)
+    setFrameMetadata({
+      frameId: `${simulationResult.run_id}:${simulationFrameIndex}`,
+      processedAt: simulationResult.generated_at,
+      modelVersion: 'simpy-operations-v1',
+      roiVersion: null,
+      source: 'simulation',
+      simulationMinute: simulationFrame.at_minute,
+    })
+    setTracks((current) => updateTracks(
+      current,
+      simulationFrame.agents ?? [],
+      Date.now(),
+      { retainMissing: false },
+    ))
+  }, [isSimulation, simulationFrame, simulationFrameIndex, simulationResult])
 
   useEffect(() => {
     if (!fallbackScene) return undefined
@@ -252,7 +359,7 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
     [roiZoneTypes],
   )
   const displayTrackList = useMemo(() => {
-    if (!roiConfig) return trackList
+    if (isSimulation || !roiConfig) return trackList
     return trackList.map((track) => {
       const hasApprovedZone = (
         (track.zone && roiZoneTypeSet.has(track.zone))
@@ -266,7 +373,29 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
         zone: null,
       }
     })
-  }, [roiConfig, roiZoneTypeSet, trackList])
+  }, [isSimulation, roiConfig, roiZoneTypeSet, trackList])
+  const seatAnchors = useMemo(
+    () => scene?.seatAnchors?.length
+      ? scene.seatAnchors
+      : deriveSeatAnchors(scene?.objects ?? []),
+    [scene],
+  )
+  const renderTrackList = useMemo(
+    () => allocateRenderPositions(displayTrackList, seatAnchors),
+    [displayTrackList, seatAnchors],
+  )
+  const backgroundObjects = useMemo(
+    () => (scene?.objects ?? []).filter(
+      (item) => !['table', 'counter', 'occluder'].includes(item.type),
+    ),
+    [scene],
+  )
+  const depthObjects = useMemo(
+    () => (scene?.objects ?? []).filter(
+      (item) => ['table', 'counter', 'occluder'].includes(item.type),
+    ),
+    [scene],
+  )
   const activeTracks = useMemo(
     () => displayTrackList.filter((track) => !track.missing),
     [displayTrackList],
@@ -334,14 +463,15 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
           <span className={`camera-scene-live camera-scene-live-${status}`} />
           <strong>{scene.label}</strong>
           <small>
-            {status === 'ready' && 'LIVE'}
+            {status === 'ready' && (isSimulation ? 'SIMULATION' : 'LIVE')}
             {status === 'stale' && '지연됨'}
             {status === 'loading' && '연결 중'}
             {status === 'empty' && '재생 대기'}
             {status === 'error' && '연결 오류'}
           </small>
         </div>
-        <div className="camera-scene-view-switch" aria-label="카메라 화면 보기 방식">
+        {!isSimulation && (
+          <div className="camera-scene-view-switch" aria-label="카메라 화면 보기 방식">
           <button
             type="button"
             className={viewMode === 'twin' ? 'active' : ''}
@@ -366,7 +496,8 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
           >
             분석 영상
           </button>
-        </div>
+          </div>
+        )}
       </div>
 
       <div className="camera-scene-stage">
@@ -402,7 +533,7 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
               </defs>
 
               <rect width="1000" height="1000" className="camera-scene-background" />
-              {scene.objects.map((object) => {
+              {backgroundObjects.map((object) => {
                 const center = objectCenter(object.polygon)
                 return (
                   <g key={object.id} className={`camera-scene-object camera-scene-${object.type}`}>
@@ -427,7 +558,7 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
                 </g>
               ))}
 
-              {displayTrackList.map((track) => (
+              {renderTrackList.map((track) => (
                 track.trail.length > 1 && (
                   <polyline
                     key={`${track.id}-trail`}
@@ -439,8 +570,8 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
             </svg>
 
             <div className="camera-scene-agent-layer" aria-live="polite">
-              {displayTrackList.map((track) => {
-                const scale = Math.min(Math.max(0.7 + track.y * 0.65, 0.7), 1.35)
+              {renderTrackList.map((track) => {
+                const scale = perspectiveScale(track.renderY, scene.perspective)
                 const motion = agentMotion(track)
                 return (
                   <div
@@ -453,14 +584,16 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
                       track.missing ? 'is-missing' : '',
                     ].filter(Boolean).join(' ')}
                     style={{
-                      left: `${track.x * 100}%`,
-                      top: `${track.y * 100}%`,
-                      zIndex: Math.round(track.y * 1000) + 100,
+                      left: `${track.renderX * 100}%`,
+                      top: `${track.renderY * 100}%`,
+                      zIndex: Math.round(track.renderY * 1000) + 100,
                       '--agent-scale': scale,
                       '--agent-direction': motion.direction,
-                      '--position-transition': `${POSITION_TRANSITION_MS}ms`,
+                      '--position-transition': isSimulation
+                        ? '480ms'
+                        : `${POSITION_TRANSITION_MS}ms`,
                     }}
-                    title={`${agentLabel(track)} · ${track.zone ?? '구역 미지정'} · ID ${track.id}`}
+                    title={`${agentLabel(track)} · ${track.zone ?? '구역 미지정'} · ID ${track.id}${track.seatAnchorId ? ' · 좌석 보정' : ''}`}
                   >
                     <span className="camera-scene-agent-shadow" />
                     <span className="camera-scene-agent-body">
@@ -473,6 +606,25 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
                 )
               })}
             </div>
+
+            {depthObjects.map((object) => {
+              const center = objectCenter(object.polygon)
+              return (
+                <svg
+                  key={`${object.id}-depth`}
+                  className={`camera-scene-depth-object camera-scene-object camera-scene-${object.type}`}
+                  viewBox="0 0 1000 1000"
+                  preserveAspectRatio="none"
+                  style={{ zIndex: objectDepth(object) }}
+                  aria-hidden="true"
+                >
+                  <polygon points={polygonPoints(object.polygon)} />
+                  {object.label && object.type !== 'occluder' && (
+                    <text x={center.x} y={center.y}>{object.label}</text>
+                  )}
+                </svg>
+              )
+            })}
 
           </>
         )}
@@ -528,13 +680,28 @@ export default function CameraSceneTwin({ storeId, onSummaryChange }) {
           <div className="camera-scene-identity">
             <span>프레임 {frameMetadata?.frameId ?? '확인 불가'}</span>
             <span>모델 {frameMetadata?.modelVersion ?? '확인 불가'}</span>
-            <span>ROI v{frameMetadata?.roiVersion ?? '미지정'}</span>
-            <span>{frameMetadata?.source === 'demo-replay' ? '데모 재생' : 'Vision 분석'}</span>
+            {!isSimulation && <span>ROI v{frameMetadata?.roiVersion ?? '미지정'}</span>}
+            <span>
+              {frameMetadata?.source === 'simulation'
+                ? '합성 시뮬레이션'
+                : frameMetadata?.source === 'demo-replay'
+                  ? '데모 재생'
+                  : 'Vision 분석'}
+            </span>
           </div>
         </div>
         <div className="camera-scene-times">
-          <span>촬영 {formatCapturedAt(capturedAt)}</span>
-          <span>분석 {formatCapturedAt(frameMetadata?.processedAt)}</span>
+          {isSimulation ? (
+            <>
+              <span>가상 운영 +{frameMetadata?.simulationMinute ?? 0}분</span>
+              <span>실제 데이터 아님</span>
+            </>
+          ) : (
+            <>
+              <span>촬영 {formatCapturedAt(capturedAt)}</span>
+              <span>분석 {formatCapturedAt(frameMetadata?.processedAt)}</span>
+            </>
+          )}
         </div>
       </footer>
     </section>

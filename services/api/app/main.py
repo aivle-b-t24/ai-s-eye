@@ -18,12 +18,15 @@ from .models import (
     CameraSceneConfigInput,
     EtaResponse,
     OrderEvent,
+    OperationsSimulationResult,
+    OperationsSimulationScenario,
     StoreState,
     StoreSummaryResponse,
     StoreTimelineResponse,
     TwinFrame,
     VisionSnapshotMetadata,
 )
+from .operations_simulation import run_operations_simulation
 from .occupancy import LatestOccupancyRepository
 from .repository import InMemoryRepository
 from .vision_snapshots import (
@@ -533,6 +536,19 @@ def get_order_status(order_id: str) -> OrderEvent:
     if event is None:
         raise HTTPException(status_code=404, detail="Order not found")
     return event
+
+
+@app.post(
+    "/api/simulations/operations",
+    response_model=OperationsSimulationResult,
+    tags=["simulations"],
+)
+def simulate_operations(
+    scenario: OperationsSimulationScenario,
+) -> OperationsSimulationResult:
+    """DB를 변경하지 않고 한 개 운영 조건의 What-if 결과를 계산한다."""
+    validate_vision_store_id(scenario.store_id)
+    return run_operations_simulation(scenario)
 
 
 @app.get(

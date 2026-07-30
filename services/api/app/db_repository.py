@@ -450,6 +450,11 @@ class DatabaseRepository:
                     item.model_dump(mode="json")
                     for item in config.objects
                 ],
+                perspective=config.perspective.model_dump(mode="json"),
+                seat_anchors=[
+                    item.model_dump(mode="json", exclude_none=True)
+                    for item in config.seat_anchors
+                ],
                 source=config.source.value,
                 status=SceneConfigStatus.APPROVED.value,
                 approved_at=now,
@@ -767,6 +772,8 @@ def _scene_config_from_record(record: CameraSceneConfigRecord) -> CameraSceneCon
             "height": record.image_height,
         },
         objects=record.objects,
+        perspective=record.perspective,
+        seat_anchors=record.seat_anchors,
         source=record.source,
         status=record.status,
         created_at=record.created_at,

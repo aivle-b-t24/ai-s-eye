@@ -8,6 +8,16 @@ FastAPI 기반 공통 백엔드다.
 
 API 문서는 서버 실행 후 `http://localhost:8000/docs`에서 확인한다.
 
+## What-if 운영 시뮬레이션
+
+`POST /api/simulations/operations`는 직원 수, 방문율, 행사 배수, 평균 제조시간,
+대기 인내시간, 좌석 수를 입력받아 SimPy로 운영 결과를 계산한다. 결과에는 완료·포기
+주문, 평균 대기, 최대 대기열, 직원·좌석 가동률과 디지털 트윈 재생 프레임이 포함된다.
+
+동일한 입력과 `seed`는 동일한 가상 고객과 결과를 만든다. 서로 다른 직원 수를
+비교해도 방문 시각과 고객별 서비스 성향은 동일하게 유지한다. 엔드포인트는 계산만
+수행하며 PostgreSQL이나 실제 `StoreState`, `OrderEvent`에는 기록하지 않는다.
+
 ## Vision 분석 이미지
 
 Vision Worker는 분석이 끝난 JPEG 또는 PNG 한 장과 프레임 메타데이터를 매장별

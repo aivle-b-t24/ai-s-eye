@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 const NAVIGATION_ITEMS = [
   { id: 'hq-overview', label: '운영 개요' },
   { id: 'hq-stores', label: '가맹점 분석' },
+  { id: 'hq-simulation', label: '운영 시뮬레이션' },
   { id: 'hq-ai', label: 'AI 인사이트' },
 ]
 
@@ -191,5 +192,4 @@ export default function HeadOfficeHeader({ user, onLogout, onOpenProfile }) {
     </header>
   )
 }
-
 

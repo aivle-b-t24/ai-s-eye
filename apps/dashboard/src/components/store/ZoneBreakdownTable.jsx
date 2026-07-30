@@ -3,7 +3,7 @@ import React, { useCallback, useState } from 'react'
 import CameraSceneTwin from './CameraSceneTwin'
 
 const ENABLE_CAMERA_TWIN_V2 = (
-  String(import.meta.env.VITE_ENABLE_CAMERA_TWIN_V2).toLowerCase() === 'true'
+  String(import.meta.env.VITE_ENABLE_CAMERA_TWIN_V2 ?? 'true').toLowerCase() !== 'false'
 )
 
 const ZoneIcon = ({ type }) => {

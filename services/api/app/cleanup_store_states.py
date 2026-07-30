@@ -1,4 +1,4 @@
-"""보관기간이 지난 StoreState 이력을 안전하게 정리하는 수동 도구."""
+"""보관기간이 지난 원본 StoreState를 정리하는 도구."""
 
 import argparse
 from datetime import datetime, timedelta, timezone
@@ -24,7 +24,7 @@ def retention_cutoff(
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "보관기간이 지난 StoreState 이력을 정리합니다. "
+            "보관기간이 지난 원본 StoreState 이력을 정리합니다. "
             "기본 실행은 삭제하지 않고 대상 건수만 확인합니다."
         )
     )
@@ -60,7 +60,7 @@ def main(argv: list[str] | None = None) -> int:
     print(
         f"기준 시각: {cutoff.isoformat()} / "
         f"정리 대상: {target_count}건 / "
-        "매장별 최신 상태 1건은 보존"
+        "최신 상태·30초 샘플·시간 집계는 별도 테이블에 보존"
     )
 
     if not args.apply:

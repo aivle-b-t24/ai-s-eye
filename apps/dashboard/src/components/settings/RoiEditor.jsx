@@ -474,6 +474,7 @@ export default function RoiEditor({
             ref={svgRef}
             className={`roi-canvas ${isDrawing ? 'is-drawing' : ''}`}
             viewBox="0 0 1000 1000"
+            preserveAspectRatio="none"
             style={{ aspectRatio: `${imageSize.width} / ${imageSize.height}` }}
             onPointerDown={handleCanvasPointerDown}
             onPointerMove={handlePointerMove}

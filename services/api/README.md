@@ -10,12 +10,14 @@ API 문서는 서버 실행 후 `http://localhost:8000/docs`에서 확인한다.
 
 ## Vision 분석 이미지
 
-Vision Worker는 분석이 끝난 JPEG 또는 PNG 한 장을 매장별 업로드 API로 보낸다.
+Vision Worker는 분석이 끝난 JPEG 또는 PNG 한 장과 프레임 메타데이터를 매장별
+업로드 API로 보낸다.
 서버는 이 이미지를 PostgreSQL에 넣지 않고 매장별 최신 파일 하나로 관리한다.
 
 ```bash
 curl -X POST \
   -F "image=@annotated.jpg" \
+  -F 'metadata={"store_id":"store-001","camera_id":"store-001-cam1","frame_id":"store-001-0001","captured_at":"2026-07-30T09:00:00+09:00","processed_at":"2026-07-30T09:01:00+09:00","model_version":"yolo11s-cafe-ft+pose-dwell","roi_version":7,"source":"demo-replay"}' \
   http://localhost:8000/internal/stores/store-001/vision-snapshot
 ```
 
@@ -29,6 +31,12 @@ http://localhost:8000/api/stores/store-001/vision/latest
 Docker에서는 `vision_snapshot_data` 볼륨에 최신 파일을 저장하므로 API 컨테이너를
 다시 만들어도 유지된다. 새 이미지가 들어오면 이전 이미지는 교체하며 이력을
 쌓지는 않는다.
+
+이미지 신원은 아래 주소에서 확인한다.
+
+```text
+http://localhost:8000/api/stores/store-001/vision/metadata
+```
 
 ## PostgreSQL 마이그레이션
 
@@ -54,8 +62,9 @@ docker compose exec api alembic revision -m "변경 내용"
 
 ## StoreState 보관
 
-슈퍼바이저 집계의 기본 기간은 최근 24시간이며 원본 StoreState의 MVP 보관 기준은
-7일이다. 정리 도구는 기본적으로 삭제하지 않고 대상 건수만 보여준다.
+`current_store_states`는 마지막 수신 상태, `store_state_history`는 30초 샘플,
+`hourly_store_metrics`는 시간 집계, `store_states`는 7일 보관 원본이다.
+슈퍼바이저 집계는 샘플 이력을 사용한다.
 
 ```bash
 docker compose exec api python -m app.cleanup_store_states
@@ -66,6 +75,8 @@ docker compose exec api python -m app.cleanup_store_states
 ```bash
 docker compose exec api python -m app.cleanup_store_states --apply
 ```
+
+Docker의 `store-state-cleanup` 서비스는 같은 정리를 기본 6시간마다 자동 실행한다.
 
 자세한 운영 기준은
 [`docs/data-retention.md`](../../docs/data-retention.md)에서 확인한다.

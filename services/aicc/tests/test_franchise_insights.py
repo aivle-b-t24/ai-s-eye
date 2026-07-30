@@ -136,6 +136,15 @@ def test_prompt_has_both_stores_numbers() -> None:
     assert "28" in p and "22" in p  # 두 매장 피크 인원
 
 
+def test_system_prompt_has_probable_cause_guardrail() -> None:
+    """추정 원인 규칙과 '지어내기 금지' 가드레일이 프롬프트에 살아있어야 한다."""
+    from aicc.franchise_insights import SYSTEM_PROMPT
+
+    assert "probable_cause" in SYSTEM_PROMPT  # 필드 지시가 있다
+    assert "추정" in SYSTEM_PROMPT  # 가설 어투 강제
+    assert "단정하지 않는다" in SYSTEM_PROMPT  # 주변 환경 지어내기 금지
+
+
 def test_prompt_does_not_leak_expected_insights() -> None:
     """정답(expected_insights)이 프롬프트에 새지 않는다."""
     s = summary()

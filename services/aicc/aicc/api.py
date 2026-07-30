@@ -44,6 +44,7 @@ class Insight(BaseModel):
     insight_type: str | None = None
     severity: str | None = None
     summary: str | None = None
+    probable_cause: str | None = Field(default=None, description="왜 그런지에 대한 추정(가설)")
     evidence: dict[str, Any] = Field(default_factory=dict)
     recommendation: str | None = None
     display_text: str | None = Field(default=None, description="관리자가 바로 읽는 문장")

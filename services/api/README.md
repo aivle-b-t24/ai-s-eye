@@ -24,6 +24,68 @@ curl --get http://localhost:8000/api/exports/orders.csv \
   --output synthetic_orders_2026-07.csv
 ```
 
+## 합성 데모 주문 생성기
+
+주문 시뮬레이터는 DB에 직접 접근하지 않고 실제 POS/KDS가 사용할
+`POST /internal/order-events`로 주문 상태를 보낸다. 매장별 메뉴 API에서
+판매 가능한 메뉴만 읽어 `received → preparing → ready → completed` 순서로
+저장한다.
+
+실시간 데모 주문은 프로젝트 루트에서 실행한다.
+
+```bash
+docker compose up -d db api
+docker compose exec api alembic upgrade head
+docker compose --profile demo up -d --build order-simulator
+docker compose logs -f order-simulator
+```
+
+완전히 새 DB라면 Alembic 적용이 선행되어야 한다. 시뮬레이터는 시작할 때
+PostgreSQL 연결뿐 아니라 집계 테이블 조회까지 확인하고, 스키마가 준비되지
+않았으면 주문을 생성하지 않고 종료한다.
+
+본사 기간 분석용 과거 7일 데이터는 먼저 미리보기로 생성 건수만 확인한다.
+
+```bash
+docker compose --profile demo run --rm order-simulator \
+  python -m app.order_simulator seed \
+  --days 7 \
+  --seed 20260730
+```
+
+실제 적재는 데모 DB임을 확인한 뒤 `--apply`를 붙여 실행한다.
+
+```bash
+docker compose --profile demo run --rm order-simulator \
+  python -m app.order_simulator seed \
+  --days 7 \
+  --seed 20260730 \
+  --apply
+```
+
+기본적으로 한국시간 기준 어제까지 생성한다. 같은 기간과 seed로 다시 실행하면
+같은 `event_id`가 만들어지므로 중복 저장되지 않는다. 다른 데이터 세트를 만들
+때만 `--seed` 또는 `--run-id`를 바꾼다.
+
+```bash
+docker compose --profile demo run --rm order-simulator \
+  python -m app.order_simulator seed \
+  --days 30 \
+  --end-date 2026-07-29 \
+  --run-id seed-july \
+  --apply
+```
+
+실시간 주문 간격은 `ORDER_SIM_SCENARIO=normal|lunch_peak`, 재생 속도는
+`ORDER_SIM_SPEED`로 조정한다. 시뮬레이터는 `demo` 프로필 서비스라 로컬의 일반
+`docker compose up -d`에는 포함되지 않지만 미니PC와 GCP 데모 배포에서는
+자동으로 실행한다.
+
+생성 주문은 `sim-` 접두사로 식별되지만 현재 본사 집계에서는 실제 주문과 함께
+계산된다. 실제 POS 실적이 아닌 합성 데모 데이터라는 표시를 유지해야 한다. 이
+모듈은 주문 이벤트 생성기이며 직원, 제조 자원, 대기열, 좌석, 이탈을 계산하는
+What-if 운영 시뮬레이터는 아니다.
+
 ## What-if 운영 시뮬레이션
 
 `POST /api/simulations/operations`는 직원 수, 방문율, 행사 배수, 평균 제조시간,

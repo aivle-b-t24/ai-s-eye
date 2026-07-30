@@ -3117,15 +3117,13 @@ font-size: 16px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  background: rgba(3, 11, 9, 0.55) !important;
-  backdrop-filter: blur(6px) saturate(110%) !important;
-  -webkit-backdrop-filter: blur(6px) saturate(110%) !important;
+  background: rgba(0, 0, 0, 0.2) !important;
+  backdrop-filter: blur(5px) !important;
+  -webkit-backdrop-filter: blur(5px) !important;
   padding: 40px 20px !important;
   box-sizing: border-box !important;
   overflow-y: auto !important;
 }
-
-
 
 .auth-modal-overlay .auth-wrapper {
   min-height: auto !important;
@@ -3141,14 +3139,10 @@ font-size: 16px !important;
   overflow-y: auto !important;
 }
 
-
-/* Lighten background image & gradient mask on login screen */
+/* Hide dark center box gradient on login screen */
 .hero-section.is-auth-page .hero-gradient {
-  background:
-    radial-gradient(circle at 25% 40%, rgba(52, 211, 153, 0.12), transparent 52%),
-    radial-gradient(circle at 74% 44%, rgba(38, 160, 111, 0.10), transparent 45%),
-    linear-gradient(90deg, rgba(5, 22, 18, 0.35) 0%, rgba(7, 26, 21, 0.28) 35%, rgba(4, 15, 12, 0.20) 68%, rgba(3, 11, 10, 0.32) 100%),
-    linear-gradient(180deg, rgba(2, 8, 8, 0.1), rgba(2, 8, 8, 0.05) 52%, rgba(2, 8, 8, 0.2)) !important;
+  display: none !important;
+  background: transparent !important;
 }
 
 .dashboard-content .gnb-header .logout-btn {
@@ -5446,3 +5440,97 @@ font-size: 16px !important;
 .dashboard-content .kpi-summary-bar .kpi-value small {
   color: inherit !important;
 }
+
+/* =========================================================
+   네이버(Naver) 스타일 단일 정중앙 래퍼 통일 아키텍처 (Option 1)
+   ========================================================= */
+html, body {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* 1. 최상위 뷰포트 및 무조건 1440px 정중앙 고정 래퍼 */
+.page-shell,
+.page-shell.has-hero {
+  width: 100% !important;
+  max-width: 1440px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding: 0 20px !important;
+  box-sizing: border-box !important;
+}
+
+/* =========================================================
+   카페 배경 이미지를 전체 웹페이지 바탕에 완전 고정 (Full Page Fixed Wallpaper)
+   ========================================================= */
+body {
+  position: relative;
+  background-image: url("https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=2200&q=90") !important;
+  background-attachment: fixed !important;
+  background-position: center !important;
+  background-size: cover !important;
+  background-repeat: no-repeat !important;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: rgba(0, 0, 0, 0.2) !important;
+  backdrop-filter: blur(5px) !important;
+  -webkit-backdrop-filter: blur(5px) !important;
+  pointer-events: none;
+}
+
+/* 2. [추천 방향 A] 상단 카페 배경 고정 & 콘텐츠 유연 높이(640px 잘림 방지) */
+.hero-section {
+  width: 100% !important;
+  max-width: 1440px !important;
+  min-height: 640px !important;
+  height: auto !important;
+  margin: 0 auto !important;
+  border-radius: 20px !important;
+  overflow: hidden !important;
+  background: transparent !important;
+}
+
+.hero-background {
+  display: none !important;
+  opacity: 0 !important;
+}
+
+.hero-layout {
+  height: auto !important;
+  min-height: 520px !important;
+  max-width: 1440px !important;
+  margin: 0 auto !important;
+  padding-top: 75px !important;
+  padding-bottom: 40px !important;
+}
+
+/* 3. 대시보드 및 모든 하위 블록 동일한 1440px 래퍼 결합 */
+.top-global-nav,
+.gnb-header,
+.role-banner-container,
+.dashboard-content,
+.store-dashboard-view,
+.store-dashboard-view > section,
+.store-dashboard-view > article,
+.kpi-summary-bar,
+.zone-breakdown-table {
+  width: 100% !important;
+  max-width: 1440px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  box-sizing: border-box !important;
+}
+
+
+
+
+
+

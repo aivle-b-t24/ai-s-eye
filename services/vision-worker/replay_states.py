@@ -25,6 +25,241 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_FILE = REPO_ROOT / "samples" / "cafe_stores_states.json"
 DEFAULT_FRAME_WIDTH = 1920
 DEFAULT_FRAME_HEIGHT = 1080
+DEFAULT_ROI_REFRESH_SECONDS = 2.0
+ROI_ZONE_PRIORITY = ("staff", "waiting", "seating", "entrance")
+
+
+def fetch_approved_roi_config(
+    api_base_url: str,
+    store_id: str,
+    camera_id: str,
+    timeout: float = 3.0,
+) -> dict:
+    """API에서 현재 승인된 ROI 설정을 읽는다."""
+    url = (
+        api_base_url.rstrip("/")
+        + f"/internal/stores/{store_id}/cameras/{camera_id}/roi-config"
+    )
+    request = urllib.request.Request(url, headers={"Accept": "application/json"})
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
+def _point_on_segment(
+    point: tuple[float, float],
+    first: tuple[float, float],
+    second: tuple[float, float],
+    epsilon: float = 1e-6,
+) -> bool:
+    px, py = point
+    ax, ay = first
+    bx, by = second
+    cross = (px - ax) * (by - ay) - (py - ay) * (bx - ax)
+    if abs(cross) > epsilon:
+        return False
+    return (
+        min(ax, bx) - epsilon <= px <= max(ax, bx) + epsilon
+        and min(ay, by) - epsilon <= py <= max(ay, by) + epsilon
+    )
+
+
+def point_in_polygon(
+    point: tuple[float, float],
+    polygon: list[dict],
+) -> bool:
+    """경계선을 포함해 점이 폴리곤 안에 있는지 계산한다."""
+    if len(polygon) < 3:
+        return False
+    vertices = [
+        (float(vertex["x"]), float(vertex["y"]))
+        for vertex in polygon
+    ]
+    inside = False
+    previous = vertices[-1]
+    for current in vertices:
+        if _point_on_segment(point, previous, current):
+            return True
+        x1, y1 = previous
+        x2, y2 = current
+        intersects = (
+            (y1 > point[1]) != (y2 > point[1])
+            and point[0]
+            < (x2 - x1) * (point[1] - y1) / (y2 - y1) + x1
+        )
+        if intersects:
+            inside = not inside
+        previous = current
+    return inside
+
+
+def normalized_roi_point(
+    position: dict,
+    *,
+    frame_width: int,
+    frame_height: int,
+) -> tuple[float, float]:
+    """픽셀 발 좌표를 ROI의 0~1000 좌표계로 바꾼다."""
+    if frame_width <= 0 or frame_height <= 0:
+        raise ValueError("Frame dimensions must be greater than zero")
+    return (
+        min(max(float(position.get("x", 0)) / frame_width * 1000, 0), 1000),
+        min(max(float(position.get("y", 0)) / frame_height * 1000, 0), 1000),
+    )
+
+
+def position_zone(
+    position: dict,
+    config: dict,
+    *,
+    frame_width: int = DEFAULT_FRAME_WIDTH,
+    frame_height: int = DEFAULT_FRAME_HEIGHT,
+) -> str | None:
+    """현재 승인 ROI를 기준으로 사람의 구역을 다시 결정한다."""
+    point = normalized_roi_point(
+        position,
+        frame_width=frame_width,
+        frame_height=frame_height,
+    )
+    zones = config.get("zones", [])
+    for zone_type in ROI_ZONE_PRIORITY:
+        for zone in zones:
+            if zone.get("type") != zone_type:
+                continue
+            if point_in_polygon(point, zone.get("polygon", [])):
+                return zone_type
+    return None
+
+
+def reclassify_state_for_roi(
+    state: dict,
+    config: dict,
+    *,
+    processed_at: datetime | None = None,
+    frame_width: int = DEFAULT_FRAME_WIDTH,
+    frame_height: int = DEFAULT_FRAME_HEIGHT,
+) -> dict:
+    """저장된 YOLO·Tracking 좌표를 현재 승인 ROI로 다시 판정한다.
+
+    사람 탐지와 track_id는 기존 Vision 결과를 유지하고, ROI에 의존하는
+    zone·role·state와 StoreState 집계만 새 승인 버전으로 재생성한다.
+    """
+    result = {
+        **state,
+        "positions": [],
+        "zone_counts": {},
+    }
+    zone_counts = {
+        zone_type: 0
+        for zone_type in ROI_ZONE_PRIORITY
+        if any(
+            zone.get("type") == zone_type
+            for zone in config.get("zones", [])
+        )
+    }
+    staff_count = 0
+    queue_count = 0
+
+    for original in state.get("positions", []):
+        position = original.copy()
+        zone = position_zone(
+            position,
+            config,
+            frame_width=frame_width,
+            frame_height=frame_height,
+        )
+        position["zone"] = zone
+        if zone is not None:
+            zone_counts[zone] = zone_counts.get(zone, 0) + 1
+
+        if zone == "staff":
+            position["type"] = "staff"
+            position["state"] = "working"
+            staff_count += 1
+        elif zone == "waiting":
+            position["type"] = "customer"
+            position["state"] = "queue"
+            queue_count += 1
+        elif zone == "seating":
+            position["type"] = "customer"
+            position["state"] = (
+                "seated"
+                if original.get("state") == "seated"
+                else "unknown"
+            )
+        elif zone == "entrance":
+            position["type"] = "customer"
+            position["state"] = (
+                original.get("state")
+                if original.get("state") in {"entering", "exiting"}
+                else "unknown"
+            )
+        else:
+            position["type"] = "customer"
+            position["state"] = "unknown"
+        result["positions"].append(position)
+
+    result["visible_person_count"] = max(
+        len(result["positions"]) - staff_count,
+        0,
+    )
+    result["queue_count_estimate"] = queue_count
+    result["zone_counts"] = zone_counts
+    result["roi_version"] = config.get("version")
+    result["processed_at"] = (
+        processed_at or datetime.now(timezone.utc)
+    ).isoformat()
+    result["source"] = "vision-worker-roi-replay"
+    return result
+
+
+class RoiConfigProvider:
+    """승인 ROI를 짧게 캐시하고 버전 변경을 감지한다."""
+
+    def __init__(
+        self,
+        api_base_url: str,
+        refresh_seconds: float = DEFAULT_ROI_REFRESH_SECONDS,
+    ) -> None:
+        self.api_base_url = api_base_url
+        self.refresh_seconds = max(refresh_seconds, 0.0)
+        self._cache: dict[tuple[str, str], dict] = {}
+        self._checked_at: dict[tuple[str, str], float] = {}
+
+    def get(self, store_id: str, camera_id: str) -> dict | None:
+        key = (store_id, camera_id)
+        now = time.monotonic()
+        last_checked = self._checked_at.get(key)
+        if (
+            key in self._cache
+            and last_checked is not None
+            and now - last_checked < self.refresh_seconds
+        ):
+            return self._cache[key]
+
+        self._checked_at[key] = now
+        try:
+            config = fetch_approved_roi_config(
+                self.api_base_url,
+                store_id,
+                camera_id,
+            )
+        except (OSError, ValueError, json.JSONDecodeError, urllib.error.URLError):
+            return self._cache.get(key)
+
+        previous = self._cache.get(key)
+        self._cache[key] = config
+        if previous is None:
+            print(
+                f"  ROI 적용 {store_id}/{camera_id}: "
+                f"v{config.get('version', '?')}"
+            )
+        elif previous.get("version") != config.get("version"):
+            print(
+                f"  ROI 갱신 {store_id}/{camera_id}: "
+                f"v{previous.get('version', '?')} -> "
+                f"v{config.get('version', '?')}"
+            )
+        return config
 
 
 class LegacyPositionTracker:
@@ -385,6 +620,17 @@ def main():
         help="ROI 설정용 원본 이미지 폴더(raw-frames/<store-id>/{i:04d}.jpg). "
              "지정 시 기존 ROI나 탐지 표시가 없는 프레임을 별도로 업로드",
     )
+    ap.add_argument(
+        "--roi-refresh-seconds",
+        type=float,
+        default=DEFAULT_ROI_REFRESH_SECONDS,
+        help="승인 ROI 재조회 간격(초). 기본 2초",
+    )
+    ap.add_argument(
+        "--no-roi-reclassify",
+        action="store_true",
+        help="현재 승인 ROI 재판정을 끄고 저장된 zone·role·state를 그대로 재생",
+    )
     args = ap.parse_args()
 
     if not args.file.exists():
@@ -407,6 +653,11 @@ def main():
         store_id: LegacyPositionTracker()
         for store_id in {state["store_id"] for state in states}
     }
+    roi_provider = (
+        None
+        if args.no_roi_reclassify
+        else RoiConfigProvider(args.api, args.roi_refresh_seconds)
+    )
     cycle_index = 0
     try:
         while True:
@@ -420,25 +671,38 @@ def main():
                 for state in batch:
                     cycle_sent += 1
                     sid = state["store_id"]
+                    camera_id = state.get("camera_id", f"{sid}-cam1")
                     idx = store_seq.get(sid, 0)
                     if args.frames_dir or args.raw_frames_dir:
                         store_seq[sid] = idx + 1
+                    runtime_state = state
+                    if roi_provider is not None:
+                        roi_config = roi_provider.get(sid, camera_id)
+                        if roi_config is not None:
+                            runtime_state = reclassify_state_for_roi(
+                                state,
+                                roi_config,
+                                processed_at=current,
+                            )
                     outgoing = prepare_state(
-                        state,
+                        runtime_state,
                         preserve_timestamp=args.preserve_timestamps,
                         captured_at=current,
                     )
                     occupancy = prepare_occupancy(
-                        state,
+                        runtime_state,
                         preserve_timestamp=args.preserve_timestamps,
                         captured_at=current,
-                        position_tracker=position_trackers[state["store_id"]],
+                        position_tracker=position_trackers[sid],
                         id_prefix=f"cycle-{cycle_index}" if args.loop else None,
                     )
                     metadata = snapshot_metadata(outgoing)
                     # 상태별 분석 이미지를 API로 업로드(이미지·숫자 동기)
                     # 이미지는 매장별 폴더: <frames-dir>/<store_id>/{k:04d}.jpg
-                    if args.frames_dir:
+                    # 승인 ROI를 런타임에 다시 적용할 때 과거 ROI가 그려진 분석본은
+                    # 새 메타데이터로 업로드하지 않는다. 대시보드는 원본 위에 현재
+                    # ROI와 재판정 좌표를 겹쳐 분석 화면을 만든다.
+                    if args.frames_dir and roi_provider is None:
                         src = args.frames_dir / sid / f"{idx:04d}.jpg"
                         if src.exists():
                             try:
@@ -481,7 +745,7 @@ def main():
 
                     occupancy_url = (
                         args.api.rstrip("/")
-                        + f"/internal/stores/{state['store_id']}/occupancy"
+                        + f"/internal/stores/{sid}/occupancy"
                     )
                     try:
                         post_state(occupancy_url, occupancy)

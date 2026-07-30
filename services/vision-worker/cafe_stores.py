@@ -65,8 +65,6 @@ ROI_AUTO_REFRESH = False
 _ZONE_CACHE: dict[tuple[str, str, int, int], dict] = {}
 N_DWELL = 8        # 대기 구역 안 '서있음' 이 프레임 수 이상이면 대기
 N_SEATED = 3       # 좌석 구역 안 '앉음' 이 프레임 수 이상이면 착석
-# 직원 = 직원구역 누적 체류 상위 K명(track_id 기준). 매장별 직원 수를 설정해 상한.
-STAFF_COUNT = {"store-001": 1, "store-002": 1}
 INTERVAL = 0.5     # 합성 시각 간격(초)
 
 # 스냅샷/이미지 출력 경로 (--snapshot 데모 프레임, --live/배치 이미지)
@@ -229,8 +227,6 @@ def run(limit=None, gen_images=True):
 
     states = []
     store_k = {s["store_id"]: 0 for s in STORES}  # 매장별 프레임 인덱스
-    # 직원 = 직원구역 누적 체류 top-K(STAFF_COUNT). 전체 클립에 걸쳐 누적한다.
-    staff_accum = {s["store_id"]: collections.Counter() for s in STORES}
     for t in range(n):
         for store in STORES:
             seg = seg_map[store["store_id"]][t]
@@ -238,7 +234,6 @@ def run(limit=None, gen_images=True):
                 continue
             img, raw_img, c = analyze_and_render(
                 ft_models[store["store_id"]], pose, store, seg,
-                staff_accum[store["store_id"]],
             )
             k = store_k[store["store_id"]]
             ts = base + timedelta(seconds=INTERVAL * t)
@@ -380,10 +375,10 @@ def pose_state_feet(pose_model, zones, frames):
     return last_path, {"waiting": waiting_feet, "seated": seated_feet}
 
 
-def render_analysis(img, zones, ft_boxes, pose_feet, track_ids=None, staff_set=None):
+def render_analysis(img, zones, ft_boxes, pose_feet, track_ids=None):
     """FT 탐지 박스 + 직원/대기 ROI를 그린다. 발점 색은 dwell 기준으로 통일:
        직원=보라, (대기자 발 위치 근처)=주황, 그 외=파랑(좌석/기타).
-       직원 판정: staff_set 주면 그 track_id만 직원(누적 top-K), 없으면 직원구역 소속.
+       직원 판정: 현재 승인된 직원 ROI 소속.
     반환: {total, staff, waiting, customers}.
     """
     ov = img.copy()
@@ -401,11 +396,7 @@ def render_analysis(img, zones, ft_boxes, pose_feet, track_ids=None, staff_set=N
         zk = z["key"] if z else None
         near_waiter = any((foot[0] - wx) ** 2 + (foot[1] - wy) ** 2 < 70 ** 2
                           for wx, wy in pose_feet["waiting"])
-        is_staff = (
-            int(track_id) in staff_set
-            if staff_set is not None and track_id is not None
-            else zk == "staff"
-        )
+        is_staff = zk == "staff"
         if is_staff:
             col = ZONE_COLOR["staff"]
             staff += 1
@@ -446,12 +437,11 @@ def person_positions(
     zones,
     pose_feet,
     track_ids=None,
-    staff_set=None,
 ):
     """FT 추적 → 사람별 ID·좌표·구역·유형. 디지털 트윈용.
 
     각 사람: {track_id, x, y(발 위치), zone, type}.
-    직원 판정: staff_set 주면 그 track_id만 직원(누적 top-K), 없으면 직원구역 소속.
+    직원 판정: 현재 승인된 직원 ROI 소속.
     """
     out = []
     track_ids = track_ids if track_ids is not None else [None] * len(ft_boxes)
@@ -461,11 +451,7 @@ def person_positions(
         fx, fy = foot_point(b)
         z = assign_zone((int(fx), int(fy)), zones)
         zk = z["key"] if z else None
-        is_staff = (
-            int(track_id) in staff_set
-            if staff_set is not None and track_id is not None
-            else zk == "staff"
-        )
+        is_staff = zk == "staff"
         is_waiting = any(
             (fx - wx) ** 2 + (fy - wy) ** 2 < 70 ** 2
             for wx, wy in pose_feet["waiting"]
@@ -498,12 +484,11 @@ def person_positions(
     return out
 
 
-def track_people(ft_model, frames, staff_accum=None, staff_zone=None):
+def track_people(ft_model, frames):
     """연속 프레임을 추적하고 마지막 프레임의 박스와 ID를 반환한다.
 
     세그먼트 경계에서도 같은 모델 인스턴스에 persist=True를 유지하므로
     동일 인물의 ID가 다음 디지털 트윈 프레임까지 이어진다.
-    staff_accum(Counter)을 주면 프레임마다 직원구역 안 track_id 체류를 누적한다.
     """
     result = None
     for path in frames:
@@ -520,13 +505,6 @@ def track_people(ft_model, frames, staff_accum=None, staff_zone=None):
             agnostic_nms=True,
             verbose=False,
         )[0]
-        if staff_accum is not None and staff_zone and result.boxes.id is not None:
-            fids = result.boxes.id.cpu().numpy().astype(int)
-            fboxes = result.boxes.xyxy.cpu().numpy()
-            for tid, b in zip(fids, fboxes):
-                if assign_zone(foot_point(b), staff_zone) is not None:
-                    staff_accum[int(tid)] += 1
-
     if result is None or result.boxes is None:
         return np.empty((0, 4)), []
 
@@ -589,12 +567,11 @@ def runtime_roi_identity(
     return cached.get("version"), cached.get("source", "legacy")
 
 
-def analyze_and_render(ft_model, pose_model, store, seg, staff_accum=None):
+def analyze_and_render(ft_model, pose_model, store, seg):
     """매장 한 세그먼트 → (마지막프레임 주석 이미지, 집계). 이미지·상태 공통 경로.
 
     - 인원: 파인튜닝 모델(정확). - 대기: pose+dwell(서있는 대기자만).
-    - 직원: staff_accum(Counter) 주면 '직원구역 누적 체류 top-K(STAFF_COUNT)' 인물만
-      직원으로 세고, 없으면 직원구역 소속으로 센다(스냅샷 등).
+    - 직원: 현재 승인된 직원 ROI 안에 있는 탐지를 모두 직원으로 센다.
     - 대기자만 주황으로 칠해 앉은 사람 오표시 없음. 헤더=집계와 일치.
     - c["positions"]: 사람별 좌표(디지털 트윈용, 이미지 픽셀).
     """
@@ -613,17 +590,12 @@ def analyze_and_render(ft_model, pose_model, store, seg, staff_accum=None):
         width,
         height,
     )
-    staff_zone = [z for z in zones if z["key"] == "staff"]
     last_path, pose_feet = pose_state_feet(pose_model, zones, frames)
     img = read(last_path)
     raw_img = img.copy()
     quality = frame_quality(img)
-    ft_boxes, track_ids = track_people(ft_model, frames, staff_accum, staff_zone)
-    staff_set = None
-    if staff_accum is not None:
-        k = STAFF_COUNT.get(store["store_id"], 1)
-        staff_set = {t for t, cnt in staff_accum.most_common(k) if cnt > 0}
-    c = render_analysis(img, zones, ft_boxes, pose_feet, track_ids, staff_set)
+    ft_boxes, track_ids = track_people(ft_model, frames)
+    c = render_analysis(img, zones, ft_boxes, pose_feet, track_ids)
     _header(img, f"{store['store_id']}  customer {c['customers']}  "
                  f"wait {c['waiting']}  staff {c['staff']}  [{quality}]")
     c["quality"] = quality
@@ -636,7 +608,6 @@ def analyze_and_render(ft_model, pose_model, store, seg, staff_accum=None):
         zones,
         pose_feet,
         track_ids,
-        staff_set,
     )
     return img, raw_img, c
 
@@ -684,7 +655,6 @@ def run_live(api, interval, limit=None, loop=False):
     if limit:
         n = min(n, limit)
     url = api.rstrip("/") + "/internal/store-states"
-    staff_accum = {s["store_id"]: collections.Counter() for s in STORES}
     print(f"=== LIVE 동기 재생: {n}세그 × {len(STORES)}매장 → {url} (간격 {interval}s) ===")
     print("이미지 갱신: " + str(SNAP_DIR) + "\n중단 Ctrl+C\n")
 
@@ -693,8 +663,6 @@ def run_live(api, interval, limit=None, loop=False):
         while True:
             if cycle:
                 reset_store_trackers(ft_models)
-                for accumulator in staff_accum.values():
-                    accumulator.clear()  # 트래커 리셋 시 track_id도 초기화 → 누적도 초기화
                 print(f"=== LIVE 재분석 {cycle + 1}회차 시작 ===")
 
             for t in range(n):
@@ -704,7 +672,6 @@ def run_live(api, interval, limit=None, loop=False):
                         continue
                     img, raw_img, c = analyze_and_render(
                         ft_models[store["store_id"]], pose, store, seg,
-                        staff_accum[store["store_id"]],
                     )
                     save_snapshot(store["store_id"], img)   # 로컬 디버그용
                     state = build_store_state(

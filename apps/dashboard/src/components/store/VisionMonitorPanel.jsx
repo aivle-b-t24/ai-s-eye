@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
+import { API_BASE_URL } from '../../constants/env'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
 const POLLING_INTERVAL_MS = 2000
 const TRAIL_RETENTION_MS = 12000
 const MAX_TRAIL_POINTS = 12

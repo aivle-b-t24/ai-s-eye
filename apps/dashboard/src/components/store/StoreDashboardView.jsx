@@ -6,7 +6,6 @@ import ZoneBreakdownTable from './ZoneBreakdownTable'
 import VisionMonitorPanel from './VisionMonitorPanel'
 import MenuListPanel from './MenuListPanel'
 import PolicyListPanel from './PolicyListPanel'
-import EmptyStorePanel from './EmptyStorePanel'
 import StoreChatbotWidget from './StoreChatbotWidget'
 
 export default function StoreDashboardView({
@@ -14,7 +13,6 @@ export default function StoreDashboardView({
   dashboard,
   soldOutCount,
   apiBaseUrl,
-  isUsingMock,
   error,
   loading,
   isChatbotEnabled,
@@ -41,7 +39,6 @@ export default function StoreDashboardView({
       <RoleBanner
         page={page}
         apiBaseUrl={apiBaseUrl}
-        isUsingMock={isUsingMock}
         error={error}
         loading={loading}
       />

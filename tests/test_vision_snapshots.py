@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 
 from fastapi.testclient import TestClient
 import pytest
@@ -68,6 +69,64 @@ def test_new_snapshot_replaces_previous_image(
     assert response.status_code == 201
     assert client.get("/api/stores/store-001/vision/latest").content == second_image
     assert (snapshot_dir / "store-001" / "latest").read_bytes() == second_image
+
+
+def test_snapshot_metadata_is_saved_and_returned_with_image(
+    client: TestClient,
+    snapshot_dir: Path,
+) -> None:
+    metadata = {
+        "schema_version": "1.0",
+        "store_id": "store-001",
+        "camera_id": "store-001-cam1",
+        "frame_id": "store-001-0253",
+        "captured_at": "2026-07-27T15:31:14+09:00",
+        "processed_at": "2026-07-30T10:20:00+09:00",
+        "model_version": "yolo11s-cafe-v1",
+        "roi_version": 3,
+        "source": "demo-replay",
+    }
+
+    upload = client.post(
+        "/internal/stores/store-001/vision-snapshot",
+        files={"image": ("analysis.jpg", JPEG_IMAGE, "image/jpeg")},
+        data={"metadata": json.dumps(metadata)},
+    )
+    image = client.get("/api/stores/store-001/vision/latest")
+    info = client.get("/api/stores/store-001/vision/metadata")
+
+    assert upload.status_code == 201
+    assert upload.json()["metadata"]["frame_id"] == "store-001-0253"
+    assert info.status_code == 200
+    assert info.json()["roi_version"] == 3
+    assert image.headers["x-vision-frame-id"] == "store-001-0253"
+    assert image.headers["x-vision-roi-version"] == "3"
+    assert (
+        snapshot_dir / "store-001" / "latest.json"
+    ).is_file()
+
+
+def test_snapshot_metadata_store_must_match_path(
+    client: TestClient,
+    snapshot_dir: Path,
+) -> None:
+    metadata = {
+        "store_id": "store-002",
+        "camera_id": "store-002-cam1",
+        "frame_id": "store-002-0001",
+        "captured_at": "2026-07-27T15:31:14+09:00",
+        "processed_at": "2026-07-30T10:20:00+09:00",
+        "model_version": "yolo11s-cafe-v1",
+        "source": "demo-replay",
+    }
+
+    response = client.post(
+        "/internal/stores/store-001/vision-snapshot",
+        files={"image": ("analysis.jpg", JPEG_IMAGE, "image/jpeg")},
+        data={"metadata": json.dumps(metadata)},
+    )
+
+    assert response.status_code == 422
 
 
 def test_raw_snapshot_is_kept_separately_from_analysis_snapshot(

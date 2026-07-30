@@ -61,6 +61,32 @@ def test_prepare_state_can_preserve_original_timestamp() -> None:
     assert outgoing is not original
 
 
+def test_prepare_state_preserves_new_frame_identity() -> None:
+    original = sample_state()
+    original.update({
+        "frame_id": "store-001-0253",
+        "processed_at": "2026-07-30T01:20:00Z",
+        "roi_version": 3,
+        "source": "vision-worker-batch",
+        "model_version": "yolo11s-cafe-v1",
+    })
+    now = datetime(2026, 7, 30, 2, 0, tzinfo=timezone.utc)
+
+    outgoing = replay_states.prepare_state(original, captured_at=now)
+    occupancy = replay_states.prepare_occupancy(original, captured_at=now)
+    metadata = replay_states.snapshot_metadata(outgoing)
+
+    assert outgoing["captured_at"] == original["captured_at"]
+    assert outgoing["source"] == "demo-replay"
+    assert occupancy["captured_at"] == original["captured_at"]
+    assert occupancy["published_at"] == now.isoformat()
+    assert occupancy["frame_id"] == "store-001-0253"
+    assert occupancy["roi_version"] == 3
+    assert metadata is not None
+    assert metadata["frame_id"] == "store-001-0253"
+    assert metadata["source"] == "demo-replay"
+
+
 def test_group_states_by_tick_pairs_same_store_sequence() -> None:
     states = [
         {"store_id": "store-001", "frame": 0},
@@ -147,6 +173,36 @@ def test_waiting_zone_does_not_overstate_detected_queue() -> None:
 
     assert frame["agents"][0]["zone"] == "waiting"
     assert frame["agents"][0]["state"] == "waiting"
+
+
+def test_seating_zone_without_pose_confirmation_remains_unknown() -> None:
+    original = sample_state()
+    original["positions"][0]["zone"] = "seating"
+    original["queue_count_estimate"] = 0
+
+    frame = replay_states.prepare_occupancy(
+        original,
+        preserve_timestamp=True,
+    )
+
+    assert frame["agents"][0]["zone"] == "seating"
+    assert frame["agents"][0]["state"] == "unknown"
+
+
+def test_explicit_pose_state_is_preserved() -> None:
+    original = sample_state()
+    original["positions"][0].update({
+        "zone": "seating",
+        "state": "seated",
+    })
+    original["queue_count_estimate"] = 0
+
+    frame = replay_states.prepare_occupancy(
+        original,
+        preserve_timestamp=True,
+    )
+
+    assert frame["agents"][0]["state"] == "seated"
 
 
 def test_normalize_coordinate_clamps_image_boundaries() -> None:

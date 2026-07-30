@@ -64,6 +64,7 @@ ROI_REFRESH_SECONDS = max(
 ROI_AUTO_REFRESH = False
 _ZONE_CACHE: dict[tuple[str, str, int, int], dict] = {}
 N_DWELL = 8        # 대기 구역 안 '서있음' 이 프레임 수 이상이면 대기
+N_SEATED = 3       # 좌석 구역 안 '앉음' 이 프레임 수 이상이면 착석
 # 직원 = 직원구역 누적 체류 상위 K명(track_id 기준). 매장별 직원 수를 설정해 상한.
 STAFF_COUNT = {"store-001": 1, "store-002": 1}
 INTERVAL = 0.5     # 합성 시각 간격(초)
@@ -239,12 +240,18 @@ def run(limit=None, gen_images=True):
                 ft_models[store["store_id"]], pose, store, seg,
                 staff_accum[store["store_id"]],
             )
+            k = store_k[store["store_id"]]
             ts = base + timedelta(seconds=INTERVAL * t)
+            processed_at = datetime.now(KST)
             state = build_store_state(
                 {"staff": c["staff"], "waiting": c["waiting"]}, c["customers"],
                 c["waiting"], camera_id=f"{store['store_id']}-cam1",
                 store_id=store["store_id"], quality=c["quality"], captured_at=ts)
             state["model_version"] = active_model_version()
+            state["frame_id"] = f"{store['store_id']}-{k:04d}"
+            state["processed_at"] = processed_at.isoformat()
+            state["roi_version"] = c["roi_version"]
+            state["source"] = "vision-worker-batch"
             state["positions"] = c["positions"]  # 디지털 트윈용(POST 시 replay가 제거)
             states.append(state)
             if gen_images:
@@ -253,7 +260,6 @@ def run(limit=None, gen_images=True):
                 raw_dir = RAW_FRAMES_DIR / store["store_id"]
                 sdir.mkdir(parents=True, exist_ok=True)
                 raw_dir.mkdir(parents=True, exist_ok=True)
-                k = store_k[store["store_id"]]
                 cv2.imencode(".jpg", img)[1].tofile(str(sdir / f"{k:04d}.jpg"))
                 cv2.imencode(".jpg", raw_img)[1].tofile(
                     str(raw_dir / f"{k:04d}.jpg")
@@ -277,7 +283,7 @@ def save_snapshot(store_id, img):
     return out_path
 
 
-def upload_snapshot(api, store_id, img, *, raw=False):
+def upload_snapshot(api, store_id, img, *, raw=False, metadata=None):
     """분석 이미지 또는 ROI 설정용 원본을 백엔드에 업로드한다.
 
     분석본: POST /internal/stores/{store_id}/vision-snapshot
@@ -286,10 +292,23 @@ def upload_snapshot(api, store_id, img, *, raw=False):
     import urllib.request
     jpg = cv2.imencode(".jpg", img)[1].tobytes()
     boundary = "----visionsnapshotboundary"
-    body = (f"--{boundary}\r\n".encode()
-            + b'Content-Disposition: form-data; name="image"; filename="snapshot.jpg"\r\n'
-            + b"Content-Type: image/jpeg\r\n\r\n" + jpg
-            + f"\r\n--{boundary}--\r\n".encode())
+    parts = []
+    if metadata is not None:
+        parts.append(
+            f"--{boundary}\r\n".encode()
+            + b'Content-Disposition: form-data; name="metadata"\r\n'
+            + b"Content-Type: application/json\r\n\r\n"
+            + json.dumps(metadata, ensure_ascii=False).encode("utf-8")
+            + b"\r\n"
+        )
+    parts.append(
+        f"--{boundary}\r\n".encode()
+        + b'Content-Disposition: form-data; name="image"; filename="snapshot.jpg"\r\n'
+        + b"Content-Type: image/jpeg\r\n\r\n"
+        + jpg
+        + b"\r\n"
+    )
+    body = b"".join(parts) + f"--{boundary}--\r\n".encode()
     endpoint = "vision-raw" if raw else "vision-snapshot"
     url = api.rstrip("/") + f"/internal/stores/{store_id}/{endpoint}"
     req = urllib.request.Request(
@@ -298,20 +317,27 @@ def upload_snapshot(api, store_id, img, *, raw=False):
     urllib.request.urlopen(req, timeout=10).close()
 
 
-def waiter_feet(pose_model, zones, frames):
-    """세그먼트를 pose로 추적 → 마지막 프레임의 '대기 확정' 사람 발 위치 목록 + 마지막 프레임 경로.
+def pose_state_feet(pose_model, zones, frames):
+    """세그먼트를 pose로 추적해 마지막 프레임의 대기·착석 발 위치를 반환한다.
 
     대기 = 마지막 프레임에 대기 구역 안 서있음 AND 누적 서있음 N프레임 이상 AND 서있음>앉음.
-    (dwell_waiting과 동일 기준. 이미지에서 이 사람들만 대기로 칠하려고 발 위치를 반환.)
+    착석 = 마지막 프레임에 좌석 구역 안 앉음 AND 누적 앉음 N프레임 이상 AND 앉음>서있음.
+    일반 탐지기와 Pose 추적기의 ID 공간이 다르므로 마지막 발 위치로 결과를 연결한다.
     """
     wait_zone = [z for z in zones if z["key"] == "waiting"]
-    st, si = collections.Counter(), collections.Counter()
-    cur_foot = {}   # 마지막 프레임의 tid -> 발 위치(구역 안 서있음)
+    seating_zone = [z for z in zones if z["key"] == "seating"]
+    waiting_stand = collections.Counter()
+    waiting_sit = collections.Counter()
+    seating_sit = collections.Counter()
+    seating_stand = collections.Counter()
+    current_waiting = {}
+    current_seated = {}
     last_path = frames[-1] if frames else None
     for i, path in enumerate(frames):
         r = pose_model.track(read(path), persist=(i > 0), conf=0.30, iou=0.5,
                              tracker="bytetrack.yaml", verbose=False)[0]
-        cur_foot = {}
+        current_waiting = {}
+        current_seated = {}
         last_path = path
         if r.boxes.id is None:
             continue
@@ -321,20 +347,40 @@ def waiter_feet(pose_model, zones, frames):
         cfs = r.keypoints.conf.cpu().numpy() if r.keypoints.conf is not None else None
         for j, tid in enumerate(ids):
             foot = foot_point(boxes[j])
-            if assign_zone(foot, wait_zone) is None:
-                continue
             pos = posture(kps[j], cfs[j]) if cfs is not None else "unknown"
-            if pos == "stand":
-                st[tid] += 1
-                cur_foot[tid] = foot
-            elif pos == "sit":
-                si[tid] += 1
-    feet = [cur_foot[t] for t in cur_foot
-            if st[t] >= N_DWELL and st[t] > si.get(t, 0)]
-    return last_path, feet
+            if assign_zone(foot, wait_zone) is not None:
+                if pos == "stand":
+                    waiting_stand[tid] += 1
+                    current_waiting[tid] = foot
+                elif pos == "sit":
+                    waiting_sit[tid] += 1
+            if assign_zone(foot, seating_zone) is not None:
+                if pos == "sit":
+                    seating_sit[tid] += 1
+                    current_seated[tid] = foot
+                elif pos == "stand":
+                    seating_stand[tid] += 1
+
+    waiting_feet = [
+        current_waiting[track_id]
+        for track_id in current_waiting
+        if (
+            waiting_stand[track_id] >= N_DWELL
+            and waiting_stand[track_id] > waiting_sit.get(track_id, 0)
+        )
+    ]
+    seated_feet = [
+        current_seated[track_id]
+        for track_id in current_seated
+        if (
+            seating_sit[track_id] >= N_SEATED
+            and seating_sit[track_id] > seating_stand.get(track_id, 0)
+        )
+    ]
+    return last_path, {"waiting": waiting_feet, "seated": seated_feet}
 
 
-def render_analysis(img, zones, ft_boxes, wfeet, track_ids=None, staff_set=None):
+def render_analysis(img, zones, ft_boxes, pose_feet, track_ids=None, staff_set=None):
     """FT 탐지 박스 + 직원/대기 ROI를 그린다. 발점 색은 dwell 기준으로 통일:
        직원=보라, (대기자 발 위치 근처)=주황, 그 외=파랑(좌석/기타).
        직원 판정: staff_set 주면 그 track_id만 직원(누적 top-K), 없으면 직원구역 소속.
@@ -354,7 +400,7 @@ def render_analysis(img, zones, ft_boxes, wfeet, track_ids=None, staff_set=None)
         z = assign_zone(foot, zones)
         zk = z["key"] if z else None
         near_waiter = any((foot[0] - wx) ** 2 + (foot[1] - wy) ** 2 < 70 ** 2
-                          for wx, wy in wfeet)
+                          for wx, wy in pose_feet["waiting"])
         is_staff = (
             int(track_id) in staff_set
             if staff_set is not None and track_id is not None
@@ -395,7 +441,13 @@ def render_analysis(img, zones, ft_boxes, wfeet, track_ids=None, staff_set=None)
             "customers": max(total - staff, 0)}
 
 
-def person_positions(ft_boxes, zones, track_ids=None, staff_set=None):
+def person_positions(
+    ft_boxes,
+    zones,
+    pose_feet,
+    track_ids=None,
+    staff_set=None,
+):
     """FT 추적 → 사람별 ID·좌표·구역·유형. 디지털 트윈용.
 
     각 사람: {track_id, x, y(발 위치), zone, type}.
@@ -414,10 +466,31 @@ def person_positions(ft_boxes, zones, track_ids=None, staff_set=None):
             if staff_set is not None and track_id is not None
             else zk == "staff"
         )
+        is_waiting = any(
+            (fx - wx) ** 2 + (fy - wy) ** 2 < 70 ** 2
+            for wx, wy in pose_feet["waiting"]
+        )
+        is_seated = any(
+            (fx - sx) ** 2 + (fy - sy) ** 2 < 70 ** 2
+            for sx, sy in pose_feet["seated"]
+        )
+        if is_staff:
+            zone = "staff"
+            state = "working"
+        elif is_waiting:
+            zone = "waiting"
+            state = "queue"
+        elif is_seated:
+            zone = "seating"
+            state = "seated"
+        else:
+            zone = zk
+            state = "unknown"
         position = {
             "x": int(fx), "y": int(fy),
-            "zone": "staff" if is_staff else (zk if zk == "waiting" else "seating"),
+            "zone": zone,
             "type": "staff" if is_staff else "customer",
+            "state": state,
         }
         if track_id is not None:
             position["track_id"] = int(track_id)
@@ -506,6 +579,16 @@ def runtime_zones(store_id: str, camera_id: str, width: int, height: int):
     return zones
 
 
+def runtime_roi_identity(
+    store_id: str,
+    camera_id: str,
+    width: int,
+    height: int,
+) -> tuple[int | None, str]:
+    cached = _ZONE_CACHE.get((store_id, camera_id, width, height), {})
+    return cached.get("version"), cached.get("source", "legacy")
+
+
 def analyze_and_render(ft_model, pose_model, store, seg, staff_accum=None):
     """매장 한 세그먼트 → (마지막프레임 주석 이미지, 집계). 이미지·상태 공통 경로.
 
@@ -524,8 +607,14 @@ def analyze_and_render(ft_model, pose_model, store, seg, staff_accum=None):
     height, width = first_image.shape[:2]
     camera_id = f"{store['store_id']}-cam1"
     zones = runtime_zones(store["store_id"], camera_id, width, height)
+    roi_version, roi_source = runtime_roi_identity(
+        store["store_id"],
+        camera_id,
+        width,
+        height,
+    )
     staff_zone = [z for z in zones if z["key"] == "staff"]
-    last_path, wfeet = waiter_feet(pose_model, zones, frames)
+    last_path, pose_feet = pose_state_feet(pose_model, zones, frames)
     img = read(last_path)
     raw_img = img.copy()
     quality = frame_quality(img)
@@ -534,11 +623,21 @@ def analyze_and_render(ft_model, pose_model, store, seg, staff_accum=None):
     if staff_accum is not None:
         k = STAFF_COUNT.get(store["store_id"], 1)
         staff_set = {t for t, cnt in staff_accum.most_common(k) if cnt > 0}
-    c = render_analysis(img, zones, ft_boxes, wfeet, track_ids, staff_set)
+    c = render_analysis(img, zones, ft_boxes, pose_feet, track_ids, staff_set)
     _header(img, f"{store['store_id']}  customer {c['customers']}  "
                  f"wait {c['waiting']}  staff {c['staff']}  [{quality}]")
     c["quality"] = quality
-    c["positions"] = person_positions(ft_boxes, zones, track_ids, staff_set)
+    c["roi_version"] = roi_version
+    c["roi_source"] = roi_source
+    c["frame_width"] = width
+    c["frame_height"] = height
+    c["positions"] = person_positions(
+        ft_boxes,
+        zones,
+        pose_feet,
+        track_ids,
+        staff_set,
+    )
     return img, raw_img, c
 
 
@@ -608,17 +707,48 @@ def run_live(api, interval, limit=None, loop=False):
                         staff_accum[store["store_id"]],
                     )
                     save_snapshot(store["store_id"], img)   # 로컬 디버그용
-                    try:                                     # 이미지 API 업로드(#85)
-                        upload_snapshot(api, store["store_id"], img)
-                        upload_snapshot(api, store["store_id"], raw_img, raw=True)
-                    except Exception as exc:  # noqa: BLE001
-                        print(f"  이미지 업로드 실패({store['store_id']}): {exc}")
                     state = build_store_state(
                         {"staff": c["staff"], "waiting": c["waiting"]}, c["customers"],
                         c["waiting"], camera_id=f"{store['store_id']}-cam1",
                         store_id=store["store_id"], quality=c["quality"],
                         captured_at=datetime.now(KST))
                     state["model_version"] = active_model_version()
+                    state["frame_id"] = (
+                        f"{store['store_id']}-live-{cycle:03d}-{t:04d}"
+                    )
+                    state["processed_at"] = datetime.now(KST).isoformat()
+                    state["roi_version"] = c["roi_version"]
+                    state["source"] = "vision-worker-live"
+                    metadata = {
+                        key: state.get(key)
+                        for key in (
+                            "schema_version",
+                            "store_id",
+                            "camera_id",
+                            "frame_id",
+                            "captured_at",
+                            "processed_at",
+                            "model_version",
+                            "roi_version",
+                            "source",
+                        )
+                    }
+                    try:                                     # 이미지 API 업로드(#85)
+                        upload_snapshot(
+                            api,
+                            store["store_id"],
+                            img,
+                            metadata=metadata,
+                        )
+                        upload_snapshot(
+                            api,
+                            store["store_id"],
+                            raw_img,
+                            raw=True,
+                            metadata=metadata,
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        print(f"  이미지 업로드 실패({store['store_id']}): {exc}")
                     state_with_positions = {**state, "positions": c["positions"]}
                     occupancy = prepare_occupancy(
                         state_with_positions,
@@ -658,6 +788,11 @@ def main():
     ap = argparse.ArgumentParser(description="CAFE 다매장 인원·대기·직원 집계(dwell)")
     ap.add_argument("--limit", type=int, default=None, help="매장별 앞 N세그만(빠른 확인)")
     ap.add_argument("--post", default=None, help="API 베이스 URL로 전송(예: http://localhost:8000)")
+    ap.add_argument(
+        "--roi-api",
+        default=None,
+        help="배치 생성 중 승인 ROI만 조회할 API 주소",
+    )
     ap.add_argument("--snapshot", action="store_true",
                     help="매장별 분석 이미지(탐지+ROI)를 outputs/snapshots/에 1장 생성")
     ap.add_argument("--snapshot-seg", default=None, help="스냅샷에 쓸 세그먼트 번호(전 매장 공통)")
@@ -669,7 +804,7 @@ def main():
     ap.add_argument("--no-images", action="store_true",
                     help="상태만 생성하고 분석 이미지(frames/)는 저장하지 않음")
     args = ap.parse_args()
-    ROI_API_BASE_URL = args.post or ROI_API_BASE_URL
+    ROI_API_BASE_URL = args.roi_api or args.post or ROI_API_BASE_URL
     ROI_AUTO_REFRESH = args.live
     _ZONE_CACHE.clear()
 
@@ -690,8 +825,10 @@ def main():
     doc = {
         "note": ("CAFE 다매장(현재 store-001·002) 집계. 인원=파인튜닝 탐지-직원, "
                  "대기=대기구역+서있음+체류(ByteTrack), 직원=직원구역. "
-                 "captured_at은 합성 시각(실측 아님). states 순서=분석 이미지 "
-                 "outputs/snapshots/frames/{i:04d}.jpg 순서."),
+                 "captured_at은 합성 시각(실측 아님). 각 상태는 frame_id, "
+                 "processed_at, 승인 roi_version, ByteTrack track_id와 자세 state를 "
+                 "포함한다. states 순서=분석 이미지 "
+                 "outputs/snapshots/frames/<store_id>/{i:04d}.jpg 순서."),
         "stores": [{"store_id": s["store_id"], "name": s["name"], "clip": s["clip"]}
                    for s in STORES],
         "count": len(states),

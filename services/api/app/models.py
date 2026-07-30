@@ -45,13 +45,24 @@ class StoreState(BaseModel):
     schema_version: str = "1.0"
     store_id: str = Field(min_length=1)
     camera_id: str = Field(min_length=1)
+    frame_id: str | None = Field(default=None, min_length=1)
     captured_at: datetime
+    processed_at: datetime | None = None
+    roi_version: int | None = Field(default=None, ge=1)
     visible_person_count: int = Field(ge=0)
     queue_count_estimate: int = Field(ge=0)
     zone_counts: dict[str, int] = Field(default_factory=dict)
     quality_status: QualityStatus
     source: str = Field(min_length=1)
     model_version: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_analysis_timestamps(self) -> "StoreState":
+        if self.captured_at.tzinfo is None:
+            raise ValueError("captured_at must include a timezone")
+        if self.processed_at is not None and self.processed_at.tzinfo is None:
+            raise ValueError("processed_at must include a timezone")
+        return self
 
 
 class OrderItem(BaseModel):
@@ -169,10 +180,34 @@ class TwinFrame(BaseModel):
     schema_version: str = "1.0"
     store_id: str = Field(min_length=1)
     camera_id: str = Field(min_length=1)
+    frame_id: str | None = Field(default=None, min_length=1)
     mode: TwinMode = TwinMode.LIVE
     captured_at: datetime
+    published_at: datetime | None = None
+    processed_at: datetime | None = None
+    roi_version: int | None = Field(default=None, ge=1)
+    source: str | None = Field(default=None, min_length=1)
+    model_version: str | None = Field(default=None, min_length=1)
     coordinate_space: Literal["normalized_image"] = "normalized_image"
     agents: list[TwinAgent] = Field(default_factory=list)
+
+
+class VisionSnapshotMetadata(BaseModel):
+    schema_version: str = "1.0"
+    store_id: str = Field(min_length=1)
+    camera_id: str = Field(min_length=1)
+    frame_id: str = Field(min_length=1)
+    captured_at: datetime
+    processed_at: datetime
+    model_version: str = Field(min_length=1)
+    roi_version: int | None = Field(default=None, ge=1)
+    source: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_timezone(self) -> "VisionSnapshotMetadata":
+        if self.captured_at.tzinfo is None or self.processed_at.tzinfo is None:
+            raise ValueError("captured_at and processed_at must include a timezone")
+        return self
 
 
 class RoiZoneType(StrEnum):
@@ -296,5 +331,59 @@ class CameraRoiConfig(CameraRoiConfigInput):
     camera_id: str = Field(min_length=1)
     version: int = Field(gt=0)
     status: RoiConfigStatus
+    created_at: datetime
+    approved_at: datetime | None = None
+
+
+class SceneObjectType(StrEnum):
+    FLOOR = "floor"
+    WALL = "wall"
+    TABLE = "table"
+    COUNTER = "counter"
+    ENTRANCE = "entrance"
+    OCCLUDER = "occluder"
+
+
+class SceneConfigSource(StrEnum):
+    MANUAL = "manual"
+    DEFAULT_IMPORT = "default_import"
+
+
+class SceneConfigStatus(StrEnum):
+    APPROVED = "approved"
+    ARCHIVED = "archived"
+
+
+class SceneObject(BaseModel):
+    id: str = Field(min_length=1, max_length=100)
+    type: SceneObjectType
+    label: str = Field(default="", max_length=100)
+    polygon: list[RoiPoint] = Field(min_length=3, max_length=20)
+
+    @model_validator(mode="after")
+    def validate_polygon(self) -> "SceneObject":
+        _validate_polygon_points(self.polygon)
+        return self
+
+
+class CameraSceneConfigInput(BaseModel):
+    coordinate_space: Literal["normalized_1000"] = "normalized_1000"
+    image_size: RoiImageSize
+    objects: list[SceneObject] = Field(min_length=1)
+    source: SceneConfigSource = SceneConfigSource.MANUAL
+
+    @model_validator(mode="after")
+    def validate_unique_object_ids(self) -> "CameraSceneConfigInput":
+        object_ids = [item.id for item in self.objects]
+        if len(object_ids) != len(set(object_ids)):
+            raise ValueError("scene object ids must be unique")
+        return self
+
+
+class CameraSceneConfig(CameraSceneConfigInput):
+    store_id: str = Field(min_length=1)
+    camera_id: str = Field(min_length=1)
+    version: int = Field(gt=0)
+    status: SceneConfigStatus
     created_at: datetime
     approved_at: datetime | None = None

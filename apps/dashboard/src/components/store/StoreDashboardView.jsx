@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react'
 import RoleBanner from '../common/RoleBanner'
 import KpiSummaryBar from './KpiSummaryBar'
 import ZoneBreakdownTable from './ZoneBreakdownTable'
-import VisionMonitorPanel from './VisionMonitorPanel'
 import MenuListPanel from './MenuListPanel'
 import PolicyListPanel from './PolicyListPanel'
 import StoreChatbotWidget from './StoreChatbotWidget'
@@ -79,12 +78,9 @@ export default function StoreDashboardView({
       <section className="dashboard-feature-grid">
         <div className="dashboard-feature dashboard-feature-large">
           <ZoneBreakdownTable
+            storeId={page}
             zoneCounts={dashboard?.state?.zone_counts}
           />
-        </div>
-
-        <div className="dashboard-feature">
-          <VisionMonitorPanel storeId={page} />
         </div>
       </section>
 

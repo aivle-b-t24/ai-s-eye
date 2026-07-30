@@ -30,7 +30,8 @@ py services/vision-worker/cafe_stores.py --limit 60  # 앞 60세그만(빠른 �
 ```
 
 결과는 세그먼트 순서를 시간축으로 매장을 교차 배치해
-`samples/cafe_stores_states.json`에 저장한다(아래 재생에 사용).
+`samples/cafe_stores_states.json`에 저장한다. 각 결과에는 `frame_id`,
+`processed_at`, 승인 `roi_version`, ByteTrack `track_id`와 자세 `state`가 들어간다.
 
 > 참고: CAFE엔 촬영 시각이 없어 `captured_at`은 세그먼트 간격(0.5초)만큼 증가시킨
 > 합성값이다. 대기는 서있음+체류라 추적(ByteTrack)이 필요해 전체 생성에 시간이 걸린다.
@@ -85,7 +86,7 @@ py services/vision-worker/cafe_stores.py --limit 60  # 앞 60세그만(빠른 �
 **생성 + 재생(이미지·숫자 동기)** — 미리 생성해 두고 재생하며 업로드(재생엔 GPU 불필요):
 ```bash
 # 1) GPU 머신에서 상태 + 분석 이미지 배치 생성 (1회)
-python services/vision-worker/cafe_stores.py
+python services/vision-worker/cafe_stores.py --roi-api http://localhost:8000
 #    → samples/cafe_stores_states.json          (상태 시계열)
 #    → outputs/snapshots/frames/<store_id>/{i:04d}.jpg  (매장별 폴더, 매장별 순서의 분석 이미지)
 #    → outputs/snapshots/raw-frames/<store_id>/{i:04d}.jpg (ROI 설정용 원본)
@@ -96,7 +97,8 @@ python services/vision-worker/replay_states.py \
     --raw-frames-dir services/vision-worker/outputs/snapshots/raw-frames \
     --loop
 ```
-- replay가 상태를 보낼 때마다 **그 인덱스의 이미지를 `POST .../vision-snapshot`로 업로드** → 이미지·숫자 동기.
+- replay가 상태를 보낼 때마다 **그 인덱스의 이미지와 동일한 메타데이터를
+  `POST .../vision-snapshot`로 업로드** → 이미지·숫자·프레임 신원 동기.
 - 원본 프레임이 준비된 경우 `--raw-frames-dir`로 `POST .../vision-raw`에도 전송한다.
 - 대시보드: `<img src="{API}/api/stores/store-001/vision/latest">` (매장별 store_id).
 - ROI 편집기: `{API}/api/stores/store-001/vision/raw/latest`를 사용한다.
@@ -133,7 +135,7 @@ python services/vision-worker/cafe_stores.py \
 
 # 로그에서 아래처럼 API 버전을 확인한 뒤 전체 재분석
 # ROI store-001/store-001-cam1: api v5
-python services/vision-worker/cafe_stores.py
+python services/vision-worker/cafe_stores.py --roi-api http://localhost:8000
 
 # 새 JSON과 frames/ 결과 재생
 docker compose --profile demo up -d --force-recreate vision-replay
@@ -166,7 +168,11 @@ python services/vision-worker/replay_states.py    # 기본: samples/cafe_stores_
 | `--interval` | 전송 간격(초) | `2` |
 | `--limit` | 앞에서 N건만 전송 | 전체 |
 | `--loop` | 끝나면 처음부터 반복 | 꺼짐 |
-| `--preserve-timestamps` | JSON의 원본 측정 시각 유지 | 꺼짐 |
+| `--preserve-timestamps` | `frame_id`가 없는 레거시 JSON도 원본 시각 유지 | 꺼짐 |
+
+신규 결과는 `frame_id`가 있으므로 옵션과 관계없이 원래 `captured_at`을 보존한다.
+반복 재생은 `source=demo-replay`로 표시되고 동일 프레임은 원본 DB 이력에 중복
+저장하지 않는다.
 
 상황별 실행 예시:
 

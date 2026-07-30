@@ -4,6 +4,9 @@ import { API_BASE_URL } from '../../constants/env'
 const POLLING_INTERVAL_MS = 2000
 const TRAIL_RETENTION_MS = 12000
 const MAX_TRAIL_POINTS = 12
+const ENABLE_CAMERA_TWIN_V2 = (
+  String(import.meta.env.VITE_ENABLE_CAMERA_TWIN_V2).toLowerCase() === 'true'
+)
 
 function formatCapturedAt(value) {
   if (!value) return '측정 시각 없음'
@@ -176,14 +179,16 @@ export default function VisionMonitorPanel({ storeId }) {
           >
             분석 영상
           </button>
-          <button
-            type="button"
-            className={isTwinMode ? 'active' : ''}
-            aria-pressed={isTwinMode}
-            onClick={() => setViewMode('twin')}
-          >
-            CCTV 디지털 트윈
-          </button>
+          {!ENABLE_CAMERA_TWIN_V2 && (
+            <button
+              type="button"
+              className={isTwinMode ? 'active' : ''}
+              aria-pressed={isTwinMode}
+              onClick={() => setViewMode('twin')}
+            >
+              CCTV 디지털 트윈
+            </button>
+          )}
         </div>
       </header>
 

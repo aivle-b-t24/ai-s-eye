@@ -104,7 +104,7 @@ docker compose down
 | 매장 정책 | 샘플 정책 5개 조회 가능 |
 | 영상 분석 결과 받기 | StoreState JSON과 매장별 최신 분석 이미지 업로드·조회 API 준비 |
 | 카메라 ROI 설정 | 점주가 CCTV 화면에서 구역을 직접 설정하고 PostgreSQL에 버전별 저장 |
-| CCTV 디지털 트윈 | 원본 CCTV 위에 ROI·발 좌표·Track ID·최근 이동 궤적 표시 |
+| CCTV 디지털 트윈 | 구역 현황에서 CCTV 시점 가상 매장에 ROI·사람 위치·이동 궤적 표시(V2 기능 플래그) |
 | 주문 이벤트 받기 | 주문 시스템이 나중에 보낼 JSON 형식만 준비 |
 | 슈퍼바이저 AI 인사이트 | 두 매장 집계 결과를 Vertex AI로 분석하는 API 준비 |
 

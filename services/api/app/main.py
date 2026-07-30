@@ -3,28 +3,33 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import FastAPI, File, HTTPException, UploadFile, status
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 import psycopg
+from pydantic import ValidationError
 
 from .config import get_settings
 from .db_repository import DatabaseRepository
 from .models import (
     CameraRoiConfig,
     CameraRoiConfigInput,
+    CameraSceneConfig,
+    CameraSceneConfigInput,
     EtaResponse,
     OrderEvent,
     StoreState,
     StoreSummaryResponse,
     StoreTimelineResponse,
     TwinFrame,
+    VisionSnapshotMetadata,
 )
 from .occupancy import LatestOccupancyRepository
 from .repository import InMemoryRepository
 from .vision_snapshots import (
     InvalidImageError,
     detect_image_media_type,
+    load_snapshot_metadata,
     save_snapshot,
     snapshot_path,
 )
@@ -103,6 +108,27 @@ async def read_snapshot_upload(image: UploadFile) -> bytes:
     return content
 
 
+def parse_snapshot_metadata(
+    store_id: str,
+    metadata: str | None,
+) -> VisionSnapshotMetadata | None:
+    if metadata is None:
+        return None
+    try:
+        parsed = VisionSnapshotMetadata.model_validate_json(metadata)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=json.loads(exc.json()),
+        ) from exc
+    if parsed.store_id != store_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Path store_id and metadata store_id must match",
+        )
+    return parsed
+
+
 if isinstance(repository, InMemoryRepository):
     preload_sample_state()
 
@@ -161,7 +187,10 @@ def save_store_occupancy(
             detail="captured_at must include a timezone",
         )
     saved = occupancy_repository.save(frame)
-    return {"saved": True, "frame": saved.model_dump(mode="json")}
+    return {
+        "saved": True,
+        "frame": saved.model_dump(mode="json", exclude_none=True),
+    }
 
 
 @app.post(
@@ -182,17 +211,33 @@ def save_order_event(event: OrderEvent) -> dict[str, Any]:
 async def save_vision_snapshot(
     store_id: str,
     image: UploadFile = File(...),
+    metadata: str | None = Form(default=None),
 ) -> dict[str, Any]:
     validate_vision_store_id(store_id)
     content = await read_snapshot_upload(image)
     media_type = detect_image_media_type(content)
-    save_snapshot(settings.vision_snapshot_dir, store_id, content)
+    parsed_metadata = parse_snapshot_metadata(store_id, metadata)
+    save_snapshot(
+        settings.vision_snapshot_dir,
+        store_id,
+        content,
+        metadata=(
+            parsed_metadata.model_dump(mode="json")
+            if parsed_metadata is not None
+            else None
+        ),
+    )
     return {
         "saved": True,
         "store_id": store_id,
         "content_type": media_type,
         "size_bytes": len(content),
         "image_url": f"/api/stores/{store_id}/vision/latest",
+        "metadata": (
+            parsed_metadata.model_dump(mode="json")
+            if parsed_metadata is not None
+            else None
+        ),
     }
 
 
@@ -204,18 +249,35 @@ async def save_vision_snapshot(
 async def save_raw_vision_snapshot(
     store_id: str,
     image: UploadFile = File(...),
+    metadata: str | None = Form(default=None),
 ) -> dict[str, Any]:
     """ROI 설정에 사용할 오버레이 없는 원본 CCTV 프레임을 저장한다."""
     validate_vision_store_id(store_id)
     content = await read_snapshot_upload(image)
     media_type = detect_image_media_type(content)
-    save_snapshot(settings.vision_snapshot_dir, store_id, content, raw=True)
+    parsed_metadata = parse_snapshot_metadata(store_id, metadata)
+    save_snapshot(
+        settings.vision_snapshot_dir,
+        store_id,
+        content,
+        raw=True,
+        metadata=(
+            parsed_metadata.model_dump(mode="json")
+            if parsed_metadata is not None
+            else None
+        ),
+    )
     return {
         "saved": True,
         "store_id": store_id,
         "content_type": media_type,
         "size_bytes": len(content),
         "image_url": f"/api/stores/{store_id}/vision/raw/latest",
+        "metadata": (
+            parsed_metadata.model_dump(mode="json")
+            if parsed_metadata is not None
+            else None
+        ),
     }
 
 
@@ -232,11 +294,48 @@ def vision_snapshot_response(store_id: str, *, raw: bool = False) -> FileRespons
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Stored vision snapshot is invalid",
         ) from exc
+    headers = {"Cache-Control": "no-store"}
+    metadata = load_snapshot_metadata(
+        settings.vision_snapshot_dir,
+        store_id,
+        raw=raw,
+    )
+    if metadata is not None:
+        header_mapping = {
+            "X-Vision-Frame-Id": metadata.get("frame_id"),
+            "X-Vision-Captured-At": metadata.get("captured_at"),
+            "X-Vision-Processed-At": metadata.get("processed_at"),
+            "X-Vision-Model-Version": metadata.get("model_version"),
+            "X-Vision-Roi-Version": metadata.get("roi_version"),
+            "X-Vision-Source": metadata.get("source"),
+        }
+        headers.update(
+            {
+                key: str(value)
+                for key, value in header_mapping.items()
+                if value is not None
+            }
+        )
     return FileResponse(
         path,
         media_type=media_type,
-        headers={"Cache-Control": "no-store"},
+        headers=headers,
     )
+
+
+def get_vision_snapshot_metadata(
+    store_id: str,
+    *,
+    raw: bool = False,
+) -> VisionSnapshotMetadata:
+    metadata = load_snapshot_metadata(
+        settings.vision_snapshot_dir,
+        store_id,
+        raw=raw,
+    )
+    if metadata is None:
+        raise HTTPException(status_code=404, detail="Vision metadata not found")
+    return VisionSnapshotMetadata.model_validate(metadata)
 
 
 @app.get(
@@ -261,8 +360,29 @@ def get_latest_raw_vision_snapshot(store_id: str) -> FileResponse:
 
 
 @app.get(
+    "/api/stores/{store_id}/vision/metadata",
+    response_model=VisionSnapshotMetadata,
+    tags=["stores"],
+)
+def get_latest_vision_metadata(store_id: str) -> VisionSnapshotMetadata:
+    validate_vision_store_id(store_id)
+    return get_vision_snapshot_metadata(store_id)
+
+
+@app.get(
+    "/api/stores/{store_id}/vision/raw/metadata",
+    response_model=VisionSnapshotMetadata,
+    tags=["stores"],
+)
+def get_latest_raw_vision_metadata(store_id: str) -> VisionSnapshotMetadata:
+    validate_vision_store_id(store_id)
+    return get_vision_snapshot_metadata(store_id, raw=True)
+
+
+@app.get(
     "/api/stores/{store_id}/occupancy/latest",
     response_model=TwinFrame,
+    response_model_exclude_none=True,
     tags=["stores"],
 )
 def get_latest_store_occupancy(store_id: str) -> TwinFrame:
@@ -343,6 +463,63 @@ def get_internal_camera_roi_config(
     config = repository.get_approved_roi_config(store_id, camera_id)
     if config is None:
         raise HTTPException(status_code=404, detail="ROI config not found")
+    return config
+
+
+@app.get(
+    "/api/stores/{store_id}/cameras/{camera_id}/scene-config",
+    response_model=CameraSceneConfig,
+    tags=["scene"],
+)
+def get_camera_scene_config(store_id: str, camera_id: str) -> CameraSceneConfig:
+    validate_vision_store_id(store_id)
+    config = repository.get_approved_scene_config(store_id, camera_id)
+    if config is None:
+        raise HTTPException(status_code=404, detail="Scene config not found")
+    return config
+
+
+@app.put(
+    "/api/stores/{store_id}/cameras/{camera_id}/scene-config",
+    response_model=CameraSceneConfig,
+    tags=["scene"],
+)
+def save_camera_scene_config(
+    store_id: str,
+    camera_id: str,
+    config: CameraSceneConfigInput,
+) -> CameraSceneConfig:
+    validate_vision_store_id(store_id)
+    return repository.save_scene_config(store_id, camera_id, config)
+
+
+@app.get(
+    "/api/stores/{store_id}/cameras/{camera_id}/scene-configs",
+    response_model=list[CameraSceneConfig],
+    tags=["scene"],
+)
+def list_camera_scene_configs(
+    store_id: str,
+    camera_id: str,
+) -> list[CameraSceneConfig]:
+    validate_vision_store_id(store_id)
+    return repository.list_scene_configs(store_id, camera_id)
+
+
+@app.post(
+    "/api/stores/{store_id}/cameras/{camera_id}/scene-configs/{version}/approve",
+    response_model=CameraSceneConfig,
+    tags=["scene"],
+)
+def approve_camera_scene_config(
+    store_id: str,
+    camera_id: str,
+    version: int,
+) -> CameraSceneConfig:
+    validate_vision_store_id(store_id)
+    config = repository.approve_scene_config(store_id, camera_id, version)
+    if config is None:
+        raise HTTPException(status_code=404, detail="Scene config version not found")
     return config
 
 

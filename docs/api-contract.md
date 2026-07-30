@@ -32,10 +32,13 @@ API와 PostgreSQL 연결 상태를 확인한다.
 - `visible_person_count`는 CCTV에서 보이는 인원이며 정확한 고객 수로 단정하지 않는다.
 - 시각은 ISO 8601 형식을 사용한다.
 - `quality_status`는 `normal`, `low`, `stale`, `unknown` 중 하나다.
+- 신규 Vision 결과는 `frame_id`, `processed_at`, `roi_version`을 함께 보낸다.
+- `captured_at`은 프레임 시각, `processed_at`은 모델 분석 완료 시각이다.
+- `frame_id`가 있는 상태는 매장·카메라별로 한 번만 원본 이력에 저장한다.
 
 성공 상태 코드는 `201 Created`다.
-매장·카메라·측정 시각과 나머지 값까지 모두 같은 상태를 다시 보내면
-PostgreSQL에 중복 이력을 추가하지 않는다.
+마지막 수신 상태는 `current_store_states`, 30초 샘플은
+`store_state_history`, 시간 집계는 `hourly_store_metrics`에 함께 반영된다.
 
 ## POST /internal/order-events
 
@@ -58,6 +61,21 @@ POS/KDS 또는 주문 시뮬레이터가 주문 상태 변경을 전송한다.
 
 Vision Worker가 사람 탐지 박스와 ROI를 표시한 최신 분석 이미지를 전송한다.
 요청은 `multipart/form-data`이며 `image` 필드에 JPEG 또는 PNG 파일을 넣는다.
+신규 분석은 `metadata` 필드에 StoreState와 동일한 프레임 신원 JSON을 넣는다.
+
+```json
+{
+  "schema_version": "1.0",
+  "store_id": "store-001",
+  "camera_id": "store-001-cam1",
+  "frame_id": "store-001-0253",
+  "captured_at": "2026-07-27T15:31:14+09:00",
+  "processed_at": "2026-07-30T10:20:00+09:00",
+  "model_version": "yolo11s-cafe-ft+pose-dwell",
+  "roi_version": 7,
+  "source": "demo-replay"
+}
+```
 
 기본 지원 매장은 `store-001`, `store-002`이고 파일 최대 크기는 5MB다. 새 이미지를
 받으면 해당 매장의 기존 최신 이미지를 교체한다. 이미지 파일은 PostgreSQL에
@@ -70,6 +88,14 @@ Vision Worker가 사람 탐지 박스와 ROI를 표시한 최신 분석 이미�
 해당 매장의 가장 최근 Vision 분석 이미지를 반환한다. 아직 업로드된 이미지가
 없으면 `404`를 반환한다. 브라우저 캐시로 이전 이미지가 계속 보이지 않도록
 응답에 `Cache-Control: no-store`를 포함한다.
+메타데이터가 있으면 `X-Vision-Frame-Id`, `X-Vision-Model-Version`,
+`X-Vision-Roi-Version` 등의 응답 헤더도 포함한다.
+
+## GET /api/stores/{store_id}/vision/metadata
+
+최신 분석 이미지와 연결된 프레임 ID, 촬영·처리 시각, 모델·ROI 버전과 출처를
+JSON으로 반환한다. 원본 프레임 메타데이터는
+`GET /api/stores/{store_id}/vision/raw/metadata`에서 조회한다.
 
 ## POST /internal/stores/{store_id}/vision-raw
 
@@ -120,7 +146,8 @@ ROI 설정에 사용할 탐지 박스·기존 ROI 오버레이가 없는 원본 
 
 ## GET /api/stores/{store_id}/state
 
-해당 매장의 가장 최근 StoreState를 반환한다. 상태가 없으면 `404`를 반환한다.
+해당 매장에 마지막으로 수신된 StoreState를 반환한다. `captured_at`이 과거인
+데모 재생도 수신 순서대로 최신본을 갱신하며, 상태가 없으면 `404`를 반환한다.
 
 기본 mock 매장은 `store-001`이다.
 

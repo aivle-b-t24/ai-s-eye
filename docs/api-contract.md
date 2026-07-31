@@ -4,6 +4,15 @@
 
 기본 주소는 `http://localhost:8000`이다.
 
+### 주문 CSV 다운로드
+
+`GET /api/exports/orders.csv`
+
+- `start_at`, `end_at`: 시간대가 포함된 ISO 8601 시각, 종료 시각은 미포함
+- `store_id`: 선택값. 생략하면 전체 매장
+- 최대 조회 범위: 31일
+- 응답: UTF-8 BOM CSV, 주문 한 건당 한 행
+
 ## GET /health
 
 API와 PostgreSQL 연결 상태를 확인한다.

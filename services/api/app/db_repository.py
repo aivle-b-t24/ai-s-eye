@@ -161,6 +161,35 @@ class DatabaseRepository:
                 return None
             return _order_event_from_record(record)
 
+    def list_order_events(
+        self,
+        *,
+        start_at: datetime,
+        end_at: datetime,
+        store_id: str | None = None,
+    ) -> list[OrderEvent]:
+        """CSV 내보내기에 사용할 기간 내 주문 이벤트를 반환한다."""
+        statement = (
+            select(OrderEventRecord)
+            .options(selectinload(OrderEventRecord.items))
+            .where(
+                OrderEventRecord.occurred_at >= start_at,
+                OrderEventRecord.occurred_at < end_at,
+            )
+            .order_by(
+                OrderEventRecord.occurred_at,
+                OrderEventRecord.store_id,
+                OrderEventRecord.order_id,
+                OrderEventRecord.event_id,
+            )
+        )
+        if store_id is not None:
+            statement = statement.where(OrderEventRecord.store_id == store_id)
+
+        with self._session_factory() as session:
+            records = list(session.scalars(statement))
+            return [_order_event_from_record(record) for record in records]
+
     def get_store_summary(
         self,
         start_at: datetime | None = None,

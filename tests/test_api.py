@@ -309,6 +309,19 @@ def test_store_timeline_rejects_period_over_31_days(client: TestClient) -> None:
     assert response.json()["detail"] == "timeline period must not exceed 31 days"
 
 
+def test_store_timeline_rejects_unknown_interval(client: TestClient) -> None:
+    response = client.get(
+        "/api/stores/store-001/timeline",
+        params={
+            "start_at": "2026-07-22T00:00:00+09:00",
+            "end_at": "2026-07-23T00:00:00+09:00",
+            "interval": "1w",
+        },
+    )
+
+    assert response.status_code == 422
+
+
 def test_invalid_order_status_is_rejected(client: TestClient) -> None:
     payload = {
         "event_id": "event-invalid",

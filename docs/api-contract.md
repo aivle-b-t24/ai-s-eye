@@ -17,6 +17,17 @@
 
 API와 PostgreSQL 연결 상태를 확인한다.
 
+## 매장 운영 집계 데이터 출처
+
+`GET /api/stores/summary`의 매장별 `order_summary.data_sources`는 주문 출처를
+나타낸다. 현재 합성 주문은 `synthetic_order_simulator`, 그 외 주문 이벤트는
+`order_event`로 표시한다. 합성 주문 여부는 `sim-` 주문번호 접두사로 판별한다.
+
+`GET /api/stores/{store_id}/timeline`의 `interval`은 `1h` 또는 `1d`를 지원한다.
+슈퍼바이저 화면은 최근 24시간에 `1h`, 7일·30일·직접 설정에 `1d`를 사용한다.
+기간별 주문 KPI와 타임라인은 요청 범위 `[start_at, end_at)` 안에서
+`received` 상태가 발생한 주문을 기준으로 집계한다.
+
 응답 예시:
 
 ```json

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { getCameraScene } from '../store/cameraScenes'
+import { DEFAULT_PERSPECTIVE } from '../store/sceneProjection'
 
 const OBJECT_OPTIONS = [
   { value: 'table', label: '테이블' },
@@ -10,13 +11,6 @@ const OBJECT_OPTIONS = [
   { value: 'floor', label: '바닥' },
   { value: 'occluder', label: '가림 영역' },
 ]
-
-const DEFAULT_PERSPECTIVE = {
-  far_y: 260,
-  near_y: 980,
-  far_scale: 0.62,
-  near_scale: 1.35,
-}
 
 const OBJECT_LABELS = Object.fromEntries(
   OBJECT_OPTIONS.map((option) => [option.value, option.label]),
@@ -126,6 +120,11 @@ function defaultPerspective(storeId) {
   return { ...DEFAULT_PERSPECTIVE, ...(getCameraScene(storeId)?.perspective ?? {}) }
 }
 
+function defaultSeatAnchors(storeId, objects) {
+  const anchors = getCameraScene(storeId)?.seatAnchors
+  return anchors?.length ? anchors.map((anchor) => ({ ...anchor })) : deriveSeatAnchors(objects)
+}
+
 export default function SceneEditor({ apiBaseUrl, storeId }) {
   const cameraId = `${storeId}-cam1`
   const svgRef = useRef(null)
@@ -169,7 +168,7 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
     const initialObjects = defaultObjects(storeId)
     setObjects(initialObjects)
     setPerspective(defaultPerspective(storeId))
-    setSeatAnchors(deriveSeatAnchors(initialObjects))
+    setSeatAnchors(defaultSeatAnchors(storeId, initialObjects))
     setSelectedObjectId(initialObjects[0]?.id ?? null)
     setSelectedVertex(null)
     setSource('default_import')

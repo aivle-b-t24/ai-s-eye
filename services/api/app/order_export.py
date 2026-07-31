@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from .models import OrderEvent, OrderStatus
+from .models import OrderDataSource, OrderEvent, OrderStatus
 
 
 KST = ZoneInfo("Asia/Seoul")
@@ -80,9 +80,9 @@ def _build_order_row(events: list[OrderEvent]) -> dict[str, str | int | float]:
     return {
         "simulation_run_id": _simulation_run_id(first.order_id, first.store_id),
         "data_source": (
-            "synthetic_order_simulator"
+            OrderDataSource.SYNTHETIC_ORDER_SIMULATOR.value
             if first.order_id.startswith("sim-")
-            else "order_event"
+            else OrderDataSource.ORDER_EVENT.value
         ),
         "order_id": first.order_id,
         "store_id": first.store_id,

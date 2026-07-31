@@ -220,10 +220,10 @@ class DatabaseRepository:
             )
         if end_at is not None:
             state_statement = state_statement.where(
-                StoreStateHistoryRecord.captured_at <= end_at
+                StoreStateHistoryRecord.captured_at < end_at
             )
             order_statement = order_statement.where(
-                OrderEventRecord.occurred_at <= end_at
+                OrderEventRecord.occurred_at < end_at
             )
 
         with self._session_factory() as session:

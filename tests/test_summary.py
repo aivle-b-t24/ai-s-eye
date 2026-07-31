@@ -95,6 +95,16 @@ def test_build_store_summary_calculates_two_store_metrics() -> None:
             "event-003",
             "order-002",
             "store-001",
+            2,
+            OrderStatus.RECEIVED,
+            "menu-002",
+            "카페라떼",
+            1,
+        ),
+        _order(
+            "event-004",
+            "order-002",
+            "store-001",
             3,
             OrderStatus.PREPARING,
             "menu-002",
@@ -102,7 +112,17 @@ def test_build_store_summary_calculates_two_store_metrics() -> None:
             1,
         ),
         _order(
-            "event-004",
+            "event-005",
+            "order-003",
+            "store-002",
+            3,
+            OrderStatus.RECEIVED,
+            "menu-021",
+            "크루아상",
+            3,
+        ),
+        _order(
+            "event-006",
             "order-003",
             "store-002",
             4,
@@ -112,7 +132,17 @@ def test_build_store_summary_calculates_two_store_metrics() -> None:
             3,
         ),
         _order(
-            "event-005",
+            "event-007",
+            "order-004",
+            "store-002",
+            4,
+            OrderStatus.RECEIVED,
+            "menu-999",
+            "취소 메뉴",
+            99,
+        ),
+        _order(
+            "event-008",
             "order-004",
             "store-002",
             5,
@@ -137,7 +167,7 @@ def test_build_store_summary_calculates_two_store_metrics() -> None:
     assert store_one.traffic_summary.peak_visible_person_count == 28
     assert store_one.traffic_summary.peak_queue_count_estimate == 9
     assert store_one.order_summary.total_order_count == 2
-    assert store_one.order_summary.order_event_count == 3
+    assert store_one.order_summary.order_event_count == 4
     assert store_one.order_summary.latest_status_counts.ready == 1
     assert store_one.order_summary.latest_status_counts.preparing == 1
     assert store_one.order_summary.top_menu_items[0].quantity == 2
@@ -163,3 +193,35 @@ def test_build_store_summary_returns_empty_store_list_without_data() -> None:
     assert response.period.start_at is None
     assert response.period.end_at is None
     assert response.stores == []
+
+
+def test_order_summary_reports_mixed_data_sources() -> None:
+    orders = [
+        _order(
+            "event-observed",
+            "order-observed",
+            "store-001",
+            1,
+            OrderStatus.RECEIVED,
+            "menu-001",
+            "아메리카노",
+            1,
+        ),
+        _order(
+            "event-synthetic",
+            "sim-july-store-001-000001",
+            "store-001",
+            2,
+            OrderStatus.RECEIVED,
+            "menu-002",
+            "카페라떼",
+            1,
+        ),
+    ]
+
+    response = build_store_summary([], orders)
+
+    assert response.stores[0].order_summary.data_sources == [
+        "order_event",
+        "synthetic_order_simulator",
+    ]

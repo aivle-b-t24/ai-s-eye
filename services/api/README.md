@@ -8,6 +8,9 @@ FastAPI 기반 공통 백엔드다.
 
 API 문서는 서버 실행 후 `http://localhost:8000/docs`에서 확인한다.
 
+기간별 매장 집계의 `order_summary.data_sources`는 합성 주문과 일반 주문 이벤트를
+구분한다. 매장 타임라인은 `interval=1h`와 `interval=1d`를 지원한다.
+
 ## 주문 CSV 다운로드
 
 기간 내 주문 상태 이벤트를 주문 한 건당 한 행으로 합쳐 CSV로 내려받는다. 시간은

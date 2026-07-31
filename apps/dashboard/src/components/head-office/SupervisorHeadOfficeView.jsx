@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import './SupervisorHeadOfficeView.css'
 import OperationsSimulator from './OperationsSimulator'
+import OrderTrendChart from './OrderTrendChart'
+import {
+  SUPERVISOR_STORE_IDS,
+  orderDataLabel,
+  orderDataMode,
+  timelineIntervalForPeriod,
+} from './supervisorPresentation'
 
 const STORE_NAMES = {
   'store-001': '강남점',
@@ -46,12 +53,13 @@ const SEVERITY_LABELS = {
   info: '참고',
 }
 
-function createPresetRange(hours) {
+function createPresetRange(hours, interval = '1h') {
   const end = new Date()
   const start = new Date(end.getTime() - hours * 60 * 60 * 1000)
   return {
     startAt: start.toISOString(),
     endAt: end.toISOString(),
+    interval,
   }
 }
 
@@ -131,7 +139,7 @@ function getPeakStore(stores, field) {
     }, null)
 }
 
-function buildKpis(stores) {
+function buildKpis(stores, orderMode) {
   const peakPeopleStore = getPeakStore(stores, 'peak_visible_person_count')
   const peakQueueStore = getPeakStore(stores, 'peak_queue_count_estimate')
   const totalOrders = stores.reduce(
@@ -162,7 +170,7 @@ function buildKpis(stores) {
     {
       label: '전체 주문',
       value: `${totalOrders.toLocaleString('ko-KR')}건`,
-      detail: '선택 기간 내 고유 주문 수',
+      detail: `${orderDataLabel(orderMode)} · 선택 기간 내 고유 주문 수`,
     },
   ]
 }
@@ -207,7 +215,7 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
   )
 
   const [periodKey, setPeriodKey] = useState('24h')
-  const [activeRange, setActiveRange] = useState(() => createPresetRange(24))
+  const [activeRange, setActiveRange] = useState(() => createPresetRange(24, '1h'))
   const [customStart, setCustomStart] = useState(
     () => toKstInputValue(initialCustomStart),
   )
@@ -219,6 +227,11 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
   const [summary, setSummary] = useState(null)
   const [summaryLoading, setSummaryLoading] = useState(true)
   const [summaryError, setSummaryError] = useState('')
+
+  const [timelines, setTimelines] = useState({})
+  const [timelinesLoading, setTimelinesLoading] = useState(true)
+  const [timelinesError, setTimelinesError] = useState('')
+  const [timelineReloadToken, setTimelineReloadToken] = useState(0)
 
   const [insights, setInsights] = useState(null)
   const [insightsLoading, setInsightsLoading] = useState(false)
@@ -258,13 +271,61 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
     return () => controller.abort()
   }, [activeRange, loadSummary])
 
+  const loadTimelines = useCallback(async (range, signal) => {
+    setTimelinesLoading(true)
+    setTimelinesError('')
+    setTimelines({})
+
+    const results = await Promise.allSettled(
+      SUPERVISOR_STORE_IDS.map(async (storeId) => {
+        const params = new URLSearchParams({
+          start_at: range.startAt,
+          end_at: range.endAt,
+          interval: range.interval,
+        })
+        const response = await fetch(
+          `${apiBaseUrl}/api/stores/${storeId}/timeline?${params.toString()}`,
+          { signal },
+        )
+        if (!response.ok) {
+          throw new Error(
+            await getErrorMessage(response, `${getStoreName(storeId)} 추이 조회 실패`),
+          )
+        }
+        return [storeId, await response.json()]
+      }),
+    )
+    if (signal.aborted) return
+
+    const fulfilled = results
+      .filter((result) => result.status === 'fulfilled')
+      .map((result) => result.value)
+    const rejected = results.filter((result) => result.status === 'rejected')
+    setTimelines(Object.fromEntries(fulfilled))
+    if (rejected.length > 0) {
+      setTimelinesError(
+        rejected
+          .map((result) => result.reason?.message ?? '주문 추이 조회 실패')
+          .join(' · '),
+      )
+    }
+    setTimelinesLoading(false)
+  }, [apiBaseUrl])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    loadTimelines(activeRange, controller.signal)
+    return () => controller.abort()
+  }, [activeRange, loadTimelines, timelineReloadToken])
+
   const stores = useMemo(
     () => [...(summary?.stores ?? [])].sort(
       (left, right) => left.store_id.localeCompare(right.store_id),
     ),
     [summary],
   )
-  const kpis = useMemo(() => buildKpis(stores), [stores])
+  const orderMode = useMemo(() => orderDataMode(stores), [stores])
+  const kpis = useMemo(() => buildKpis(stores, orderMode), [orderMode, stores])
   const videoIssueStoreCount = useMemo(
     () => stores.filter(
       (store) => store.video_summary
@@ -281,7 +342,10 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
     setPeriodError('')
     setInsights(null)
     setInsightsError('')
-    setActiveRange(createPresetRange(option.hours))
+    setActiveRange(createPresetRange(
+      option.hours,
+      timelineIntervalForPeriod(option.key),
+    ))
   }
 
   const showCustomPeriod = () => {
@@ -305,7 +369,11 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
     setPeriodError('')
     setInsights(null)
     setInsightsError('')
-    setActiveRange({ startAt, endAt })
+    setActiveRange({
+      startAt,
+      endAt,
+      interval: timelineIntervalForPeriod('custom'),
+    })
   }
 
   const generateInsights = async () => {
@@ -355,6 +423,13 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
           <small>한국시간 기준</small>
         </div>
       </header>
+
+      <section className="supervisor-data-source-notice" aria-label="데모 데이터 출처 안내">
+        <strong>데모 데이터 환경</strong>
+        <span>Vision: CCTV 데모 재생 분석</span>
+        <span>주문·메뉴: {orderDataLabel(orderMode)}</span>
+        <em>실제 POS 실적이 아닙니다.</em>
+      </section>
 
       <section className="supervisor-filter-section" aria-labelledby="period-filter-title">
         <div className="supervisor-section-heading">
@@ -478,6 +553,15 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
         </div>
       </section>
 
+      <OrderTrendChart
+        timelines={timelines}
+        interval={activeRange.interval}
+        dataLabel={orderDataLabel(orderMode)}
+        loading={timelinesLoading}
+        error={timelinesError}
+        onRetry={() => setTimelineReloadToken((current) => current + 1)}
+      />
+
       <section
         id="hq-stores"
         className="supervisor-comparison-section"
@@ -539,12 +623,22 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
                           : '데이터 없음'}
                       </td>
                       <td className="is-numeric">
-                        {order ? `${formatMetric(order.total_order_count, 0)}건` : '데이터 없음'}
+                        {order ? (
+                          <span className="supervisor-order-value">
+                            <strong>{formatMetric(order.total_order_count, 0)}건</strong>
+                            <small>{orderDataLabel(orderDataMode([store]))}</small>
+                          </span>
+                        ) : '데이터 없음'}
                       </td>
                       <td>
-                        {topMenu
-                          ? `${topMenu.name ?? topMenu.menu_id} ${formatMetric(topMenu.quantity, 0)}개`
-                          : '데이터 없음'}
+                        {topMenu ? (
+                          <span className="supervisor-order-value">
+                            <strong>
+                              {topMenu.name ?? topMenu.menu_id} {formatMetric(topMenu.quantity, 0)}개
+                            </strong>
+                            <small>{orderDataLabel(orderDataMode([store]))}</small>
+                          </span>
+                        ) : '데이터 없음'}
                       </td>
                       <td>
                         <span className={`supervisor-status-tag is-${videoStatus.tone}`}>
@@ -575,6 +669,7 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
             <p>
               현재 집계 수치를 근거로 매장별 특이사항과 권장 조치를 생성합니다.
             </p>
+            <span className="supervisor-ai-source-badge">데모 데이터 기반 분석</span>
           </div>
           <button
             type="button"
@@ -683,5 +778,3 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
     </section>
   )
 }
-
-

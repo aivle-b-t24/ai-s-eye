@@ -33,6 +33,7 @@ SYSTEM_PROMPT = """너는 프랜차이즈 본사의 운영 분석가다.
 - 각 매장에서 가장 두드러진 특이사항 하나를 찾는다. 점심(11~14시) 인원·대기 급증은 congestion,
   오후(14~17시) 방문·주문 증가는 afternoon_demand, 영상 이상은 video_issue로 분류한다.
 - 근거(evidence)에는 판단에 쓴 실제 숫자(피크 인원·대기, 피크 시각, 주문 수 등)를 담는다.
+- 주문 데이터 출처가 synthetic_order_simulator이면 합성 데모 수치로 취급하고 실제 POS 실적이라고 표현하지 않는다.
 - 두 매장의 차이를 비교하고, 운영자가 참고할 권장사항을 매장별·비교별로 만든다.
 - 반드시 아래 JSON 형식만 출력한다. 다른 말은 하지 않는다.
 
@@ -135,6 +136,9 @@ def build_prompt(summary: Any) -> str:
         lines.append(
             f"  주문: 총 {o.get('total_order_count')}건, 상태 {o.get('latest_status_counts')}"
         )
+        data_sources = o.get("data_sources") or []
+        if data_sources:
+            lines.append(f"  주문 데이터 출처: {', '.join(data_sources)}")
         tops = ", ".join(
             f"{m.get('name')}x{m.get('quantity')}" for m in o.get("top_menu_items", [])[:5]
         )

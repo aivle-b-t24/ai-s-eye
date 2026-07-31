@@ -8,6 +8,19 @@ FastAPI 기반 공통 백엔드다.
 
 API 문서는 서버 실행 후 `http://localhost:8000/docs`에서 확인한다.
 
+## 주문 CSV 다운로드
+
+기간 내 주문 상태 이벤트를 주문 한 건당 한 행으로 합쳐 CSV로 내려받는다. 시간은
+한국시간으로 표시하며 합성 주문은 `data_source=synthetic_order_simulator`와
+`simulation_run_id`로 구분한다. 한 번에 최대 31일까지 요청할 수 있다.
+
+```bash
+curl --get http://localhost:8000/api/exports/orders.csv \
+  --data-urlencode 'start_at=2026-07-01T00:00:00+09:00' \
+  --data-urlencode 'end_at=2026-07-31T00:00:00+09:00' \
+  --output synthetic_orders_2026-07.csv
+```
+
 ## What-if 운영 시뮬레이션
 
 `POST /api/simulations/operations`는 직원 수, 방문율, 행사 배수, 평균 제조시간,

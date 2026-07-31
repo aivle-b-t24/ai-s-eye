@@ -63,6 +63,31 @@ class InMemoryRepository:
             return None
         return max(events, key=lambda event: event.occurred_at)
 
+    def list_order_events(
+        self,
+        *,
+        start_at: datetime,
+        end_at: datetime,
+        store_id: str | None = None,
+    ) -> list[OrderEvent]:
+        """CSV 내보내기에 사용할 기간 내 주문 이벤트를 반환한다."""
+        with self._lock:
+            events = [
+                event
+                for event in self._order_events.values()
+                if start_at <= event.occurred_at < end_at
+                and (store_id is None or event.store_id == store_id)
+            ]
+        return sorted(
+            events,
+            key=lambda event: (
+                event.occurred_at,
+                event.store_id,
+                event.order_id,
+                event.event_id,
+            ),
+        )
+
     def save_roi_config(
         self,
         store_id: str,

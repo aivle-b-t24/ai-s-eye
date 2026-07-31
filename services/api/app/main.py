@@ -657,7 +657,7 @@ def get_store_timeline(
     store_id: str,
     start_at: datetime,
     end_at: datetime,
-    interval: Literal["1h"] = "1h",
+    interval: Literal["1h", "1d"] = "1h",
 ) -> StoreTimelineResponse:
     if start_at.tzinfo is None or end_at.tzinfo is None:
         raise HTTPException(

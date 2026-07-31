@@ -21,6 +21,11 @@ class OrderStatus(StrEnum):
     REJECTED = "rejected"
 
 
+class OrderDataSource(StrEnum):
+    SYNTHETIC_ORDER_SIMULATOR = "synthetic_order_simulator"
+    ORDER_EVENT = "order_event"
+
+
 class TwinMode(StrEnum):
     LIVE = "live"
 
@@ -123,6 +128,7 @@ class MenuItemSummary(BaseModel):
 class OrderSummary(BaseModel):
     total_order_count: int = Field(ge=0)
     order_event_count: int = Field(ge=0)
+    data_sources: list[OrderDataSource] = Field(default_factory=list)
     latest_status_counts: OrderStatusCounts
     top_menu_items: list[MenuItemSummary]
 

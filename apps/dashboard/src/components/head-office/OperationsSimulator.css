@@ -109,6 +109,32 @@
   font-weight: 800;
 }
 
+.simulation-preset-scenarios {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--supervisor-border);
+}
+
+.simulation-preset-scenarios article {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px;
+  background: #fff;
+}
+
+.simulation-preset-scenarios span,
+.simulation-preset-scenarios small {
+  color: #6f6f6f;
+  font-size: 0.64rem;
+}
+
+.simulation-preset-scenarios strong {
+  color: #161616;
+  font-size: 0.78rem;
+}
+
 .simulation-run-button {
   min-height: 48px;
   border: 0;
@@ -224,6 +250,88 @@
   gap: 14px;
 }
 
+.simulation-comparison-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--supervisor-border);
+}
+
+.simulation-comparison-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  background: #fff;
+}
+
+.simulation-comparison-table caption {
+  overflow: hidden;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  clip: rect(0 0 0 0);
+}
+
+.simulation-comparison-table th,
+.simulation-comparison-table td {
+  padding: 14px 16px;
+  border-right: 1px solid var(--supervisor-border);
+  border-bottom: 1px solid var(--supervisor-border);
+  text-align: right;
+}
+
+.simulation-comparison-table th:last-child,
+.simulation-comparison-table td:last-child {
+  border-right: 0;
+}
+
+.simulation-comparison-table tbody tr:last-child th,
+.simulation-comparison-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.simulation-comparison-table thead th {
+  color: #525252;
+  background: #f4f4f4;
+  font-size: 0.72rem;
+}
+
+.simulation-comparison-table thead th:first-child,
+.simulation-comparison-table tbody th {
+  text-align: left;
+}
+
+.simulation-comparison-table thead span,
+.simulation-comparison-table thead strong {
+  display: block;
+}
+
+.simulation-comparison-table thead strong {
+  margin-top: 4px;
+  color: #161616;
+  font-size: 0.8rem;
+}
+
+.simulation-comparison-table tbody th {
+  color: #525252;
+  font-size: 0.76rem;
+  font-weight: 650;
+}
+
+.simulation-comparison-table tbody td {
+  color: #161616;
+  font-size: 0.96rem;
+  font-weight: 700;
+}
+
+.simulation-comparison-table tbody td.is-good {
+  color: #146c2e;
+  background: #edf8f0;
+}
+
+.simulation-comparison-table tbody td.is-bad {
+  color: #a2191f;
+  background: #fff1f1;
+}
+
 .simulation-result-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -323,6 +431,10 @@
 
   .simulation-field-grid,
   .simulation-result-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .simulation-preset-scenarios {
     grid-template-columns: 1fr;
   }
 

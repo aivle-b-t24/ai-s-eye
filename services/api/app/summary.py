@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 from .models import (
     MenuItemSummary,
+    OrderDataSource,
     OrderEvent,
     OrderStatus,
     OrderStatusCounts,
@@ -106,9 +107,17 @@ def _traffic_summary(states: list[StoreState]) -> TrafficSummary | None:
 
 
 def _order_summary(orders: list[OrderEvent]) -> OrderSummary:
+    received_order_ids = {
+        event.order_id
+        for event in orders
+        if event.status == OrderStatus.RECEIVED
+    }
+    relevant_orders = [
+        event for event in orders if event.order_id in received_order_ids
+    ]
     latest_by_order: dict[str, OrderEvent] = {}
     for event in sorted(
-        orders,
+        relevant_orders,
         key=lambda item: (item.occurred_at, item.event_id),
     ):
         latest_by_order[event.order_id] = event
@@ -140,10 +149,23 @@ def _order_summary(orders: list[OrderEvent]) -> OrderSummary:
 
     return OrderSummary(
         total_order_count=len(latest_by_order),
-        order_event_count=len(orders),
+        order_event_count=len(relevant_orders),
+        data_sources=sorted(
+            {
+                _order_data_source(order_id)
+                for order_id in latest_by_order
+            },
+            key=lambda source: source.value,
+        ),
         latest_status_counts=OrderStatusCounts(**status_counts),
         top_menu_items=top_menu_items,
     )
+
+
+def _order_data_source(order_id: str) -> OrderDataSource:
+    if order_id.startswith("sim-"):
+        return OrderDataSource.SYNTHETIC_ORDER_SIMULATOR
+    return OrderDataSource.ORDER_EVENT
 
 
 def _video_summary(states: list[StoreState]) -> VideoSummary | None:

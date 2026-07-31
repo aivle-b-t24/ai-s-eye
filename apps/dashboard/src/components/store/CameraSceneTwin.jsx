@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { getCameraScene } from './cameraScenes'
+import {
+  allocateRenderPositions,
+  perspectiveScale,
+} from './sceneProjection'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
 const POLLING_INTERVAL_MS = 2000
@@ -8,13 +12,6 @@ const POSITION_TRANSITION_MS = 1600
 const MISSING_RETENTION_MS = 4000
 const STALE_AFTER_MS = 6000
 const MAX_TRAIL_POINTS = 12
-const DEFAULT_PERSPECTIVE = {
-  far_y: 260,
-  near_y: 980,
-  far_scale: 0.62,
-  near_scale: 1.35,
-}
-const SEAT_SNAP_DISTANCE = 150
 
 function formatCapturedAt(value) {
   if (!value) return '측정 시각 없음'
@@ -53,15 +50,6 @@ function clamp(value, minimum, maximum) {
   return Math.min(Math.max(value, minimum), maximum)
 }
 
-function perspectiveScale(y, perspective = DEFAULT_PERSPECTIVE) {
-  const depthY = y * 1000
-  const range = Math.max(perspective.near_y - perspective.far_y, 1)
-  const depth = clamp((depthY - perspective.far_y) / range, 0, 1)
-  const easedDepth = depth ** 1.18
-  return perspective.far_scale
-    + (perspective.near_scale - perspective.far_scale) * easedDepth
-}
-
 function deriveSeatAnchors(objects) {
   return objects
     .filter((item) => item.type === 'table' && item.polygon.length >= 3)
@@ -82,34 +70,6 @@ function deriveSeatAnchors(objects) {
         y: anchorY,
       }))
     })
-}
-
-function allocateRenderPositions(tracks, seatAnchors) {
-  const usedSeats = new Set()
-  return tracks.map((track) => {
-    if (track.state !== 'seated' || seatAnchors.length === 0) {
-      return { ...track, renderX: track.x, renderY: track.y, seatAnchorId: null }
-    }
-    const candidates = seatAnchors
-      .filter((anchor) => !usedSeats.has(anchor.id))
-      .map((anchor) => ({
-        anchor,
-        distance: Math.hypot(anchor.x / 1000 - track.x, anchor.y / 1000 - track.y) * 1000,
-      }))
-      .filter(({ distance }) => distance <= SEAT_SNAP_DISTANCE)
-      .sort((left, right) => left.distance - right.distance)
-    const nearest = candidates[0]?.anchor
-    if (!nearest) {
-      return { ...track, renderX: track.x, renderY: track.y, seatAnchorId: null }
-    }
-    usedSeats.add(nearest.id)
-    return {
-      ...track,
-      renderX: nearest.x / 1000,
-      renderY: nearest.y / 1000,
-      seatAnchorId: nearest.id,
-    }
-  })
 }
 
 function objectDepth(object) {

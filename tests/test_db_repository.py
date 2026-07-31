@@ -500,7 +500,7 @@ def test_store_summary_uses_period_and_separates_stores(
         order_id=f"{test_id}-order-002",
         store_id=store_two,
         occurred_at=start_at + timedelta(hours=6),
-        status=OrderStatus.COMPLETED,
+        status=OrderStatus.RECEIVED,
         items=[OrderItem(menu_id="menu-021", name="크루아상", quantity=3)],
     )
     repository.save_order_event(received_event)
@@ -530,8 +530,8 @@ def test_store_summary_uses_period_and_separates_stores(
     filtered_stores = {store.store_id: store for store in filtered.stores}
 
     assert filtered_stores[store_one].traffic_summary is None
-    assert filtered_stores[store_one].order_summary.total_order_count == 1
-    assert filtered_stores[store_one].order_summary.order_event_count == 1
+    assert filtered_stores[store_one].order_summary.total_order_count == 0
+    assert filtered_stores[store_one].order_summary.order_event_count == 0
 
 
 def test_store_timeline_groups_store_records_by_hour(

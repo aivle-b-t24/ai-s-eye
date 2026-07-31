@@ -109,5 +109,8 @@ jobs:
       - name: 대시보드 코드 검사
         run: npm run lint
 
+      - name: 대시보드 테스트
+        run: npm test
+
       - name: 대시보드 배포 빌드
         run: npm run build

@@ -116,3 +116,41 @@ def test_build_store_timeline_supports_dashboard_periods(
 
     assert len(response.points) == expected_points
     assert all(point.observation_count == 0 for point in response.points)
+
+
+def test_daily_timeline_uses_kst_boundaries_and_keeps_empty_days() -> None:
+    kst = timezone(timedelta(hours=9))
+    start_at = datetime(2026, 7, 1, tzinfo=kst)
+    end_at = datetime(2026, 7, 4, tzinfo=kst)
+    orders = [
+        _order(
+            "order-first-day",
+            datetime(2026, 7, 1, 23, 59, tzinfo=kst),
+            OrderStatus.RECEIVED,
+        ),
+        _order(
+            "order-third-day",
+            datetime(2026, 7, 3, 0, 0, tzinfo=kst),
+            OrderStatus.RECEIVED,
+        ),
+        _order(
+            "order-at-exclusive-end",
+            end_at,
+            OrderStatus.RECEIVED,
+        ),
+    ]
+
+    response = build_store_timeline(
+        "store-001",
+        [],
+        orders,
+        start_at=start_at,
+        end_at=end_at,
+        interval="1d",
+    )
+
+    assert response.interval == "1d"
+    assert len(response.points) == 3
+    assert [point.order_count for point in response.points] == [1, 0, 1]
+    assert response.points[0].start_at == start_at
+    assert response.points[-1].end_at == end_at

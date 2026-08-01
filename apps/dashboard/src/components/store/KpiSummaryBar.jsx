@@ -4,7 +4,7 @@ export default function KpiSummaryBar({ dashboard, soldOutCount }) {
   const isCameraNormal =
     dashboard?.state?.quality_status === 'normal'
 
-  const totalPeople =
+  const customerCount =
     dashboard?.state?.visible_person_count ?? 0
 
   const queueCount =
@@ -16,8 +16,8 @@ export default function KpiSummaryBar({ dashboard, soldOutCount }) {
   const cards = [
     {
       id: 'people',
-      label: '매장 총 인원',
-      value: totalPeople,
+      label: '현재 고객',
+      value: customerCount,
       unit: '명',
     },
     {

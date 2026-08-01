@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "method": "160x90 grayscale boundary MAD candidate scan followed by visual approval",
+  "semantics": "contiguous CAFE segments preserve tracking; reset only before verified major scene cuts or missing segment gaps",
+  "cameras": {
+    "5": {
+      "reset_before_segments": [50, 101, 154, 211, 249, 300, 389, 440, 492, 541]
+    },
+    "21": {
+      "reset_before_segments": [50, 100, 151, 202, 253, 304, 355]
+    }
+  }
+}

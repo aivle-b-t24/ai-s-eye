@@ -2,6 +2,8 @@ from datetime import datetime, timezone
 import importlib.util
 from pathlib import Path
 
+import pytest
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = PROJECT_ROOT / "services" / "vision-worker" / "replay_states.py"
@@ -373,3 +375,49 @@ def test_prepare_occupancy_can_namespace_ids_between_loop_cycles() -> None:
     )
 
     assert frame["agents"][0]["id"] == "cycle-2:17"
+
+
+def test_prepare_occupancy_includes_tracking_bbox_and_confidence() -> None:
+    original = sample_state()
+    original.update({"tracking_epoch": 3, "tracking_reset": True})
+    original["positions"] = [
+        {
+            "x": 960,
+            "y": 540,
+            "type": "customer",
+            "track_id": "store-001-cam1:e3:t17",
+            "bbox": {"x1": 480, "y1": 270, "x2": 960, "y2": 810},
+            "confidence": 0.876543,
+            "occluded": True,
+        }
+    ]
+
+    frame = replay_states.prepare_occupancy(original, preserve_timestamp=True)
+
+    assert frame["schema_version"] == "1.1"
+    assert frame["tracking_epoch"] == 3
+    assert frame["tracking_reset"] is True
+    assert frame["agents"][0]["id"] == "store-001-cam1:e3:t17"
+    assert frame["agents"][0]["bbox"] == {
+        "x1": 0.25,
+        "y1": 0.25,
+        "x2": 0.5,
+        "y2": 0.75,
+    }
+    assert frame["agents"][0]["confidence"] == pytest.approx(0.876543)
+    assert frame["agents"][0]["occluded"] is True
+
+
+def test_prepare_state_removes_tracking_only_fields() -> None:
+    original = sample_state()
+    original.update({
+        "source_seconds": 12.2,
+        "tracking_epoch": 2,
+        "tracking_reset": False,
+    })
+
+    outgoing = replay_states.prepare_state(original, preserve_timestamp=True)
+
+    assert "source_seconds" not in outgoing
+    assert "tracking_epoch" not in outgoing
+    assert "tracking_reset" not in outgoing

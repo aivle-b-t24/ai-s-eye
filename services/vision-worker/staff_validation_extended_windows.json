@@ -1,0 +1,14 @@
+{
+  "sample_every_seconds": 5,
+  "windows": [
+    {
+      "id": "cam21-hidden-feet-10min",
+      "camera": "21",
+      "store_id": "store-002",
+      "start_seconds": 1680,
+      "duration_seconds": 600,
+      "expected_staff_count": 1,
+      "review_note": "카운터 뒤 직원 1명이 계속 근무하지만 하체가 장시간 가려지는 후반 10분"
+    }
+  ]
+}

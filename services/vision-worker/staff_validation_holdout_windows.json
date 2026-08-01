@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "label_scope": "manual_staff_count",
+  "label_note": "카메라별 직원 정책을 고른 첫 5분과 겹치지 않는 다음 5분 held-out 구간이다.",
+  "sample_every_seconds": 5,
+  "windows": [
+    {
+      "id": "cam5-second-5min",
+      "camera": "5",
+      "store_id": "store-001",
+      "start_seconds": 300,
+      "duration_seconds": 300,
+      "expected_staff_count": 1,
+      "review_note": "카운터 안쪽에서 주문·제조 업무를 수행하는 직원 수를 원본으로 확인"
+    },
+    {
+      "id": "cam21-second-5min",
+      "camera": "21",
+      "store_id": "store-002",
+      "start_seconds": 300,
+      "duration_seconds": 300,
+      "expected_staff_count": 1,
+      "review_note": "화면 왼쪽 카운터 안쪽에서 주문 업무를 수행하는 직원 수를 원본으로 확인"
+    }
+  ]
+}

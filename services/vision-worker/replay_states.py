@@ -462,7 +462,13 @@ def prepare_state(
     frame_id가 없는 이전 샘플만 기존 동작대로 재생 시각을 사용한다.
     """
     outgoing = state.copy()
-    outgoing.pop("positions", None)  # 디지털 트윈용 필드 → API 스키마에 없으므로 제거
+    for internal_key in (
+        "positions",
+        "source_seconds",
+        "tracking_epoch",
+        "tracking_reset",
+    ):
+        outgoing.pop(internal_key, None)
     if not preserve_timestamp and not outgoing.get("frame_id"):
         current = captured_at or datetime.now(timezone.utc)
         outgoing["captured_at"] = current.isoformat()
@@ -539,20 +545,32 @@ def prepare_occupancy(
         position_x = normalize_coordinate(position.get("x", 0), frame_width)
         position_y = normalize_coordinate(position.get("y", 0), frame_height)
 
-        agents.append(
-            {
-                "id": agent_id,
-                "x": position_x,
-                "y": position_y,
-                "role": role,
-                "state": agent_state,
-                "zone": zone,
+        agent = {
+            "id": agent_id,
+            "x": position_x,
+            "y": position_y,
+            "role": role,
+            "state": agent_state,
+            "zone": zone,
+        }
+        bbox = position.get("bbox")
+        if isinstance(bbox, dict):
+            agent["bbox"] = {
+                "x1": normalize_coordinate(bbox.get("x1", 0), frame_width),
+                "y1": normalize_coordinate(bbox.get("y1", 0), frame_height),
+                "x2": normalize_coordinate(bbox.get("x2", 0), frame_width),
+                "y2": normalize_coordinate(bbox.get("y2", 0), frame_height),
             }
-        )
+        confidence = position.get("confidence")
+        if confidence is not None:
+            agent["confidence"] = min(max(float(confidence), 0.0), 1.0)
+        if position.get("occluded") is not None:
+            agent["occluded"] = bool(position["occluded"])
+        agents.append(agent)
 
     store_id = state["store_id"]
     return {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "store_id": store_id,
         "camera_id": state.get("camera_id", f"{store_id}-cam1"),
         "frame_id": state.get("frame_id"),
@@ -564,6 +582,8 @@ def prepare_occupancy(
         "source": "demo-replay",
         "model_version": state.get("model_version"),
         "coordinate_space": "normalized_image",
+        "tracking_epoch": state.get("tracking_epoch"),
+        "tracking_reset": state.get("tracking_reset"),
         "agents": agents,
     }
 

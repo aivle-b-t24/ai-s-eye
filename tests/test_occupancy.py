@@ -55,6 +55,45 @@ def test_store_occupancy_can_be_saved_and_read(client: TestClient) -> None:
     assert read_response.json() == payload
 
 
+def test_store_occupancy_accepts_optional_tracking_evidence(
+    client: TestClient,
+) -> None:
+    payload = valid_twin_frame()
+    payload.update({"schema_version": "1.1", "tracking_epoch": 4, "tracking_reset": True})
+    payload["agents"][0].update({
+        "bbox": {"x1": 0.2, "y1": 0.1, "x2": 0.5, "y2": 0.8},
+        "confidence": 0.91,
+        "occluded": True,
+    })
+
+    response = client.post(
+        "/internal/stores/store-001/occupancy",
+        json=payload,
+    )
+    saved = client.get("/api/stores/store-001/occupancy/latest")
+
+    assert response.status_code == 201
+    assert saved.status_code == 200
+    assert saved.json() == payload
+
+
+def test_store_occupancy_rejects_reversed_bbox(client: TestClient) -> None:
+    payload = valid_twin_frame()
+    payload["agents"][0]["bbox"] = {
+        "x1": 0.8,
+        "y1": 0.1,
+        "x2": 0.2,
+        "y2": 0.9,
+    }
+
+    response = client.post(
+        "/internal/stores/store-001/occupancy",
+        json=payload,
+    )
+
+    assert response.status_code == 422
+
+
 def test_floor_coordinate_space_is_rejected(client: TestClient) -> None:
     payload = valid_twin_frame()
     payload["coordinate_space"] = "normalized_floor"

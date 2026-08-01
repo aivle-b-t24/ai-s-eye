@@ -121,7 +121,7 @@ function HeroSection({ page, authMode, dashboard, onMenuOpen }) {
 
                 <div className="camera-bottom-label">
                   <span>{isHeadOffice ? 'SUPERVISOR CONTROL MODE' : 'AI OBJECT DETECTION'}</span>
-                  <strong className={hideMetrics ? 'is-hidden' : ''}>{peopleCount}명 감지</strong>
+                  <strong className={hideMetrics ? 'is-hidden' : ''}>고객 {peopleCount}명 감지</strong>
                 </div>
               </div>
 

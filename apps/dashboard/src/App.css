@@ -2358,6 +2358,16 @@ opacity 0.28s ease;
 .camera-scene-agent.is-missing {
 opacity: 0.24;
 }
+.camera-scene-agent.is-occluded {
+opacity: 0.48;
+filter: saturate(0.55);
+}
+.camera-scene-agent.is-occluded .camera-scene-agent-body {
+animation: camera-agent-occluded 1.1s ease-in-out infinite alternate;
+}
+.camera-scene-agent.is-new {
+animation: camera-agent-enter 0.28s ease-out both;
+}
 .camera-scene-agent-shadow {
 position: absolute;
 left: 6px;
@@ -2416,13 +2426,13 @@ border-left: 4px solid var(--agent-color);
 background: transparent !important;
 }
 .camera-scene-agent.is-moving .camera-scene-agent-body {
-animation: camera-agent-walk 0.55s ease-in-out infinite alternate;
+animation: camera-agent-walk 0.45s ease-in-out 2 alternate;
 }
 .camera-scene-agent.is-moving .camera-scene-agent-legs {
-animation: camera-agent-step 0.55s ease-in-out infinite alternate;
+animation: camera-agent-step 0.45s ease-in-out 2 alternate;
 }
 .camera-scene-agent.is-moving .camera-scene-agent-arms {
-animation: camera-agent-arms 0.55s ease-in-out infinite alternate-reverse;
+animation: camera-agent-arms 0.45s ease-in-out 2 alternate-reverse;
 }
 .camera-scene-agent.is-seated {
 width: 44px;
@@ -2463,6 +2473,14 @@ width: 30px;
 @keyframes camera-agent-walk {
 from { transform: scaleX(var(--agent-direction)) translateY(0); }
 to { transform: scaleX(var(--agent-direction)) translateY(-2px); }
+}
+@keyframes camera-agent-enter {
+from { opacity: 0; }
+to { opacity: 1; }
+}
+@keyframes camera-agent-occluded {
+from { opacity: 0.58; }
+to { opacity: 0.9; }
 }
 @keyframes camera-agent-step {
 from { transform: skewX(-8deg); }
@@ -5045,6 +5063,14 @@ font-size: 16px !important;
 
 .scene-editor-object polygon:active {
   cursor: grabbing;
+}
+
+.scene-canvas.is-placing-seat {
+  cursor: crosshair;
+}
+
+.scene-canvas.is-placing-seat .scene-editor-object {
+  pointer-events: none;
 }
 
 .scene-editor-floor polygon {

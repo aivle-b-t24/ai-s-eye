@@ -2,15 +2,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { getCameraScene } from './cameraScenes'
 import {
+  agentDepth,
+  agentScale,
   allocateRenderPositions,
-  perspectiveScale,
+  objectDepth,
+  stabilizeTrackPosition,
+  stabilizeTrackState,
 } from './sceneProjection'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
-const POLLING_INTERVAL_MS = 2000
-const POSITION_TRANSITION_MS = 1600
-const MISSING_RETENTION_MS = 4000
-const STALE_AFTER_MS = 6000
+const POLLING_INTERVAL_MS = 500
+const POSITION_TRANSITION_MS = 900
+const MISSING_RETENTION_MS = 2000
+const STALE_AFTER_MS = 3000
 const MAX_TRAIL_POINTS = 12
 
 function formatCapturedAt(value) {
@@ -72,11 +76,6 @@ function deriveSeatAnchors(objects) {
     })
 }
 
-function objectDepth(object) {
-  const frontY = Math.max(...object.polygon.map(([, y]) => y))
-  return frontY + (object.type === 'occluder' ? 115 : 85)
-}
-
 function agentLabel(agent) {
   if (agent.role === 'staff') return '직원'
   if (agent.state === 'queue') return '대기 고객'
@@ -93,13 +92,12 @@ function agentClass(agent) {
 function agentMotion(agent) {
   const current = agent.trail.at(-1)
   const previous = agent.trail.at(-2)
-  if (!current || !previous || agent.state === 'seated') {
+  if (!agent.isMoving || !current || !previous || agent.state === 'seated') {
     return { moving: false, direction: 1 }
   }
   const deltaX = current.x - previous.x
-  const deltaY = current.y - previous.y
   return {
-    moving: Math.hypot(deltaX, deltaY) > 0.006,
+    moving: true,
     direction: deltaX < -0.001 ? -1 : 1,
   }
 }
@@ -124,7 +122,9 @@ function updateTracks(current, agents, observedAt, { retainMissing = true } = {}
     const id = buildTrackKey(agent, index)
     observedIds.add(id)
     const previous = current[id]
-    const point = { x: agent.x, y: agent.y }
+    const stabilized = stabilizeTrackPosition(previous, agent)
+    const stabilizedState = stabilizeTrackState(previous, agent, stabilized)
+    const point = { x: stabilized.x, y: stabilized.y }
     const lastPoint = previous?.trail.at(-1)
     const moved = (
       !lastPoint
@@ -134,12 +134,15 @@ function updateTracks(current, agents, observedAt, { retainMissing = true } = {}
 
     next[id] = {
       ...agent,
+      ...stabilized,
+      ...stabilizedState,
       id,
       trail: moved
         ? [...(previous?.trail ?? []), point].slice(-MAX_TRAIL_POINTS)
         : (previous?.trail ?? [point]),
       lastSeenAt: observedAt,
       missing: false,
+      observations: (previous?.observations ?? 0) + 1,
     }
   })
 
@@ -185,6 +188,8 @@ export default function CameraSceneTwin({
   const [viewMode, setViewMode] = useState('twin')
   const [imageTick, setImageTick] = useState(() => Date.now())
   const latestCapturedAtRef = useRef(null)
+  const latestTrackingEpochRef = useRef(null)
+  const seatAssignmentsRef = useRef({})
 
   const loadOccupancy = useCallback(async (signal) => {
     if (isSimulation) return
@@ -200,6 +205,7 @@ export default function CameraSceneTwin({
       )
       if (response.status === 404) {
         latestCapturedAtRef.current = null
+        latestTrackingEpochRef.current = null
         setTracks({})
         setCapturedAt(null)
         setStatus('empty')
@@ -214,7 +220,15 @@ export default function CameraSceneTwin({
       const isNewFrame = frameKey !== latestCapturedAtRef.current
 
       if (isNewFrame) {
+        const trackingEpoch = frame.tracking_epoch ?? null
+        const epochChanged = (
+          trackingEpoch !== null
+          && latestTrackingEpochRef.current !== null
+          && trackingEpoch !== latestTrackingEpochRef.current
+        )
+        const resetTracks = frame.tracking_reset === true || epochChanged
         latestCapturedAtRef.current = frameKey
+        latestTrackingEpochRef.current = trackingEpoch
         setCapturedAt(frame.captured_at)
         setFrameMetadata({
           frameId: frame.frame_id,
@@ -223,7 +237,12 @@ export default function CameraSceneTwin({
           roiVersion: frame.roi_version,
           source: frame.source,
         })
-        setTracks((current) => updateTracks(current, frame.agents ?? [], Date.now()))
+        setTracks((current) => updateTracks(
+          resetTracks ? {} : current,
+          frame.agents ?? [],
+          Date.now(),
+          { retainMissing: !resetTracks },
+        ))
         setImageTick(Date.now())
       }
 
@@ -236,6 +255,8 @@ export default function CameraSceneTwin({
 
   useEffect(() => {
     latestCapturedAtRef.current = null
+    latestTrackingEpochRef.current = null
+    seatAssignmentsRef.current = {}
     setTracks({})
     setRoiConfig(null)
     setSceneConfig(null)
@@ -341,9 +362,20 @@ export default function CameraSceneTwin({
     [scene],
   )
   const renderTrackList = useMemo(
-    () => allocateRenderPositions(displayTrackList, seatAnchors),
+    () => allocateRenderPositions(
+      displayTrackList,
+      seatAnchors,
+      seatAssignmentsRef.current,
+    ),
     [displayTrackList, seatAnchors],
   )
+  useEffect(() => {
+    seatAssignmentsRef.current = Object.fromEntries(
+      renderTrackList
+        .filter((track) => track.seatAnchorId)
+        .map((track) => [track.id, track.seatAnchorId]),
+    )
+  }, [renderTrackList])
   const backgroundObjects = useMemo(
     () => (scene?.objects ?? []).filter(
       (item) => !['table', 'counter', 'occluder'].includes(item.type),
@@ -531,7 +563,7 @@ export default function CameraSceneTwin({
 
             <div className="camera-scene-agent-layer" aria-live="polite">
               {renderTrackList.map((track) => {
-                const scale = perspectiveScale(track.renderY, scene.perspective)
+                const scale = agentScale(track, scene.perspective, scene.bboxScale)
                 const motion = agentMotion(track)
                 return (
                   <div
@@ -541,19 +573,21 @@ export default function CameraSceneTwin({
                       `camera-scene-agent-${agentClass(track)}`,
                       track.state === 'seated' ? 'is-seated' : '',
                       motion.moving ? 'is-moving' : '',
+                      track.observations === 1 ? 'is-new' : '',
                       track.missing ? 'is-missing' : '',
+                      track.occluded ? 'is-occluded' : '',
                     ].filter(Boolean).join(' ')}
                     style={{
                       left: `${track.renderX * 100}%`,
                       top: `${track.renderY * 100}%`,
-                      zIndex: Math.round(track.renderY * 1000) + 100,
+                      zIndex: agentDepth(track.renderY),
                       '--agent-scale': scale,
                       '--agent-direction': motion.direction,
                       '--position-transition': isSimulation
                         ? '480ms'
                         : `${POSITION_TRANSITION_MS}ms`,
                     }}
-                    title={`${agentLabel(track)} · ${track.zone ?? '구역 미지정'} · ID ${track.id}${track.seatAnchorId ? ' · 좌석 보정' : ''}`}
+                    title={`${agentLabel(track)} · ${track.zone ?? '구역 미지정'} · ID ${track.id}${track.seatAnchorId ? ' · 좌석 보정' : ''}${track.occluded ? ' · 일시 가림' : ''}`}
                   >
                     <span className="camera-scene-agent-shadow" />
                     <span className="camera-scene-agent-body">

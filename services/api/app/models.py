@@ -173,6 +173,19 @@ class StoreTimelineResponse(BaseModel):
     points: list[StoreTimelinePoint]
 
 
+class TwinBoundingBox(BaseModel):
+    x1: float = Field(ge=0, le=1)
+    y1: float = Field(ge=0, le=1)
+    x2: float = Field(ge=0, le=1)
+    y2: float = Field(ge=0, le=1)
+
+    @model_validator(mode="after")
+    def validate_corners(self) -> "TwinBoundingBox":
+        if self.x2 < self.x1 or self.y2 < self.y1:
+            raise ValueError("bbox max coordinates must be greater than min coordinates")
+        return self
+
+
 class TwinAgent(BaseModel):
     id: str | None = None
     x: float = Field(ge=0, le=1)
@@ -180,6 +193,9 @@ class TwinAgent(BaseModel):
     role: TwinAgentRole
     state: TwinAgentState = TwinAgentState.UNKNOWN
     zone: str | None = None
+    bbox: TwinBoundingBox | None = None
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    occluded: bool | None = None
 
 
 class TwinFrame(BaseModel):
@@ -195,6 +211,8 @@ class TwinFrame(BaseModel):
     source: str | None = Field(default=None, min_length=1)
     model_version: str | None = Field(default=None, min_length=1)
     coordinate_space: Literal["normalized_image"] = "normalized_image"
+    tracking_epoch: int | None = Field(default=None, ge=0)
+    tracking_reset: bool | None = None
     agents: list[TwinAgent] = Field(default_factory=list)
 
 

@@ -12,7 +12,9 @@ AISEYE_CAFE_ROOT="${AISEYE_CAFE_ROOT:-/home/kokdo/datasets/ai-s-eye/cafe-selecte
 AISEYE_CAFE_MODEL="${AISEYE_CAFE_MODEL:-/home/kokdo/datasets/ai-s-eye/models/best.pt}"
 AISEYE_API_BASE_URL="${AISEYE_API_BASE_URL:-http://localhost:8000}"
 AISEYE_ROI_REFRESH_SECONDS="${AISEYE_ROI_REFRESH_SECONDS:-2}"
-VISION_LIVE_INTERVAL="${VISION_LIVE_INTERVAL:-0.5}"
+AISEYE_TRACKING_PROFILE="${AISEYE_TRACKING_PROFILE:-baseline}"
+VISION_OUTPUT_INTERVAL="${VISION_OUTPUT_INTERVAL:-1.0}"
+VISION_PLAYBACK_SPEED="${VISION_PLAYBACK_SPEED:-1.5}"
 
 mkdir -p "${RUN_DIR}"
 
@@ -52,9 +54,11 @@ start_live() {
       AISEYE_CAFE_MODEL="${AISEYE_CAFE_MODEL}" \
       AISEYE_API_BASE_URL="${AISEYE_API_BASE_URL}" \
       AISEYE_ROI_REFRESH_SECONDS="${AISEYE_ROI_REFRESH_SECONDS}" \
+      AISEYE_TRACKING_PROFILE="${AISEYE_TRACKING_PROFILE}" \
       "${VISION_PYTHON}" "${SCRIPT_DIR}/cafe_stores.py" \
       --live --loop --post "${AISEYE_API_BASE_URL}" \
-      --interval "${VISION_LIVE_INTERVAL}" \
+      --output-interval "${VISION_OUTPUT_INTERVAL}" \
+      --speed "${VISION_PLAYBACK_SPEED}" \
       >>"${LOG_FILE}" 2>&1 &
     echo "$!" >"${PID_FILE}"
   )
@@ -92,13 +96,24 @@ stop_live() {
 }
 
 show_status() {
+  running_profile="${AISEYE_TRACKING_PROFILE}"
   if is_running; then
-    echo "Vision LIVE 실행 중: PID=$(cat "${PID_FILE}")"
+    pid="$(cat "${PID_FILE}")"
+    process_profile="$(
+      tr '\0' '\n' <"/proc/${pid}/environ" 2>/dev/null \
+        | sed -n 's/^AISEYE_TRACKING_PROFILE=//p' \
+        | head -n 1
+    )"
+    [[ -n "${process_profile}" ]] && running_profile="${process_profile}"
+    echo "Vision LIVE 실행 중: PID=${pid}"
   else
     echo "Vision LIVE 중지됨"
   fi
   echo "API: ${AISEYE_API_BASE_URL}"
   echo "ROI 확인 주기: ${AISEYE_ROI_REFRESH_SECONDS}초"
+  echo "추적 프로필: ${running_profile}"
+  echo "영상 출력 간격: ${VISION_OUTPUT_INTERVAL}초"
+  echo "재생 속도: ${VISION_PLAYBACK_SPEED}x"
   echo "로그: ${LOG_FILE}"
 }
 

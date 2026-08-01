@@ -304,7 +304,6 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
   }
 
   const handleCanvasPointerDown = (event) => {
-    if (event.target.dataset.vertex === 'true' || event.target.dataset.seat === 'true') return
     const point = pointFromEvent(event, svgRef.current)
     if (isPlacingSeat) {
       const tableId = nearestTableId(point, objects)
@@ -318,6 +317,7 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
       setStatus({ kind: 'idle', message: '좌석 위치를 추가했습니다. 계속 찍거나 좌석 배치를 종료하세요.' })
       return
     }
+    if (event.target.dataset.vertex === 'true' || event.target.dataset.seat === 'true') return
     if (!isDrawing) return
     setDraftPoints((current) => [...current, point])
   }
@@ -561,7 +561,7 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
         <div className="roi-canvas-wrap">
           <svg
             ref={svgRef}
-            className={`roi-canvas scene-canvas ${isDrawing ? 'is-drawing' : ''}`}
+            className={`roi-canvas scene-canvas ${isDrawing ? 'is-drawing' : ''} ${isPlacingSeat ? 'is-placing-seat' : ''}`}
             viewBox="0 0 1000 1000"
             preserveAspectRatio="none"
             style={{ aspectRatio: `${imageSize.width} / ${imageSize.height}` }}
@@ -582,7 +582,7 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
                 key={item.id}
                 className={`scene-editor-object scene-editor-${item.type} ${selectedObjectId === item.id ? 'is-selected' : ''}`}
                 onPointerDown={(event) => {
-                  if (isDrawing) return
+                  if (isDrawing || isPlacingSeat) return
                   event.stopPropagation()
                   event.preventDefault()
                   event.currentTarget.setPointerCapture?.(event.pointerId)
@@ -614,6 +614,7 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
                     cy={point.y}
                     r="11"
                     onPointerDown={(event) => {
+                      if (isPlacingSeat) return
                       event.stopPropagation()
                       event.preventDefault()
                       event.currentTarget.setPointerCapture?.(event.pointerId)

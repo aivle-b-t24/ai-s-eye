@@ -3,7 +3,10 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import numpy as np
+import pytest
+
+
+np = pytest.importorskip("numpy")
 
 
 VISION_DIR = Path(__file__).resolve().parents[1] / "services" / "vision-worker"

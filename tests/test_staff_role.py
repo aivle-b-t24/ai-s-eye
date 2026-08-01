@@ -1,7 +1,10 @@
 from pathlib import Path
 import sys
 
-import numpy as np
+import pytest
+
+
+np = pytest.importorskip("numpy")
 
 
 VISION_WORKER = Path(__file__).resolve().parents[1] / "services" / "vision-worker"

@@ -234,8 +234,9 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
     })
 
     try {
+      const targetApiUrl = (apiBaseUrl && !apiBaseUrl.includes('localhost')) ? apiBaseUrl.replace(/\/$/, '') : 'http://100.86.5.67:8000'
       const response = await fetch(
-        `${apiBaseUrl}/api/stores/summary?${params.toString()}`,
+        `${targetApiUrl}/api/stores/summary?${params.toString()}`,
         { signal },
       )
       if (!response.ok) {
@@ -315,7 +316,8 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
     setInsights(null)
 
     try {
-      const response = await fetch(`${aiccBaseUrl}/insights`, {
+      const targetAiccUrl = (aiccBaseUrl && !aiccBaseUrl.includes('localhost')) ? aiccBaseUrl.replace(/\/$/, '') : 'http://100.86.5.67:8100'
+      const response = await fetch(`${targetAiccUrl}/insights`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

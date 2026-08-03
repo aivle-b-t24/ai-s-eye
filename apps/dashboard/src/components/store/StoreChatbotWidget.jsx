@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { AICC_URL, CHATBOT_BASE_URL } from '../../constants/env'
+import { AICC_URL, AICC_BASE_URL } from '../../constants/env'
 
 export default function StoreChatbotWidget({ page }) {
   const [isOpen, setIsOpen] = useState(false)
@@ -55,7 +55,8 @@ export default function StoreChatbotWidget({ page }) {
     setIsLoading(true)
 
     try {
-      const endpoint = `${CHATBOT_BASE_URL.replace(/\/$/, '')}/chat`
+      const targetBaseUrl = 'http://100.86.5.67:8100'
+      const endpoint = `${targetBaseUrl}/chat`
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -102,7 +103,7 @@ export default function StoreChatbotWidget({ page }) {
     const left = window.screen.width / 2 - width / 2
     const top = window.screen.height / 2 - height / 2
     const activeStoreId = (page === 'store-002' || page === 'suwan' || page === 'sangmu') ? 'store-002' : 'store-001'
-    const targetEndpoint = `${CHATBOT_BASE_URL.replace(/\/$/, '')}/chat`
+    const targetEndpoint = 'http://100.86.5.67:8100/chat'
 
     const popupHtml = `
       <!DOCTYPE html>

@@ -87,6 +87,21 @@ class CurrentStoreStateRecord(Base):
     )
 
 
+class StoreSettingsRecord(Base):
+    """매장 운영 설정(수용 인원 등). 매장당 한 건."""
+
+    __tablename__ = "store_settings"
+
+    store_id: Mapped[str] = mapped_column(sa.String(100), primary_key=True)
+    max_capacity: Mapped[int] = mapped_column(nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True),
+        nullable=False,
+        server_default=sa.text("CURRENT_TIMESTAMP"),
+        onupdate=sa.text("CURRENT_TIMESTAMP"),
+    )
+
+
 class StoreStateHistoryRecord(Base):
     """장기 조회용 30초 샘플 상태."""
 

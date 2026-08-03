@@ -5,6 +5,7 @@ import {
   fetchStoreEta,
   fetchStoreMenus,
   fetchStorePolicies,
+  fetchStoreSettings,
 } from '../api/storeApi'
 
 export function useStorePolling(authMode, page, isDedicatedHeadOffice) {
@@ -39,10 +40,11 @@ export function useStorePolling(authMode, page, isDedicatedHeadOffice) {
 
   const loadStaticData = useCallback(async (targetStoreId) => {
     try {
-      const [menuData, policyData, etaData] = await Promise.all([
+      const [menuData, policyData, etaData, settingsData] = await Promise.all([
         fetchStoreMenus(targetStoreId),
         fetchStorePolicies(targetStoreId),
         fetchStoreEta(targetStoreId),
+        fetchStoreSettings(targetStoreId),
       ])
       setStoresData((prev) => ({
         ...prev,
@@ -51,6 +53,7 @@ export function useStorePolling(authMode, page, isDedicatedHeadOffice) {
           menus: menuData?.menus ?? [],
           policies: policyData?.policies ?? [],
           eta: etaData ?? null,
+          settings: settingsData ?? prev[targetStoreId]?.settings ?? null,
         },
       }))
     } catch {

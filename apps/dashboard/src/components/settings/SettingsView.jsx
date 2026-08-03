@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import RoiEditor from './RoiEditor';
 import SceneEditor from './SceneEditor';
+import CapacitySetting from './CapacitySetting';
 
 export default function SettingsView({
   apiBaseUrl,
@@ -62,7 +63,7 @@ export default function SettingsView({
             <ol>
               <li>ROI로 인원 판정 구역 설정</li>
               <li>테이블·카운터 장면 보정</li>
-              <li>저장 및 적용</li>
+              <li>수용 인원 설정·저장</li>
             </ol>
           </div>
 
@@ -85,12 +86,23 @@ export default function SettingsView({
             >
               디지털 트윈 장면
             </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeSpaceTab === 'capacity'}
+              className={activeSpaceTab === 'capacity' ? 'active' : ''}
+              onClick={() => setActiveSpaceTab('capacity')}
+            >
+              수용 인원
+            </button>
           </div>
 
           {activeSpaceTab === 'roi' ? (
             <RoiEditor apiBaseUrl={apiBaseUrl} storeId={storeId} />
-          ) : (
+          ) : activeSpaceTab === 'scene' ? (
             <SceneEditor apiBaseUrl={apiBaseUrl} storeId={storeId} />
+          ) : (
+            <CapacitySetting storeId={storeId} />
           )}
         </div>
       )}

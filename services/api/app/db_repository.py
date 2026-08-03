@@ -15,6 +15,7 @@ from .db_models import (
     HourlyStoreMetricRecord,
     OrderEventRecord,
     OrderItemRecord,
+    StoreSettingsRecord,
     StoreStateHistoryRecord,
     StoreStateRecord,
 )
@@ -27,6 +28,7 @@ from .models import (
     OrderItem,
     RoiConfigStatus,
     SceneConfigStatus,
+    StoreSettings,
     StoreState,
     StoreSummaryResponse,
     StoreTimelineResponse,
@@ -81,6 +83,37 @@ class DatabaseRepository:
             if record is None:
                 return None
             return _store_state_from_record(record)
+
+    def get_store_settings(self, store_id: str) -> StoreSettings | None:
+        """매장 운영 설정(수용 인원 등). 없으면 None."""
+        with self._session_factory() as session:
+            record = session.get(StoreSettingsRecord, store_id)
+            if record is None:
+                return None
+            return StoreSettings(
+                store_id=record.store_id,
+                max_capacity=record.max_capacity,
+                updated_at=record.updated_at,
+            )
+
+    def save_store_settings(self, store_id: str, max_capacity: int) -> StoreSettings:
+        """매장 설정을 저장(없으면 생성, 있으면 갱신)한다."""
+        with self._session_factory() as session:
+            record = session.get(StoreSettingsRecord, store_id)
+            if record is None:
+                record = StoreSettingsRecord(
+                    store_id=store_id, max_capacity=max_capacity
+                )
+                session.add(record)
+            else:
+                record.max_capacity = max_capacity
+            session.commit()
+            session.refresh(record)
+            return StoreSettings(
+                store_id=record.store_id,
+                max_capacity=record.max_capacity,
+                updated_at=record.updated_at,
+            )
 
     def save_order_event(self, event: OrderEvent) -> OrderEvent:
         """주문 이벤트와 메뉴를 함께 저장하며 event_id 중복을 허용하지 않는다."""

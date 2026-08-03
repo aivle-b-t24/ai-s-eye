@@ -412,3 +412,28 @@ def test_order_csv_export_rejects_period_over_31_days(
     assert response.json()["detail"] == (
         "order export period must not exceed 31 days"
     )
+
+
+def test_store_settings_default_for_unset_store(client: TestClient) -> None:
+    response = client.get("/api/stores/store-001/settings")
+    assert response.status_code == 200
+    assert response.json()["max_capacity"] == 30  # 기본 수용 인원
+
+
+def test_store_settings_save_and_read(client: TestClient) -> None:
+    put_response = client.put(
+        "/api/stores/store-002/settings", json={"max_capacity": 25}
+    )
+    assert put_response.status_code == 200
+    assert put_response.json()["max_capacity"] == 25
+
+    read_response = client.get("/api/stores/store-002/settings")
+    assert read_response.status_code == 200
+    assert read_response.json()["max_capacity"] == 25
+
+
+def test_store_settings_rejects_unknown_store(client: TestClient) -> None:
+    response = client.put(
+        "/api/stores/store-unknown/settings", json={"max_capacity": 20}
+    )
+    assert response.status_code == 422

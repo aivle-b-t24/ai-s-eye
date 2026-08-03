@@ -26,9 +26,9 @@ export default function KpiSummaryBar({ dashboard, soldOutCount }) {
     },
     {
       id: 'queue',
-      label: '대기 인원',
+      label: '대기 주문',
       value: queueCount,
-      unit: '명',
+      unit: '건',
     },
     {
       id: 'wait',

@@ -29,6 +29,8 @@ from .models import (
     OrderEvent,
     OperationsSimulationResult,
     OperationsSimulationScenario,
+    StoreSettings,
+    StoreSettingsInput,
     StoreState,
     StoreManagerAccountCreate,
     StoreManagerPasswordUpdate,
@@ -883,6 +885,38 @@ def get_store_eta(store_id: str) -> EtaResponse:
         calculation="waiting_order_count * 3",
         data_source="order_lifecycle",
     )
+
+
+@app.get(
+    "/api/stores/{store_id}/settings",
+    response_model=StoreSettings,
+    tags=["stores"],
+    dependencies=[Depends(require_store_access)],
+)
+def get_store_settings(store_id: str) -> StoreSettings:
+    """매장 운영 설정(수용 인원 등). 저장된 값이 없으면 기본값을 돌려준다."""
+    settings_value = repository.get_store_settings(store_id)
+    if settings_value is None:
+        return StoreSettings(store_id=store_id)
+    return settings_value
+
+
+@app.put(
+    "/api/stores/{store_id}/settings",
+    response_model=StoreSettings,
+    tags=["stores"],
+    dependencies=[Depends(require_store_access)],
+)
+def update_store_settings(
+    store_id: str,
+    payload: StoreSettingsInput,
+) -> StoreSettings:
+    if store_id not in settings.vision_store_ids:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="지원하지 않는 매장입니다",
+        )
+    return repository.save_store_settings(store_id, payload.max_capacity)
 
 
 @app.get(

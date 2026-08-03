@@ -75,23 +75,27 @@ export function useRouting(currentUser, setAuthMode, setAuthRole) {
 
       if (
         pathname === '/login.aicafe' ||
-        pathname === '/aicafe/login' ||
-        pathname === '/' ||
-        pathname === ''
+        pathname === '/aicafe/login'
       ) {
         setAuthMode('login')
         setAuthRole(ROLES.STORE_MANAGER)
-        if (pathname !== ENDPOINTS.STORE_LOGIN) {
-          window.history.replaceState({}, '', ENDPOINTS.STORE_LOGIN)
-        }
+        window.history.replaceState({}, '', ENDPOINTS.STORE_LOGIN)
+        return
+      }
+
+      if (
+        pathname === '/' ||
+        pathname === '' ||
+        pathname === '/main' ||
+        pathname === '/main.aicafe'
+      ) {
+        setAuthMode('main')
         return
       }
 
       // 3. Strict Auth Guard: If not logged in during this active React session
       if (!currentUser) {
-        setAuthMode('login')
-        setAuthRole(ROLES.STORE_MANAGER)
-        window.history.replaceState({}, '', ENDPOINTS.STORE_LOGIN)
+        setAuthMode('main')
         return
       }
 
@@ -131,9 +135,7 @@ export function useRouting(currentUser, setAuthMode, setAuthRole) {
         setAuthMode('dashboard')
         window.history.replaceState({}, '', `/${storeId || STORES.DONGMYEONG}.aicafe`)
       } else {
-        setAuthMode('login')
-        setAuthRole(ROLES.STORE_MANAGER)
-        window.history.replaceState({}, '', ENDPOINTS.STORE_LOGIN)
+        setAuthMode('main')
       }
     }
 

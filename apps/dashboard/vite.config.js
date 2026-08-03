@@ -14,7 +14,10 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: '0.0.0.0',
-    allowedHosts: ['aiseye.ldhcloud.com'],
+    allowedHosts: [
+      'chant-gab-tricolor.ngrok-free.dev',
+      'aiseye.ldhcloud.com',
+    ],
     watch: {
       usePolling: true,
       interval: 100,

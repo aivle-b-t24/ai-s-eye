@@ -6233,6 +6233,385 @@ body::before {
   margin-bottom: 0 !important;
 }
 
+/* =========================================================
+   신규 메인 페이지 (첨부 캡처 시안 100% 반영) 스타일
+   ========================================================= */
+.hero-header.main-landing-header {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: min(1360px, calc(100% - 48px)) !important;
+  margin: 20px auto 0 !important;
+  padding: 14px 28px !important;
+  background: rgba(8, 28, 23, 0.75) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(52, 211, 153, 0.25) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35) !important;
+  z-index: 100 !important;
+}
+
+.main-landing-header .hero-brand span small {
+  color: #34d399 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 1.2px !important;
+  display: block !important;
+}
+
+.main-landing-header .hero-brand span strong {
+  color: #ffffff !important;
+  font-size: 22px !important;
+  font-weight: 800 !important;
+}
+
+.landing-auth-buttons {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+.landing-login-btn {
+  padding: 10px 22px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  border-radius: 12px !important;
+  color: #ffffff !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.landing-login-btn:hover {
+  background: rgba(255, 255, 255, 0.18) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+.landing-signup-btn {
+  padding: 10px 24px !important;
+  background: #ffffff !important;
+  border: none !important;
+  border-radius: 12px !important;
+  color: #071914 !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2) !important;
+}
+
+.landing-signup-btn:hover {
+  background: #e2e8f0 !important;
+  transform: translateY(-1px) !important;
+}
+
+.landing-main-title {
+  font-size: clamp(54px, 7vw, 84px) !important;
+  font-weight: 900 !important;
+  letter-spacing: -1.5px !important;
+  color: #ffffff !important;
+  margin: 12px 0 16px !important;
+  line-height: 1.05 !important;
+}
+
+.hero-korean-subtitle {
+  font-size: 18px !important;
+  color: #a7f3d0 !important;
+  font-weight: 600 !important;
+  margin-bottom: 28px !important;
+  letter-spacing: -0.3px !important;
+}
+
+/* =========================================================
+   매장 바탕 카페 배경 이미지 복원 (Warm Cafe Wallpaper)
+   ========================================================= */
+body {
+  position: relative !important;
+  background-image: url("https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=2200&q=90") !important;
+  background-attachment: fixed !important;
+  background-position: center !important;
+  background-size: cover !important;
+  background-repeat: no-repeat !important;
+}
+
+body::before {
+  content: "" !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: -1 !important;
+  background: rgba(0, 0, 0, 0.2) !important;
+  backdrop-filter: blur(5px) !important;
+  -webkit-backdrop-filter: blur(5px) !important;
+  pointer-events: none !important;
+}
+
+/* =========================================================
+   상단 GNB 헤더 시인성 강화
+   ========================================================= */
+.top-global-nav .gnb-header {
+  background: rgba(10, 30, 24, 0.85) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(52, 211, 153, 0.3) !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3) !important;
+  color: #ffffff !important;
+}
+
+/* =========================================================
+   KOS 매장 관리 전용 페이지 스타일
+   ========================================================= */
+.kos-management-view {
+  padding-top: 24px !important;
+}
+
+.kos-page-header {
+  margin-bottom: 24px !important;
+  padding: 24px 28px !important;
+  background: rgba(8, 28, 23, 0.85) !important;
+  border: 1px solid rgba(52, 211, 153, 0.25) !important;
+  border-radius: 18px !important;
+  color: #ffffff !important;
+}
+
+.kos-page-header h2 {
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  margin: 6px 0 !important;
+  color: #ffffff !important;
+}
+
+.kos-page-subtitle {
+  font-size: 13px !important;
+  color: #a7f3d0 !important;
+  margin: 0 !important;
+}
+
+/* =========================================================
+   로그인/회원가입 모달 우측 상단 ✕ 취소 버튼 스타일
+   ========================================================= */
+.auth-card {
+  position: relative !important;
+}
+
+.auth-modal-close-btn {
+  position: absolute !important;
+  top: 18px !important;
+  right: 20px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: #94a3b8 !important;
+  padding: 6px 14px !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  z-index: 10 !important;
+}
+
+.auth-modal-close-btn:hover {
+  background: rgba(239, 68, 68, 0.2) !important;
+  border-color: rgba(239, 68, 68, 0.5) !important;
+  color: #f87171 !important;
+}
+
+/* =========================================================
+   메인 랜딩 페이지 원클릭 체험 로그인 박스 및 하단 푸터 스타일
+   ========================================================= */
+.landing-demo-login-box {
+  margin-top: 24px !important;
+  padding: 16px 20px !important;
+  background: rgba(8, 28, 23, 0.65) !important;
+  border: 1px solid rgba(52, 211, 153, 0.25) !important;
+  border-radius: 16px !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+}
+
+.landing-demo-login-box .demo-hint {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  color: #34d399 !important;
+  margin: 0 0 10px 0 !important;
+}
+
+.main-landing-footer {
+  width: 100% !important;
+  max-width: 1360px !important;
+  margin: 32px auto 20px !important;
+  padding: 16px 0 !important;
+  text-align: center !important;
+  font-size: 13px !important;
+  color: #94a3b8 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.main-landing-footer span {
+  margin: 0 8px !important;
+  cursor: pointer !important;
+  transition: color 0.2s ease !important;
+}
+
+.main-landing-footer span:hover {
+  color: #34d399 !important;
+}
+
+/* =========================================================
+   메인 랜딩 히어로 캡처 시안 정밀 맞춤 스타일
+   ========================================================= */
+.hero-section.main-landing-hero {
+  background: radial-gradient(circle at 75% 35%, rgba(14, 45, 36, 0.96), #061611 80%) !important;
+  border-radius: 24px !important;
+  padding: 16px 24px 32px !important;
+  border: 1px solid rgba(52, 211, 153, 0.2) !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5) !important;
+}
+
+.landing-camera-card {
+  position: relative !important;
+  width: 100% !important;
+  min-height: 440px !important;
+  border-radius: 24px !important;
+  border: 1px solid rgba(52, 211, 153, 0.35) !important;
+  background-image: url("https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=1400&q=90") !important;
+  background-size: cover !important;
+  background-position: center !important;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.55) !important;
+  overflow: hidden !important;
+}
+
+.landing-camera-card .detection-box-waiting {
+  position: absolute !important;
+  top: 38% !important;
+  left: 45% !important;
+  width: 110px !important;
+  height: 160px !important;
+  border: 2.5px solid #34d399 !important;
+  border-radius: 8px !important;
+  box-shadow: inset 0 0 12px rgba(52, 211, 153, 0.3) !important;
+}
+
+.landing-camera-card .detection-box-person1 {
+  position: absolute !important;
+  top: 48% !important;
+  left: 68% !important;
+  width: 115px !important;
+  height: 140px !important;
+  border: 2.5px solid #38bdf8 !important;
+  border-radius: 8px !important;
+}
+
+.landing-camera-card .detection-box-person2 {
+  position: absolute !important;
+  top: 42% !important;
+  left: 80% !important;
+  width: 110px !important;
+  height: 170px !important;
+  border: 2.5px solid #38bdf8 !important;
+  border-radius: 8px !important;
+}
+
+.landing-camera-card .box-tag {
+  position: absolute !important;
+  top: -24px !important;
+  left: -2px !important;
+  padding: 3px 8px !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  border-radius: 4px !important;
+}
+
+.landing-camera-card .tag-waiting {
+  background: #34d399 !important;
+  color: #04140f !important;
+}
+
+.landing-camera-card .tag-person {
+  background: #38bdf8 !important;
+  color: #04141f !important;
+}
+
+/* =========================================================
+   메인 랜딩 전용 배경 및 고대비 헤더 보정
+   ========================================================= */
+.is-main-landing {
+  background: #051510 !important;
+  background-image: none !important;
+  min-height: 100vh !important;
+}
+
+.is-main-landing::before {
+  display: none !important;
+}
+
+.is-main-landing .hero-section {
+  background: radial-gradient(circle at 75% 35%, rgba(14, 45, 36, 0.98), #051510 85%) !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  padding: 20px 40px 40px !important;
+  box-sizing: border-box !important;
+}
+
+.is-main-landing .hero-header {
+  max-width: 1360px !important;
+  margin: 0 auto 36px auto !important;
+  background: rgba(12, 36, 29, 0.85) !important;
+  border: 1px solid rgba(52, 211, 153, 0.3) !important;
+  border-radius: 16px !important;
+  padding: 14px 28px !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35) !important;
+}
+
+.is-main-landing .hero-brand small {
+  color: #34d399 !important;
+  font-weight: 800 !important;
+  letter-spacing: 1px !important;
+}
+
+.is-main-landing .hero-brand strong {
+  color: #ffffff !important;
+  font-size: 22px !important;
+  font-weight: 900 !important;
+}
+
+.is-main-landing .landing-login-btn {
+  background: transparent !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.3) !important;
+  color: #ffffff !important;
+  padding: 10px 24px !important;
+  border-radius: 12px !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.is-main-landing .landing-login-btn:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.is-main-landing .landing-signup-btn {
+  background: #ffffff !important;
+  border: none !important;
+  color: #051510 !important;
+  padding: 10px 24px !important;
+  border-radius: 12px !important;
+  font-size: 14px !important;
+  font-weight: 900 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 4px 14px rgba(255, 255, 255, 0.2) !important;
+}
+
+.is-main-landing .landing-signup-btn:hover {
+  background: #f1f5f9 !important;
+  transform: translateY(-1px) !important;
+}
+
 
 
 

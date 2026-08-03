@@ -86,6 +86,17 @@ export default function LoginPage({ onLogin, onGoToSignup, onClose, initialRole 
   return (
     <div className="auth-wrapper">
       <div className="auth-card">
+        {onClose && (
+          <button
+            type="button"
+            className="auth-modal-close-btn"
+            onClick={onClose}
+            aria-label="취소 (메인 페이지로 이동)"
+            title="취소 (메인 페이지로 이동)"
+          >
+            ✕ 취소
+          </button>
+        )}
 
         <div className="auth-header">
           <span className="auth-badge">AI MONITORING SYSTEM</span>

@@ -14,11 +14,13 @@ import Sidebar from './components/Sidebar'
 import ProfileModal from './components/user/ProfileModal'
 
 import { ROLES, STORES } from './constants/auth'
-import { API_BASE_URL } from './constants/env'
+import { API_BASE_URL, CHATBOT_BASE_URL } from './constants/env'
 import { useAuth } from './hooks/useAuth'
 import { useRouting } from './hooks/useRouting'
 import { useStorePolling } from './hooks/useStorePolling'
 import { useChatbotSettings } from './hooks/useChatbotSettings'
+
+import KosStoreManagementView from './components/store/KosStoreManagementView'
 
 function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -57,6 +59,7 @@ function App() {
     <main
       className={[
         'page-shell',
+        authMode === 'main' ? 'is-main-landing' : '',
         !isDedicatedHeadOffice ? 'has-hero' : '',
         isDedicatedHeadOffice ? 'supervisor-shell no-hero' : '',
       ]
@@ -101,6 +104,15 @@ function App() {
           authMode={authMode}
           dashboard={activeDashboard}
           onMenuOpen={() => setIsSidebarOpen(true)}
+          onLogin={() => {
+            setAuthRole(ROLES.STORE_MANAGER)
+            setAuthMode('login')
+          }}
+          onSignup={() => {
+            setAuthRole(ROLES.STORE_MANAGER)
+            setAuthMode('signup')
+          }}
+          onLoginSuccess={(userData) => handleLoginSuccess(userData, setPage)}
         />
       )}
 
@@ -121,7 +133,7 @@ function App() {
               onRoleChange={handleLoginRoleChange}
               onLogin={(userData) => handleLoginSuccess(userData, setPage)}
               onGoToSignup={handleGoToSignup}
-              onClose={() => setAuthMode('dashboard')}
+              onClose={() => setAuthMode('main')}
             />
           )}
           {authMode === 'signup' && (
@@ -130,7 +142,7 @@ function App() {
               onRoleChange={handleSignupRoleChange}
               onGoToLogin={handleGoToLogin}
               onCompleteSignup={handleGoToLogin}
-              onClose={() => setAuthMode('dashboard')}
+              onClose={() => setAuthMode('main')}
             />
           )}
         </div>
@@ -153,6 +165,19 @@ function App() {
           {(page === 'head-office' || isDedicatedHeadOffice) && (
             <SupervisorHeadOfficeView
               apiBaseUrl={API_BASE_URL}
+              aiccBaseUrl={CHATBOT_BASE_URL}
+            />
+          )}
+
+          {page === 'kos' && (
+            <KosStoreManagementView
+              page={page}
+              dashboard={activeDashboard}
+              soldOutCount={soldOutCount}
+              apiBaseUrl={API_BASE_URL}
+              error={error}
+              loading={loading}
+              isChatbotEnabled={chatbotSettingsMap[page] !== false}
             />
           )}
 

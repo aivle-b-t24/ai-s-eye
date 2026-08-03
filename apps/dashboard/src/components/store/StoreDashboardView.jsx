@@ -84,25 +84,6 @@ export default function StoreDashboardView({
         </div>
       </section>
 
-      <section className="dashboard-bottom-grid">
-        <div className="dashboard-feature">
-          <PolicyListPanel
-            policies={dashboard?.policies}
-            isExpanded={isPolicyExpanded}
-            onToggleExpand={() => setIsPolicyExpanded((prev) => !prev)}
-          />
-        </div>
-
-        <div className="dashboard-feature">
-          <MenuListPanel
-            menus={dashboard?.menus}
-            soldOutCount={soldOutCount}
-            isExpanded={isMenuExpanded}
-            onToggleExpand={() => setIsMenuExpanded((prev) => !prev)}
-          />
-        </div>
-      </section>
-
       {/* JBNU Inspired Store Chatbot Widget */}
       {isChatbotEnabled !== false && <StoreChatbotWidget page={page} />}
 

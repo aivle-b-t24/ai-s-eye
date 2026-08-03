@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-
-const CHATBOT_BASE_URL =
-  import.meta.env.VITE_CHATBOT_BASE_URL ?? 'http://100.86.5.67:8100'
+import { AICC_URL, CHATBOT_BASE_URL } from '../../constants/env'
 
 export default function StoreChatbotWidget({ page }) {
   const [isOpen, setIsOpen] = useState(false)
@@ -43,7 +41,7 @@ export default function StoreChatbotWidget({ page }) {
     const query = textToSend || inputValue
     if (!query.trim() || isLoading) return
 
-    const activeStoreId = page || 'store-001'
+    const activeStoreId = (page === 'store-002' || page === 'suwan' || page === 'sangmu') ? 'store-002' : 'store-001'
 
     const userMsg = {
       id: Date.now(),
@@ -103,7 +101,7 @@ export default function StoreChatbotWidget({ page }) {
     const height = 680
     const left = window.screen.width / 2 - width / 2
     const top = window.screen.height / 2 - height / 2
-    const activeStoreId = page || 'store-001'
+    const activeStoreId = (page === 'store-002' || page === 'suwan' || page === 'sangmu') ? 'store-002' : 'store-001'
     const targetEndpoint = `${CHATBOT_BASE_URL.replace(/\/$/, '')}/chat`
 
     const popupHtml = `

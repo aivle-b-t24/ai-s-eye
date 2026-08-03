@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ROLES, STORES, ENDPOINTS } from '../constants/auth'
 
 export function useAuth() {
-  const [authMode, setAuthMode] = useState('login')
+  const [authMode, setAuthMode] = useState('main')
   const [authRole, setAuthRole] = useState(ROLES.STORE_MANAGER)
   const [currentUser, setCurrentUser] = useState(null)
 
@@ -48,8 +48,8 @@ export function useAuth() {
 
   const handleLogout = () => {
     setCurrentUser(null)
-    setAuthMode('login')
-    window.history.pushState({}, '', ENDPOINTS.STORE_LOGIN)
+    setAuthMode('main')
+    window.history.pushState({}, '', '/')
   }
 
   return {

@@ -31,8 +31,13 @@ class FakeTools(StoreTools):
         self.calls.append("menus")
         return {"ok": True, "menus": []}
 
-    def get_policies(self, store_id: str | None = None) -> dict[str, Any]:
+    def get_policies(
+        self,
+        store_id: str | None = None,
+        query: str | None = None,
+    ) -> dict[str, Any]:
         self.calls.append("policies")
+        self.policy_query = query
         return {"ok": True, "policies": []}
 
     def get_order_status(self, order_id: str) -> dict[str, Any]:
@@ -113,15 +118,19 @@ def test_menu_question_does_not_call_other_tools() -> None:
     assert tools.calls == ["menus"]
 
 
-def test_policy_question_is_marked_as_pending_rag() -> None:
+def test_policy_question_passes_query_for_rag() -> None:
+    """정책 질문은 고객 질문을 query로 넘겨 관련 정책만 검색(RAG)한다."""
     tools = FakeTools()
     router = QuestionRouter(tools)
 
     answer = router.handle("영업시간이 어떻게 되나요?")
 
     assert answer["question_type"] == "policy"
-    assert answer["pending"] == "rag"
-    assert answer["note"]
+    assert answer["tool"] == "policy"
+    assert tools.calls == ["policies"]
+    assert tools.policy_query == "영업시간이 어떻게 되나요?"  # 질문이 RAG 검색어로 전달됨
+    # 옛 'pending: rag' 표시는 RAG 도입 후 없어졌다.
+    assert "pending" not in answer
 
 
 def test_unknown_question_calls_no_tool_and_says_so() -> None:

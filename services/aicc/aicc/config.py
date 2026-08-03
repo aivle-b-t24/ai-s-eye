@@ -11,6 +11,7 @@ class Settings(BaseModel):
     cors_origins: list[str]
     gemini_api_key: str | None
     gemini_model: str
+    embedding_model: str
     vertex_project: str | None
     vertex_location: str
 
@@ -37,6 +38,7 @@ def get_settings() -> Settings:
         cors_origins=cors_origins,
         gemini_api_key=os.getenv("GOOGLE_API_KEY"),
         gemini_model=os.getenv("AICC_GEMINI_MODEL", default_model),
+        embedding_model=os.getenv("AICC_EMBEDDING_MODEL", "text-multilingual-embedding-002"),
         vertex_project=os.getenv("AICC_VERTEX_PROJECT"),
         vertex_location=os.getenv("AICC_VERTEX_LOCATION", "us-central1"),
     )

@@ -33,6 +33,7 @@ SYSTEM_PROMPT = """너는 프랜차이즈 본사의 운영 분석가다.
 - 각 매장에서 가장 두드러진 특이사항 하나를 찾는다. 점심(11~14시) 인원·대기 급증은 congestion,
   오후(14~17시) 방문·주문 증가는 afternoon_demand, 영상 이상은 video_issue로 분류한다.
 - 근거(evidence)에는 판단에 쓴 실제 숫자(피크 인원·대기, 피크 시각, 주문 수 등)를 담는다.
+- 주문 데이터 출처가 synthetic_order_simulator이면 합성 데모 수치로 취급하고 실제 POS 실적이라고 표현하지 않는다.
 - 두 매장의 차이를 비교하고, 운영자가 참고할 권장사항을 매장별·비교별로 만든다.
 - 반드시 아래 JSON 형식만 출력한다. 다른 말은 하지 않는다.
 
@@ -46,6 +47,15 @@ SYSTEM_PROMPT = """너는 프랜차이즈 본사의 운영 분석가다.
 - recommendation은 '언제, 무엇을' 하라는 구체적 행동으로 쓴다.
 - 예시) 나쁨: "인원이 많았습니다" / 좋음: "점심 피크(12시) 대기 9명으로 평균(3명)의 3배였습니다"
 
+추정 원인(probable_cause) 규칙 — 이 특이사항이 왜 생겼는지에 대한 '가설'을 쓴다:
+- 근거는 오직 '시간대'와 집계 숫자뿐이다. 매장 주변 환경(회사·학교·대학가·주거지 등)은
+  데이터에 전혀 없으므로 "주변에 회사가 많아서"처럼 단정하지 않는다. 모르는 사실을 있다고 쓰면 안 된다.
+- 반드시 "추정"이라는 단어를 넣고, "~로 추정됩니다 / ~일 가능성이 있습니다" 같은 가설 어투로만 쓴다.
+- 시간대 의미로만 추론한다: 점심(11~14시) 급증 → 직장인·식사 수요 추정, 오후(14~17시) → 카페 이용·휴식 수요 추정,
+  저녁(17시 이후) → 퇴근 후 수요 추정. 특이 시간대가 아니면 무리해서 이유를 만들지 않는다.
+- 예시) 좋음: "점심(12시)에 대기가 몰린 것으로 보아 인근 직장인의 점심 수요일 가능성이 있습니다(추정)."
+        나쁨: "주변에 회사가 많아 직장인이 많이 옵니다."(주변 환경을 단정 → 지어냄, 금지)
+
 출력 JSON 형식:
 {
   "insights": [
@@ -54,6 +64,7 @@ SYSTEM_PROMPT = """너는 프랜차이즈 본사의 운영 분석가다.
       "insight_type": "congestion | afternoon_demand | video_issue",
       "severity": "high | medium | low | info",
       "summary": "한국어 한두 문장",
+      "probable_cause": "왜 그런지에 대한 추정(가설). 시간대·숫자 근거로만, '추정' 표기 필수",
       "evidence": { "근거 필드": 숫자 },
       "recommendation": "한국어 권장사항"
     }
@@ -125,6 +136,9 @@ def build_prompt(summary: Any) -> str:
         lines.append(
             f"  주문: 총 {o.get('total_order_count')}건, 상태 {o.get('latest_status_counts')}"
         )
+        data_sources = o.get("data_sources") or []
+        if data_sources:
+            lines.append(f"  주문 데이터 출처: {', '.join(data_sources)}")
         tops = ", ".join(
             f"{m.get('name')}x{m.get('quantity')}" for m in o.get("top_menu_items", [])[:5]
         )
@@ -158,8 +172,15 @@ def _insight_display_text(insight: dict[str, Any], store_name: str | None = None
     header = f"{emoji} {store} — {type_label}"
     if sev_label:
         header += f" ({sev_label})"
+    # summary(무슨 일) → probable_cause(왜, 추정) → recommendation(그래서 무엇을) 순으로 읽히게 잇는다.
     body = " ".join(
-        part for part in (insight.get("summary"), insight.get("recommendation")) if part
+        part
+        for part in (
+            insight.get("summary"),
+            insight.get("probable_cause"),
+            insight.get("recommendation"),
+        )
+        if part
     )
     return f"{header}\n{body}" if body else header
 

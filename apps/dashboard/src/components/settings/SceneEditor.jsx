@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { getCameraScene } from '../store/cameraScenes'
+import { DEFAULT_PERSPECTIVE } from '../store/sceneProjection'
 
 const OBJECT_OPTIONS = [
   { value: 'table', label: '테이블' },
@@ -27,6 +28,25 @@ function polygonPoints(points) {
   return points.map((point) => `${point.x},${point.y}`).join(' ')
 }
 
+function movePolygonWithinCanvas(polygon, startPoint, currentPoint) {
+  const minX = Math.min(...polygon.map((point) => point.x))
+  const maxX = Math.max(...polygon.map((point) => point.x))
+  const minY = Math.min(...polygon.map((point) => point.y))
+  const maxY = Math.max(...polygon.map((point) => point.y))
+  const deltaX = Math.max(
+    -minX,
+    Math.min(1000 - maxX, currentPoint.x - startPoint.x),
+  )
+  const deltaY = Math.max(
+    -minY,
+    Math.min(1000 - maxY, currentPoint.y - startPoint.y),
+  )
+  return polygon.map((point) => ({
+    x: point.x + deltaX,
+    y: point.y + deltaY,
+  }))
+}
+
 function formatDate(value) {
   if (!value) return '-'
   const date = new Date(value)
@@ -38,18 +58,71 @@ function makeObject(type, polygon, index) {
   return {
     id: `${type}-${Date.now()}-${index}`,
     type,
-    label: type === 'occluder' ? '' : OBJECT_LABELS[type],
+    label: OBJECT_LABELS[type],
     polygon,
   }
 }
 
+function supportedObjects(objects = []) {
+  return objects
+}
+
+function objectCenter(polygon) {
+  if (!polygon.length) return { x: 0, y: 0 }
+  const total = polygon.reduce(
+    (result, point) => ({ x: result.x + point.x, y: result.y + point.y }),
+    { x: 0, y: 0 },
+  )
+  return { x: total.x / polygon.length, y: total.y / polygon.length }
+}
+
+function nearestTableId(point, objects) {
+  return objects
+    .filter((item) => item.type === 'table')
+    .map((item) => ({ item, center: objectCenter(item.polygon) }))
+    .sort((left, right) => (
+      Math.hypot(left.center.x - point.x, left.center.y - point.y)
+      - Math.hypot(right.center.x - point.x, right.center.y - point.y)
+    ))[0]?.item.id ?? null
+}
+
+function deriveSeatAnchors(objects) {
+  return objects
+    .filter((item) => item.type === 'table' && item.polygon.length >= 3)
+    .flatMap((item) => {
+      const edge = [...item.polygon]
+        .sort((left, right) => right.y - left.y)
+        .slice(0, 2)
+        .sort((left, right) => left.x - right.x)
+      if (edge.length < 2) return []
+      const [left, right] = edge
+      const y = Math.min(Math.round((left.y + right.y) / 2 + 24), 985)
+      const ratios = Math.abs(right.x - left.x) >= 125 ? [0.32, 0.68] : [0.5]
+      return ratios.map((ratio, index) => ({
+        id: `${item.id}-seat-${index + 1}`,
+        x: Math.round(left.x + (right.x - left.x) * ratio),
+        y,
+        table_id: item.id,
+      }))
+    })
+}
+
 function defaultObjects(storeId) {
   const scene = getCameraScene(storeId)
-  return (scene?.objects ?? []).map((item) => ({
+  return supportedObjects(scene?.objects).map((item) => ({
     ...item,
     label: item.label ?? '',
     polygon: item.polygon.map(([x, y]) => ({ x, y })),
   }))
+}
+
+function defaultPerspective(storeId) {
+  return { ...DEFAULT_PERSPECTIVE, ...(getCameraScene(storeId)?.perspective ?? {}) }
+}
+
+function defaultSeatAnchors(storeId, objects) {
+  const anchors = getCameraScene(storeId)?.seatAnchors
+  return anchors?.length ? anchors.map((anchor) => ({ ...anchor })) : deriveSeatAnchors(objects)
 }
 
 export default function SceneEditor({ apiBaseUrl, storeId }) {
@@ -65,12 +138,15 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
     message: '장면 보정에 사용할 원본 CCTV 이미지를 확인하는 중입니다.',
   })
   const [objects, setObjects] = useState([])
+  const [perspective, setPerspective] = useState(DEFAULT_PERSPECTIVE)
+  const [seatAnchors, setSeatAnchors] = useState([])
   const [versions, setVersions] = useState([])
   const [selectedObjectId, setSelectedObjectId] = useState(null)
   const [selectedVertex, setSelectedVertex] = useState(null)
   const [drawType, setDrawType] = useState('table')
   const [draftPoints, setDraftPoints] = useState([])
   const [isDrawing, setIsDrawing] = useState(false)
+  const [isPlacingSeat, setIsPlacingSeat] = useState(false)
   const [dragging, setDragging] = useState(null)
   const [source, setSource] = useState('default_import')
   const [status, setStatus] = useState({ kind: 'idle', message: '' })
@@ -91,6 +167,8 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
   const applyDefaults = useCallback((message = '현재 매장의 기본 장면을 불러왔습니다.') => {
     const initialObjects = defaultObjects(storeId)
     setObjects(initialObjects)
+    setPerspective(defaultPerspective(storeId))
+    setSeatAnchors(defaultSeatAnchors(storeId, initialObjects))
     setSelectedObjectId(initialObjects[0]?.id ?? null)
     setSelectedVertex(null)
     setSource('default_import')
@@ -110,10 +188,15 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
       }
       if (!response.ok) throw new Error(`장면 설정 조회 실패 (${response.status})`)
       const config = await response.json()
-      setObjects(config.objects)
+      const loadedObjects = supportedObjects(config.objects)
+      setObjects(loadedObjects)
+      setPerspective(config.perspective ?? defaultPerspective(storeId))
+      setSeatAnchors(config.seat_anchors?.length
+        ? config.seat_anchors
+        : deriveSeatAnchors(loadedObjects))
       setImageSize(config.image_size)
       setSource(config.source)
-      setSelectedObjectId(config.objects[0]?.id ?? null)
+      setSelectedObjectId(loadedObjects[0]?.id ?? null)
       try {
         await loadVersions()
       } catch (historyError) {
@@ -137,6 +220,7 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
   useEffect(() => {
     setDraftPoints([])
     setIsDrawing(false)
+    setIsPlacingSeat(false)
     loadApproved()
   }, [loadApproved])
 
@@ -196,13 +280,12 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
   const startDrawing = () => {
     setDraftPoints([])
     setIsDrawing(true)
+    setIsPlacingSeat(false)
     setSelectedObjectId(null)
     setSelectedVertex(null)
     setStatus({
       kind: 'idle',
-      message: drawType === 'occluder'
-        ? '사람을 가려야 하는 테이블·카운터 앞면을 3개 이상의 점으로 표시하세요.'
-        : '오브젝트 외곽을 따라 꼭짓점을 3개 이상 지정하세요.',
+      message: '오브젝트 외곽을 따라 꼭짓점을 3개 이상 지정하세요.',
     })
   }
 
@@ -221,8 +304,22 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
   }
 
   const handleCanvasPointerDown = (event) => {
-    if (!isDrawing || event.target.dataset.vertex === 'true') return
-    setDraftPoints((current) => [...current, pointFromEvent(event, svgRef.current)])
+    const point = pointFromEvent(event, svgRef.current)
+    if (isPlacingSeat) {
+      const tableId = nearestTableId(point, objects)
+      setSeatAnchors((current) => [...current, {
+        id: `seat-${Date.now()}-${current.length + 1}`,
+        x: point.x,
+        y: point.y,
+        ...(tableId ? { table_id: tableId } : {}),
+      }])
+      setSource('manual')
+      setStatus({ kind: 'idle', message: '좌석 위치를 추가했습니다. 계속 찍거나 좌석 배치를 종료하세요.' })
+      return
+    }
+    if (event.target.dataset.vertex === 'true' || event.target.dataset.seat === 'true') return
+    if (!isDrawing) return
+    setDraftPoints((current) => [...current, point])
   }
 
   const handlePointerMove = (event) => {
@@ -232,9 +329,15 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
       item.id === dragging.objectId
         ? {
             ...item,
-            polygon: item.polygon.map((vertex, index) => (
-              index === dragging.vertexIndex ? point : vertex
-            )),
+            polygon: dragging.kind === 'object'
+              ? movePolygonWithinCanvas(
+                  dragging.originalPolygon,
+                  dragging.startPoint,
+                  point,
+                )
+              : item.polygon.map((vertex, index) => (
+                  index === dragging.vertexIndex ? point : vertex
+                )),
           }
         : item
     )))
@@ -301,6 +404,9 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
 
   const deleteSelectedObject = () => {
     setObjects((current) => current.filter((item) => item.id !== selectedObjectId))
+    setSeatAnchors((current) => current.filter(
+      (anchor) => anchor.table_id !== selectedObjectId,
+    ))
     setSelectedObjectId(null)
     setSelectedVertex(null)
     setSource('manual')
@@ -323,6 +429,8 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
             image_size: imageSize,
             source,
             objects,
+            perspective,
+            seat_anchors: seatAnchors,
           }),
         },
       )
@@ -331,7 +439,9 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
         throw new Error(detail?.detail?.[0]?.msg ?? detail?.detail ?? `저장 실패 (${response.status})`)
       }
       const saved = await response.json()
-      setObjects(saved.objects)
+      setObjects(supportedObjects(saved.objects))
+      setPerspective(saved.perspective ?? DEFAULT_PERSPECTIVE)
+      setSeatAnchors(saved.seat_anchors ?? [])
       setSource(saved.source)
       await loadVersions()
       setStatus({
@@ -352,10 +462,15 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
       )
       if (!response.ok) throw new Error(`이전 버전 적용 실패 (${response.status})`)
       const approved = await response.json()
-      setObjects(approved.objects)
+      const loadedObjects = supportedObjects(approved.objects)
+      setObjects(loadedObjects)
+      setPerspective(approved.perspective ?? defaultPerspective(storeId))
+      setSeatAnchors(approved.seat_anchors?.length
+        ? approved.seat_anchors
+        : deriveSeatAnchors(loadedObjects))
       setImageSize(approved.image_size)
       setSource(approved.source)
-      setSelectedObjectId(approved.objects[0]?.id ?? null)
+      setSelectedObjectId(loadedObjects[0]?.id ?? null)
       await loadVersions()
       setStatus({ kind: 'success', message: `장면 v${version}을 다시 적용했습니다.` })
     } catch (error) {
@@ -379,11 +494,6 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
             적용 설정 다시 불러오기
           </button>
         </div>
-      </div>
-
-      <div className="scene-guide">
-        <strong>가림 처리 방법</strong>
-        <span>테이블·카운터 위치를 먼저 맞춘 뒤, 사람 앞에 보여야 하는 앞면만 `가림 영역`으로 짧게 그립니다.</span>
       </div>
 
       <div className="roi-toolbar">
@@ -420,6 +530,22 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
             </button>
           </>
         )}
+        <button
+          type="button"
+          className={isPlacingSeat ? 'roi-primary-btn' : 'roi-secondary-btn'}
+          disabled={isDrawing}
+          onClick={() => {
+            setIsPlacingSeat((current) => !current)
+            setStatus({
+              kind: 'idle',
+              message: isPlacingSeat
+                ? '좌석 배치를 종료했습니다.'
+                : 'CCTV 화면에서 실제 의자 중심을 클릭하세요.',
+            })
+          }}
+        >
+          {isPlacingSeat ? '좌석 배치 종료' : '좌석 위치 찍기'}
+        </button>
       </div>
 
       <p className={`roi-status roi-status-${imageStatus.kind}`} role="status">
@@ -435,25 +561,39 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
         <div className="roi-canvas-wrap">
           <svg
             ref={svgRef}
-            className={`roi-canvas scene-canvas ${isDrawing ? 'is-drawing' : ''}`}
+            className={`roi-canvas scene-canvas ${isDrawing ? 'is-drawing' : ''} ${isPlacingSeat ? 'is-placing-seat' : ''}`}
             viewBox="0 0 1000 1000"
             preserveAspectRatio="none"
             style={{ aspectRatio: `${imageSize.width} / ${imageSize.height}` }}
             onPointerDown={handleCanvasPointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={() => setDragging(null)}
-            onPointerLeave={() => setDragging(null)}
+            onPointerCancel={() => setDragging(null)}
           >
             <image href={imageSrc} width="1000" height="1000" preserveAspectRatio="none" />
+            <g className="scene-perspective-guides" aria-hidden="true">
+              <line x1="0" x2="1000" y1={perspective.far_y} y2={perspective.far_y} />
+              <text x="18" y={Math.max(perspective.far_y - 12, 24)}>원거리 기준</text>
+              <line x1="0" x2="1000" y1={perspective.near_y} y2={perspective.near_y} />
+              <text x="18" y={Math.max(perspective.near_y - 12, 24)}>근거리 기준</text>
+            </g>
             {objects.map((item) => (
               <g
                 key={item.id}
                 className={`scene-editor-object scene-editor-${item.type} ${selectedObjectId === item.id ? 'is-selected' : ''}`}
                 onPointerDown={(event) => {
-                  if (isDrawing) return
+                  if (isDrawing || isPlacingSeat) return
                   event.stopPropagation()
+                  event.preventDefault()
+                  event.currentTarget.setPointerCapture?.(event.pointerId)
                   setSelectedObjectId(item.id)
                   setSelectedVertex(null)
+                  setDragging({
+                    kind: 'object',
+                    objectId: item.id,
+                    startPoint: pointFromEvent(event, svgRef.current),
+                    originalPolygon: item.polygon.map((point) => ({ ...point })),
+                  })
                 }}
               >
                 <polygon points={polygonPoints(item.polygon)} />
@@ -474,12 +614,25 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
                     cy={point.y}
                     r="11"
                     onPointerDown={(event) => {
+                      if (isPlacingSeat) return
                       event.stopPropagation()
+                      event.preventDefault()
+                      event.currentTarget.setPointerCapture?.(event.pointerId)
                       setSelectedVertex(index)
-                      setDragging({ objectId: item.id, vertexIndex: index })
+                      setDragging({
+                        kind: 'vertex',
+                        objectId: item.id,
+                        vertexIndex: index,
+                      })
                     }}
                   />
                 ))}
+              </g>
+            ))}
+            {seatAnchors.map((anchor, index) => (
+              <g className="scene-seat-anchor" key={anchor.id}>
+                <circle data-seat="true" cx={anchor.x} cy={anchor.y} r="15" />
+                <text x={anchor.x + 22} y={anchor.y - 16}>{index + 1}</text>
               </g>
             ))}
             {draftPoints.length > 0 && (
@@ -494,6 +647,68 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
         </div>
 
         <aside className="roi-zone-panel">
+          <div className="scene-perspective-form">
+            <h4>원근 보정</h4>
+            <label>
+              원거리 기준선
+              <input
+                type="range"
+                min="0"
+                max={perspective.near_y - 1}
+                value={perspective.far_y}
+                onChange={(event) => {
+                  setPerspective((current) => ({ ...current, far_y: Number(event.target.value) }))
+                  setSource('manual')
+                }}
+              />
+              <span>{perspective.far_y}</span>
+            </label>
+            <label>
+              근거리 기준선
+              <input
+                type="range"
+                min={perspective.far_y + 1}
+                max="1000"
+                value={perspective.near_y}
+                onChange={(event) => {
+                  setPerspective((current) => ({ ...current, near_y: Number(event.target.value) }))
+                  setSource('manual')
+                }}
+              />
+              <span>{perspective.near_y}</span>
+            </label>
+            <div className="scene-scale-inputs">
+              <label>
+                원거리 크기
+                <input
+                  type="number"
+                  min="0.35"
+                  max="1"
+                  step="0.01"
+                  value={perspective.far_scale}
+                  onChange={(event) => {
+                    setPerspective((current) => ({ ...current, far_scale: Number(event.target.value) }))
+                    setSource('manual')
+                  }}
+                />
+              </label>
+              <label>
+                근거리 크기
+                <input
+                  type="number"
+                  min="0.8"
+                  max="2"
+                  step="0.01"
+                  value={perspective.near_scale}
+                  onChange={(event) => {
+                    setPerspective((current) => ({ ...current, near_scale: Number(event.target.value) }))
+                    setSource('manual')
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+
           <h4>장면 오브젝트</h4>
           {objects.length === 0 && <p className="roi-empty">설정된 오브젝트가 없습니다.</p>}
           <div className="roi-zone-list">
@@ -522,9 +737,7 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
                   value={selectedObject.type}
                   onChange={(event) => updateSelectedObject({
                     type: event.target.value,
-                    label: event.target.value === 'occluder'
-                      ? ''
-                      : OBJECT_LABELS[event.target.value],
+                    label: OBJECT_LABELS[event.target.value],
                   })}
                 >
                   {OBJECT_OPTIONS.map((option) => (
@@ -536,7 +749,6 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
                 표시 이름
                 <input
                   value={selectedObject.label}
-                  placeholder={selectedObject.type === 'occluder' ? '화면에는 표시하지 않음' : ''}
                   onChange={(event) => updateSelectedObject({ label: event.target.value })}
                 />
               </label>
@@ -555,6 +767,37 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
               </button>
             </div>
           )}
+
+          <div className="scene-seat-list">
+            <div>
+              <h4>좌석 앵커</h4>
+              <button
+                type="button"
+                onClick={() => {
+                  setSeatAnchors(deriveSeatAnchors(objects))
+                  setSource('manual')
+                }}
+              >
+                테이블 기준 자동 배치
+              </button>
+            </div>
+            {seatAnchors.length === 0 ? (
+              <p className="roi-empty">등록된 좌석이 없습니다.</p>
+            ) : seatAnchors.map((anchor, index) => (
+              <div key={anchor.id}>
+                <span>좌석 {index + 1} · ({anchor.x}, {anchor.y})</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSeatAnchors((current) => current.filter((item) => item.id !== anchor.id))
+                    setSource('manual')
+                  }}
+                >
+                  삭제
+                </button>
+              </div>
+            ))}
+          </div>
         </aside>
       </div>
 

@@ -28,6 +28,7 @@ def summary() -> dict[str, Any]:
                 },
                 "order_summary": {
                     "total_order_count": 3,
+                    "data_sources": ["synthetic_order_simulator"],
                     "latest_status_counts": {"received": 1, "preparing": 2},
                     "top_menu_items": [{"menu_id": "menu-001", "name": "아메리카노", "quantity": 5}],
                 },
@@ -45,6 +46,7 @@ def summary() -> dict[str, Any]:
                 },
                 "order_summary": {
                     "total_order_count": 3,
+                    "data_sources": ["synthetic_order_simulator"],
                     "latest_status_counts": {"received": 1, "completed": 1},
                     "top_menu_items": [{"menu_id": "menu-021", "name": "크루아상", "quantity": 2}],
                 },
@@ -134,6 +136,22 @@ def test_prompt_has_both_stores_numbers() -> None:
     p = build_prompt(summary())
     assert "store-001" in p and "store-002" in p
     assert "28" in p and "22" in p  # 두 매장 피크 인원
+
+
+def test_prompt_includes_synthetic_order_source() -> None:
+    p = build_prompt(summary())
+
+    assert "주문 데이터 출처: synthetic_order_simulator" in p
+
+
+def test_system_prompt_has_probable_cause_guardrail() -> None:
+    """추정 원인 규칙과 '지어내기 금지' 가드레일이 프롬프트에 살아있어야 한다."""
+    from aicc.franchise_insights import SYSTEM_PROMPT
+
+    assert "probable_cause" in SYSTEM_PROMPT  # 필드 지시가 있다
+    assert "추정" in SYSTEM_PROMPT  # 가설 어투 강제
+    assert "단정하지 않는다" in SYSTEM_PROMPT  # 주변 환경 지어내기 금지
+    assert "실제 POS 실적이라고 표현하지 않는다" in SYSTEM_PROMPT
 
 
 def test_prompt_does_not_leak_expected_insights() -> None:

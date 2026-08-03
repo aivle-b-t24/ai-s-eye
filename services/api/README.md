@@ -8,6 +8,32 @@ FastAPI 기반 공통 백엔드다.
 
 API 문서는 서버 실행 후 `http://localhost:8000/docs`에서 확인한다.
 
+기간별 매장 집계의 `order_summary.data_sources`는 합성 주문과 일반 주문 이벤트를
+구분한다. 매장 타임라인은 `interval=1h`와 `interval=1d`를 지원한다.
+
+## 주문 CSV 다운로드
+
+기간 내 주문 상태 이벤트를 주문 한 건당 한 행으로 합쳐 CSV로 내려받는다. 시간은
+한국시간으로 표시하며 합성 주문은 `data_source=synthetic_order_simulator`와
+`simulation_run_id`로 구분한다. 한 번에 최대 31일까지 요청할 수 있다.
+
+```bash
+curl --get http://localhost:8000/api/exports/orders.csv \
+  --data-urlencode 'start_at=2026-07-01T00:00:00+09:00' \
+  --data-urlencode 'end_at=2026-07-31T00:00:00+09:00' \
+  --output synthetic_orders_2026-07.csv
+```
+
+## What-if 운영 시뮬레이션
+
+`POST /api/simulations/operations`는 직원 수, 방문율, 행사 배수, 평균 제조시간,
+대기 인내시간, 좌석 수를 입력받아 SimPy로 운영 결과를 계산한다. 결과에는 완료·포기
+주문, 평균 대기, 최대 대기열, 직원·좌석 가동률과 디지털 트윈 재생 프레임이 포함된다.
+
+동일한 입력과 `seed`는 동일한 가상 고객과 결과를 만든다. 서로 다른 직원 수를
+비교해도 방문 시각과 고객별 서비스 성향은 동일하게 유지한다. 엔드포인트는 계산만
+수행하며 PostgreSQL이나 실제 `StoreState`, `OrderEvent`에는 기록하지 않는다.
+
 ## Vision 분석 이미지
 
 Vision Worker는 분석이 끝난 JPEG 또는 PNG 한 장과 프레임 메타데이터를 매장별

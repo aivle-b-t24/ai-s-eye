@@ -11,6 +11,7 @@ def sample_result() -> dict[str, Any]:
                 "insight_type": "congestion",
                 "severity": "high",
                 "summary": "점심에 인원과 대기가 급증했습니다.",
+                "probable_cause": "인근 직장인의 점심 수요일 가능성이 있습니다(추정).",
                 "evidence": {"peak_visible_person_count": 28},
                 "recommendation": "점심 전 인력을 늘리세요.",
             },
@@ -39,6 +40,14 @@ def test_display_text_is_readable() -> None:
     assert "높음" in dt  # high -> 한국어
     assert "점심에 인원과 대기가 급증했습니다." in dt  # summary 포함
     assert "인력을 늘리세요" in dt  # recommendation 포함
+
+
+def test_probable_cause_in_display_text() -> None:
+    """추정 원인(왜)이 display_text에 들어간다."""
+    result = attach_display_text(sample_result())
+    dt = result["insights"][0]["display_text"]
+    assert "추정" in dt  # 가설 표기가 보인다
+    assert "직장인의 점심 수요" in dt  # probable_cause 내용 포함
 
 
 def test_store_name_used_when_provided() -> None:

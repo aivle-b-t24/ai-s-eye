@@ -21,6 +21,11 @@ class OrderStatus(StrEnum):
     REJECTED = "rejected"
 
 
+class OrderDataSource(StrEnum):
+    SYNTHETIC_ORDER_SIMULATOR = "synthetic_order_simulator"
+    ORDER_EVENT = "order_event"
+
+
 class TwinMode(StrEnum):
     LIVE = "live"
 
@@ -123,6 +128,7 @@ class MenuItemSummary(BaseModel):
 class OrderSummary(BaseModel):
     total_order_count: int = Field(ge=0)
     order_event_count: int = Field(ge=0)
+    data_sources: list[OrderDataSource] = Field(default_factory=list)
     latest_status_counts: OrderStatusCounts
     top_menu_items: list[MenuItemSummary]
 
@@ -167,6 +173,19 @@ class StoreTimelineResponse(BaseModel):
     points: list[StoreTimelinePoint]
 
 
+class TwinBoundingBox(BaseModel):
+    x1: float = Field(ge=0, le=1)
+    y1: float = Field(ge=0, le=1)
+    x2: float = Field(ge=0, le=1)
+    y2: float = Field(ge=0, le=1)
+
+    @model_validator(mode="after")
+    def validate_corners(self) -> "TwinBoundingBox":
+        if self.x2 < self.x1 or self.y2 < self.y1:
+            raise ValueError("bbox max coordinates must be greater than min coordinates")
+        return self
+
+
 class TwinAgent(BaseModel):
     id: str | None = None
     x: float = Field(ge=0, le=1)
@@ -174,6 +193,9 @@ class TwinAgent(BaseModel):
     role: TwinAgentRole
     state: TwinAgentState = TwinAgentState.UNKNOWN
     zone: str | None = None
+    bbox: TwinBoundingBox | None = None
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    occluded: bool | None = None
 
 
 class TwinFrame(BaseModel):
@@ -189,6 +211,8 @@ class TwinFrame(BaseModel):
     source: str | None = Field(default=None, min_length=1)
     model_version: str | None = Field(default=None, min_length=1)
     coordinate_space: Literal["normalized_image"] = "normalized_image"
+    tracking_epoch: int | None = Field(default=None, ge=0)
+    tracking_reset: bool | None = None
     agents: list[TwinAgent] = Field(default_factory=list)
 
 
@@ -366,10 +390,40 @@ class SceneObject(BaseModel):
         return self
 
 
+class ScenePerspectiveConfig(BaseModel):
+    """카메라 영상 좌표에서 사람 아이콘 크기를 보정하는 2.5D 원근 설정."""
+
+    far_y: int = Field(default=260, ge=0, le=999)
+    near_y: int = Field(default=980, ge=1, le=1000)
+    far_scale: float = Field(default=0.62, ge=0.35, le=1.0)
+    near_scale: float = Field(default=1.35, ge=0.8, le=2.0)
+
+    @model_validator(mode="after")
+    def validate_depth_range(self) -> "ScenePerspectiveConfig":
+        if self.far_y >= self.near_y:
+            raise ValueError("far_y must be smaller than near_y")
+        if self.far_scale > self.near_scale:
+            raise ValueError("far_scale must not exceed near_scale")
+        return self
+
+
+class SceneSeatAnchor(BaseModel):
+    """착석 상태의 화면 표시 위치. 원본 Vision 발 좌표와는 별도로 사용한다."""
+
+    id: str = Field(min_length=1, max_length=100)
+    x: int = Field(ge=0, le=1000)
+    y: int = Field(ge=0, le=1000)
+    table_id: str | None = Field(default=None, max_length=100)
+
+
 class CameraSceneConfigInput(BaseModel):
     coordinate_space: Literal["normalized_1000"] = "normalized_1000"
     image_size: RoiImageSize
     objects: list[SceneObject] = Field(min_length=1)
+    perspective: ScenePerspectiveConfig = Field(
+        default_factory=ScenePerspectiveConfig,
+    )
+    seat_anchors: list[SceneSeatAnchor] = Field(default_factory=list)
     source: SceneConfigSource = SceneConfigSource.MANUAL
 
     @model_validator(mode="after")
@@ -377,6 +431,15 @@ class CameraSceneConfigInput(BaseModel):
         object_ids = [item.id for item in self.objects]
         if len(object_ids) != len(set(object_ids)):
             raise ValueError("scene object ids must be unique")
+        seat_ids = [item.id for item in self.seat_anchors]
+        if len(seat_ids) != len(set(seat_ids)):
+            raise ValueError("seat anchor ids must be unique")
+        object_id_set = set(object_ids)
+        if any(
+            seat.table_id is not None and seat.table_id not in object_id_set
+            for seat in self.seat_anchors
+        ):
+            raise ValueError("seat anchor table_id must reference a scene object")
         return self
 
 
@@ -387,3 +450,50 @@ class CameraSceneConfig(CameraSceneConfigInput):
     status: SceneConfigStatus
     created_at: datetime
     approved_at: datetime | None = None
+
+
+class OperationsSimulationScenario(BaseModel):
+    name: str = Field(default="기본 시나리오", min_length=1, max_length=60)
+    store_id: str = Field(default="store-001", min_length=1)
+    duration_minutes: int = Field(default=180, ge=30, le=480)
+    staff_count: int = Field(default=1, ge=1, le=6)
+    arrivals_per_hour: float = Field(default=24, ge=1, le=180)
+    event_multiplier: float = Field(default=1, ge=0.5, le=4)
+    average_service_minutes: float = Field(default=4, ge=0.5, le=20)
+    service_variability: float = Field(default=0.25, ge=0, le=1)
+    patience_minutes: float = Field(default=8, ge=1, le=60)
+    seat_count: int = Field(default=16, ge=0, le=100)
+    dine_in_rate: float = Field(default=0.65, ge=0, le=1)
+    seed: int = Field(default=20260730, ge=0, le=2_147_483_647)
+
+
+class OperationsSimulationMetrics(BaseModel):
+    visitors: int = Field(ge=0)
+    completed_orders: int = Field(ge=0)
+    abandoned_orders: int = Field(ge=0)
+    in_progress_orders: int = Field(ge=0)
+    average_wait_minutes: float = Field(ge=0)
+    max_queue: int = Field(ge=0)
+    staff_utilization_percent: float = Field(ge=0, le=100)
+    seat_utilization_percent: float = Field(ge=0, le=100)
+
+
+class OperationsSimulationFrame(BaseModel):
+    at_minute: float = Field(ge=0)
+    queue_count: int = Field(ge=0)
+    in_service_count: int = Field(ge=0)
+    seated_count: int = Field(ge=0)
+    completed_orders: int = Field(ge=0)
+    abandoned_orders: int = Field(ge=0)
+    agents: list[TwinAgent] = Field(default_factory=list)
+
+
+class OperationsSimulationResult(BaseModel):
+    schema_version: str = "1.0"
+    source: Literal["simulation"] = "simulation"
+    run_id: str = Field(min_length=1)
+    generated_at: datetime
+    scenario: OperationsSimulationScenario
+    metrics: OperationsSimulationMetrics
+    frames: list[OperationsSimulationFrame]
+    assumptions: list[str]

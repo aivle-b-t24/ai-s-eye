@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0",
+  "description": "CAFE camera 5/21 fixed 15-second MOT validation windows (5 fps, 75 frames, continuous identities stitched across regular segment boundaries)",
+  "source_identity_labels": "Cafe_Dataset/Dataset/cafe/gt_tracks.pkl",
+  "source_identity_labels_sha256": "98ccd12267bb62fa27040f11876bab5f1d38c96f4544fe552ca6f5dcc55ff072",
+  "selection_policy": {
+    "per_camera": {
+      "normal": 3,
+      "crowded_occluded": 3,
+      "scene_cut": 2
+    },
+    "split": "4 tuning + 4 held-out test windows per camera",
+    "notes": "CAFE identity IDs restart in every source segment, but numbered segments are continuous video. Boundary identities are stitched by position and reset only at verified scene cuts or gaps. The tuning split selects one of the fixed eight ByteTrack configurations. The test split is not used for configuration selection."
+  },
+  "windows": [
+    {"id": "cam5-tune-normal-01", "camera": "5", "split": "tune", "category": "normal", "start_index": 2325, "frame_count": 75},
+    {"id": "cam5-tune-crowd-01", "camera": "5", "split": "tune", "category": "crowded_occluded", "start_index": 1275, "frame_count": 75},
+    {"id": "cam5-tune-crowd-02", "camera": "5", "split": "tune", "category": "crowded_occluded", "start_index": 10775, "frame_count": 75},
+    {"id": "cam5-tune-cut-01", "camera": "5", "split": "tune", "category": "scene_cut", "start_index": 3200, "frame_count": 75},
+    {"id": "cam5-test-normal-01", "camera": "5", "split": "test", "category": "normal", "start_index": 7200, "frame_count": 75},
+    {"id": "cam5-test-normal-02", "camera": "5", "split": "test", "category": "normal", "start_index": 14450, "frame_count": 75},
+    {"id": "cam5-test-crowd-01", "camera": "5", "split": "test", "category": "crowded_occluded", "start_index": 16550, "frame_count": 75},
+    {"id": "cam5-test-cut-01", "camera": "5", "split": "test", "category": "scene_cut", "start_index": 14150, "frame_count": 75},
+
+    {"id": "cam21-tune-normal-01", "camera": "21", "split": "tune", "category": "normal", "start_index": 4800, "frame_count": 75},
+    {"id": "cam21-tune-crowd-01", "camera": "21", "split": "tune", "category": "crowded_occluded", "start_index": 2200, "frame_count": 75},
+    {"id": "cam21-tune-crowd-02", "camera": "21", "split": "tune", "category": "crowded_occluded", "start_index": 9050, "frame_count": 75},
+    {"id": "cam21-tune-cut-01", "camera": "21", "split": "tune", "category": "scene_cut", "start_index": 3325, "frame_count": 75},
+    {"id": "cam21-test-normal-01", "camera": "21", "split": "test", "category": "normal", "start_index": 7950, "frame_count": 75},
+    {"id": "cam21-test-normal-02", "camera": "21", "split": "test", "category": "normal", "start_index": 13275, "frame_count": 75},
+    {"id": "cam21-test-crowd-01", "camera": "21", "split": "test", "category": "crowded_occluded", "start_index": 12975, "frame_count": 75},
+    {"id": "cam21-test-cut-01", "camera": "21", "split": "test", "category": "scene_cut", "start_index": 11950, "frame_count": 75}
+  ]
+}

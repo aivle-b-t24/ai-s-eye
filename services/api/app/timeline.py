@@ -14,7 +14,10 @@ from .models import (
 )
 
 
-TIMELINE_INTERVALS = {"1h": timedelta(hours=1)}
+TIMELINE_INTERVALS = {
+    "1h": timedelta(hours=1),
+    "1d": timedelta(days=1),
+}
 
 
 def build_store_timeline(

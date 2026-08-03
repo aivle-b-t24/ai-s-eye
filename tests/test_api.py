@@ -1,3 +1,5 @@
+import csv
+import io
 from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
@@ -307,6 +309,19 @@ def test_store_timeline_rejects_period_over_31_days(client: TestClient) -> None:
     assert response.json()["detail"] == "timeline period must not exceed 31 days"
 
 
+def test_store_timeline_rejects_unknown_interval(client: TestClient) -> None:
+    response = client.get(
+        "/api/stores/store-001/timeline",
+        params={
+            "start_at": "2026-07-22T00:00:00+09:00",
+            "end_at": "2026-07-23T00:00:00+09:00",
+            "interval": "1w",
+        },
+    )
+
+    assert response.status_code == 422
+
+
 def test_invalid_order_status_is_rejected(client: TestClient) -> None:
     payload = {
         "event_id": "event-invalid",
@@ -320,3 +335,80 @@ def test_invalid_order_status_is_rejected(client: TestClient) -> None:
     response = client.post("/internal/order-events", json=payload)
 
     assert response.status_code == 422
+
+
+def test_orders_can_be_downloaded_as_csv(client: TestClient) -> None:
+    order_id = "sim-api-export-test-store-001-000001"
+    base_event = {
+        "order_id": order_id,
+        "store_id": "store-001",
+        "items": [{"menu_id": "americano", "name": "아메리카노", "quantity": 1}],
+    }
+    for event_id, status_name, occurred_at in [
+        ("export-received", "received", "2026-07-29T10:00:00+09:00"),
+        ("export-completed", "completed", "2026-07-29T10:03:00+09:00"),
+    ]:
+        response = client.post(
+            "/internal/order-events",
+            json={
+                **base_event,
+                "event_id": event_id,
+                "status": status_name,
+                "occurred_at": occurred_at,
+            },
+        )
+        assert response.status_code == 202
+
+    response = client.get(
+        "/api/exports/orders.csv",
+        params={
+            "start_at": "2026-07-29T00:00:00+09:00",
+            "end_at": "2026-07-30T00:00:00+09:00",
+            "store_id": "store-001",
+        },
+    )
+    rows = list(
+        csv.DictReader(io.StringIO(response.content.decode("utf-8-sig")))
+    )
+    exported = next(row for row in rows if row["order_id"] == order_id)
+
+    assert response.status_code == 200
+    assert response.content.startswith(b"\xef\xbb\xbf")
+    assert response.headers["content-type"] == "text/csv; charset=utf-8"
+    assert response.headers["content-disposition"] == (
+        'attachment; filename="orders_2026-07-29_2026-07-29.csv"'
+    )
+    assert exported["simulation_run_id"] == "api-export-test"
+    assert exported["final_status"] == "completed"
+
+
+def test_order_csv_export_requires_timezones(client: TestClient) -> None:
+    response = client.get(
+        "/api/exports/orders.csv",
+        params={
+            "start_at": "2026-07-01T00:00:00",
+            "end_at": "2026-07-31T00:00:00",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == (
+        "start_at and end_at must include a timezone"
+    )
+
+
+def test_order_csv_export_rejects_period_over_31_days(
+    client: TestClient,
+) -> None:
+    response = client.get(
+        "/api/exports/orders.csv",
+        params={
+            "start_at": "2026-06-01T00:00:00+09:00",
+            "end_at": "2026-07-03T00:00:00+09:00",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == (
+        "order export period must not exceed 31 days"
+    )

@@ -166,6 +166,7 @@ function App() {
             <SupervisorHeadOfficeView
               apiBaseUrl={API_BASE_URL}
               aiccBaseUrl={CHATBOT_BASE_URL}
+<<<<<<< HEAD
             />
           )}
 
@@ -178,6 +179,8 @@ function App() {
               error={error}
               loading={loading}
               isChatbotEnabled={chatbotSettingsMap[page] !== false}
+=======
+>>>>>>> ab4234838ba6cc48272fc55366fd0700a8a764a1
             />
           )}
 

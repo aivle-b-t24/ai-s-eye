@@ -4,9 +4,29 @@
 
 기본 주소는 `http://localhost:8000`이다.
 
+### 주문 CSV 다운로드
+
+`GET /api/exports/orders.csv`
+
+- `start_at`, `end_at`: 시간대가 포함된 ISO 8601 시각, 종료 시각은 미포함
+- `store_id`: 선택값. 생략하면 전체 매장
+- 최대 조회 범위: 31일
+- 응답: UTF-8 BOM CSV, 주문 한 건당 한 행
+
 ## GET /health
 
 API와 PostgreSQL 연결 상태를 확인한다.
+
+## 매장 운영 집계 데이터 출처
+
+`GET /api/stores/summary`의 매장별 `order_summary.data_sources`는 주문 출처를
+나타낸다. 현재 합성 주문은 `synthetic_order_simulator`, 그 외 주문 이벤트는
+`order_event`로 표시한다. 합성 주문 여부는 `sim-` 주문번호 접두사로 판별한다.
+
+`GET /api/stores/{store_id}/timeline`의 `interval`은 `1h` 또는 `1d`를 지원한다.
+슈퍼바이저 화면은 최근 24시간에 `1h`, 7일·30일·직접 설정에 `1d`를 사용한다.
+기간별 주문 KPI와 타임라인은 요청 범위 `[start_at, end_at)` 안에서
+`received` 상태가 발생한 주문을 기준으로 집계한다.
 
 응답 예시:
 
@@ -231,6 +251,23 @@ PostgreSQL에 저장된 상태와 주문 이력을 기간별·매장별로 집�
 취소되거나 거절된 주문은 인기 메뉴 수량에서 제외한다.
 
 PostgreSQL이 설정되지 않은 환경에서는 `503`을 반환한다.
+
+## POST /api/simulations/operations
+
+슈퍼바이저 What-if 비교를 위한 이산사건 시뮬레이션을 한 번 실행한다.
+
+주요 입력:
+
+- `staff_count`: 제조 자원으로 사용할 직원 수
+- `arrivals_per_hour`, `event_multiplier`: 가상 고객 도착 강도
+- `average_service_minutes`: 주문·제조 평균 소요시간
+- `patience_minutes`: 고객의 평균 대기 인내시간
+- `seat_count`, `dine_in_rate`: 착석 자원과 매장 이용 비율
+- `seed`: 동일 조건 재현용 난수 seed
+
+응답에는 `metrics`와 2분 간격 `frames`가 포함된다. 모든 응답의 `source`는
+`simulation`이며 `run_id`는 `sim-` 접두사를 사용한다. 이 API는 실제 이력 API와
+분리된 순수 계산 API이며 PostgreSQL에 어떠한 이벤트도 저장하지 않는다.
 
 ## 두 매장 데모 시나리오 적재
 

@@ -5,7 +5,7 @@ from typing import Any, Literal
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 import psycopg
 from pydantic import ValidationError
 
@@ -18,12 +18,16 @@ from .models import (
     CameraSceneConfigInput,
     EtaResponse,
     OrderEvent,
+    OperationsSimulationResult,
+    OperationsSimulationScenario,
     StoreState,
     StoreSummaryResponse,
     StoreTimelineResponse,
     TwinFrame,
     VisionSnapshotMetadata,
 )
+from .operations_simulation import run_operations_simulation
+from .order_export import KST, build_order_export_csv
 from .occupancy import LatestOccupancyRepository
 from .repository import InMemoryRepository
 from .vision_snapshots import (
@@ -536,6 +540,68 @@ def get_order_status(order_id: str) -> OrderEvent:
 
 
 @app.get(
+    "/api/exports/orders.csv",
+    response_class=Response,
+    tags=["orders"],
+)
+def export_orders_csv(
+    start_at: datetime,
+    end_at: datetime,
+    store_id: str | None = None,
+) -> Response:
+    """기간 내 주문을 주문 한 건당 한 행인 CSV 파일로 내려준다."""
+    if start_at.tzinfo is None or end_at.tzinfo is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="start_at and end_at must include a timezone",
+        )
+    if start_at >= end_at:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="start_at must be earlier than end_at",
+        )
+    if end_at - start_at > MAX_TIMELINE_WINDOW:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="order export period must not exceed 31 days",
+        )
+    if store_id is not None:
+        validate_vision_store_id(store_id)
+
+    events = repository.list_order_events(
+        start_at=start_at,
+        end_at=end_at,
+        store_id=store_id,
+    )
+    content = build_order_export_csv(events).encode("utf-8")
+    start_label = start_at.astimezone(KST).date().isoformat()
+    end_label = (end_at - timedelta(microseconds=1)).astimezone(
+        KST
+    ).date().isoformat()
+    filename = f"orders_{start_label}_{end_label}.csv"
+    return Response(
+        content=content,
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )
+
+
+@app.post(
+    "/api/simulations/operations",
+    response_model=OperationsSimulationResult,
+    tags=["simulations"],
+)
+def simulate_operations(
+    scenario: OperationsSimulationScenario,
+) -> OperationsSimulationResult:
+    """DB를 변경하지 않고 한 개 운영 조건의 What-if 결과를 계산한다."""
+    validate_vision_store_id(scenario.store_id)
+    return run_operations_simulation(scenario)
+
+
+@app.get(
     "/api/stores/{store_id}/orders/{order_id}",
     response_model=OrderEvent,
     tags=["orders"],
@@ -591,7 +657,7 @@ def get_store_timeline(
     store_id: str,
     start_at: datetime,
     end_at: datetime,
-    interval: Literal["1h"] = "1h",
+    interval: Literal["1h", "1d"] = "1h",
 ) -> StoreTimelineResponse:
     if start_at.tzinfo is None or end_at.tzinfo is None:
         raise HTTPException(

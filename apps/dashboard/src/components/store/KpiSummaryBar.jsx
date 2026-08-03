@@ -7,8 +7,12 @@ export default function KpiSummaryBar({ dashboard, soldOutCount }) {
   const customerCount =
     dashboard?.state?.visible_person_count ?? 0
 
+  // 대기 인원 = 화면 프레임 시각의 진행 중 주문 수(주문 로그 기반). 값이 없으면
+  // 기존 비전 추정치로 대체한다.
   const queueCount =
-    dashboard?.state?.queue_count_estimate ?? 0
+    dashboard?.eta?.waiting_order_count ??
+    dashboard?.state?.queue_count_estimate ??
+    0
 
   const waitMinutes =
     dashboard?.eta?.estimated_wait_minutes ?? 0

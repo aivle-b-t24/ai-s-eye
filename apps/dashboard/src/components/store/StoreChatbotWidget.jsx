@@ -55,7 +55,7 @@ export default function StoreChatbotWidget({ page }) {
     setIsLoading(true)
 
     try {
-      const targetBaseUrl = 'http://100.86.5.67:8100'
+      const targetBaseUrl = (AICC_BASE_URL || CHATBOT_BASE_URL || AICC_URL).replace(/\/$/, '')
       const endpoint = `${targetBaseUrl}/chat`
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -103,7 +103,7 @@ export default function StoreChatbotWidget({ page }) {
     const left = window.screen.width / 2 - width / 2
     const top = window.screen.height / 2 - height / 2
     const activeStoreId = (page === 'store-002' || page === 'suwan' || page === 'sangmu') ? 'store-002' : 'store-001'
-    const targetEndpoint = 'http://100.86.5.67:8100/chat'
+    const targetEndpoint = `${(AICC_BASE_URL || CHATBOT_BASE_URL || AICC_URL).replace(/\/$/, '')}/chat`
 
     const popupHtml = `
       <!DOCTYPE html>

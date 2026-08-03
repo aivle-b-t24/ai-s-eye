@@ -42,7 +42,7 @@
 
 .account-create-form {
   display: grid;
-  grid-template-columns: minmax(220px, 1.4fr) minmax(160px, 1fr) minmax(190px, 1fr) auto;
+  grid-template-columns: minmax(220px, 1.4fr) minmax(160px, 1fr) minmax(190px, 1fr);
   align-items: end;
   gap: 14px;
   padding: 22px 28px;
@@ -133,6 +133,122 @@
 .account-list-wrap td {
   color: var(--supervisor-ink);
   font-size: 0.9rem;
+}
+
+.account-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.account-delete-button,
+.account-password-button {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 9px;
+  background: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.account-password-button {
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+}
+
+.account-password-button:hover:not(:disabled) {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.account-delete-button {
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+.account-delete-button:hover:not(:disabled) {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.account-delete-button:disabled,
+.account-password-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.account-password-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.account-password-dialog {
+  width: min(440px, 100%);
+  padding: 24px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+}
+
+.account-password-dialog h3,
+.account-password-dialog p {
+  margin: 0;
+}
+
+.account-password-dialog > p {
+  margin-top: 8px;
+  color: var(--supervisor-muted);
+}
+
+.account-password-dialog form {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.account-password-dialog label {
+  display: grid;
+  gap: 7px;
+  color: var(--supervisor-muted);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.account-password-dialog input {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--supervisor-border);
+  border-radius: 10px;
+  color: var(--supervisor-ink);
+  font: inherit;
+}
+
+.account-password-dialog input:focus {
+  outline: 3px solid rgba(37, 99, 235, 0.16);
+  border-color: var(--supervisor-blue);
+}
+
+.account-password-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.account-password-actions > button {
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid var(--supervisor-border);
+  border-radius: 10px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 @media (max-width: 980px) {

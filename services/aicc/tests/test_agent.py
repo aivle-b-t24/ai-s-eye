@@ -2,9 +2,16 @@ from typing import Any, Callable
 
 import httpx
 
-from aicc.agent import MAX_TOOL_CALLS, StoreAgent
+from aicc.agent import MAX_TOOL_CALLS, SYSTEM_PROMPT, StoreAgent
 from aicc.client import StoreApiClient
 from aicc.tools import StoreTools
+
+
+def test_system_prompt_has_policy_focus_rule() -> None:
+    """정책 답변을 관련 항목만/나열 금지로 좁히는 규칙이 살아있어야 한다."""
+    assert "나열하지 않는다" in SYSTEM_PROMPT  # 전체 나열 금지
+    assert "관련된 항목만" in SYSTEM_PROMPT  # 관련 항목만 답변
+    assert "되물어" in SYSTEM_PROMPT  # 포괄적 질문은 되물어 범위 좁히기
 
 
 def menus_body() -> dict[str, Any]:

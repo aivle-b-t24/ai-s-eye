@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { authenticatedFetch, currentIdToken } from '../../api/authenticatedFetch'
-
-const CHATBOT_BASE_URL =
-  import.meta.env.VITE_CHATBOT_BASE_URL ?? 'http://100.86.5.67:8100'
+import { CHATBOT_BASE_URL } from '../../constants/env'
 
 export default function StoreChatbotWidget({ page }) {
   const [isOpen, setIsOpen] = useState(false)

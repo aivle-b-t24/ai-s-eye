@@ -10,6 +10,11 @@ import {
 } from 'firebase/auth'
 
 import { authenticatedFetch } from '../api/authenticatedFetch'
+import { IS_LOCAL_AUTH_MODE } from '../auth/runtimeAuth'
+import {
+  authenticateLocalAccount,
+  LOCAL_SESSION_KEY,
+} from '../auth/localAuth'
 import { API_BASE_URL } from '../constants/env'
 import { ROLES, STORES, ENDPOINTS } from '../constants/auth'
 import { firebaseAuth } from '../firebase'
@@ -42,6 +47,34 @@ async function loadProfile() {
   return response.json()
 }
 
+function loadLocalSession() {
+  const serialized = (
+    window.sessionStorage.getItem(LOCAL_SESSION_KEY)
+    ?? window.localStorage.getItem(LOCAL_SESSION_KEY)
+  )
+  if (!serialized) return null
+  try {
+    return JSON.parse(serialized)
+  } catch {
+    window.sessionStorage.removeItem(LOCAL_SESSION_KEY)
+    window.localStorage.removeItem(LOCAL_SESSION_KEY)
+    return null
+  }
+}
+
+function saveLocalSession(profile, remember) {
+  const serialized = JSON.stringify(profile)
+  window.sessionStorage.removeItem(LOCAL_SESSION_KEY)
+  window.localStorage.removeItem(LOCAL_SESSION_KEY)
+  const storage = remember ? window.localStorage : window.sessionStorage
+  storage.setItem(LOCAL_SESSION_KEY, serialized)
+}
+
+function clearLocalSession() {
+  window.sessionStorage.removeItem(LOCAL_SESSION_KEY)
+  window.localStorage.removeItem(LOCAL_SESSION_KEY)
+}
+
 export function useAuth() {
   const [authMode, setAuthMode] = useState('loading')
   const [authRole, setAuthRole] = useState(ROLES.STORE_MANAGER)
@@ -49,29 +82,44 @@ export function useAuth() {
   const [authReady, setAuthReady] = useState(false)
   const [authError, setAuthError] = useState('')
 
-  useEffect(() => onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
-    if (!firebaseUser) {
-      setCurrentUser(null)
-      setAuthMode((mode) => (mode === 'signup' ? mode : 'login'))
+  useEffect(() => {
+    if (IS_LOCAL_AUTH_MODE) {
+      const profile = loadLocalSession()
+      if (profile) {
+        setCurrentUser(profile)
+        setAuthRole(profile.role)
+        setAuthMode('dashboard')
+      } else {
+        setAuthMode('login')
+      }
       setAuthReady(true)
-      return
+      return undefined
     }
 
-    try {
-      const profile = await loadProfile()
-      setCurrentUser(profile)
-      setAuthRole(profile.role)
-      setAuthMode('dashboard')
-      setAuthError('')
-    } catch (error) {
-      setCurrentUser(null)
-      setAuthMode('login')
-      setAuthError(error.message)
-      await signOut(firebaseAuth)
-    } finally {
-      setAuthReady(true)
-    }
-  }), [])
+    return onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
+      if (!firebaseUser) {
+        setCurrentUser(null)
+        setAuthMode((mode) => (mode === 'signup' ? mode : 'login'))
+        setAuthReady(true)
+        return
+      }
+
+      try {
+        const profile = await loadProfile()
+        setCurrentUser(profile)
+        setAuthRole(profile.role)
+        setAuthMode('dashboard')
+        setAuthError('')
+      } catch (error) {
+        setCurrentUser(null)
+        setAuthMode('login')
+        setAuthError(error.message)
+        await signOut(firebaseAuth)
+      } finally {
+        setAuthReady(true)
+      }
+    })
+  }, [])
 
   const handleLoginRoleChange = (newRole) => {
     setAuthRole(newRole)
@@ -116,13 +164,20 @@ export function useAuth() {
   const handleLogin = async ({ email, password, remember, role }, setPage) => {
     setAuthError('')
     try {
+      const requestedRole = role ?? authRole
+      if (IS_LOCAL_AUTH_MODE) {
+        const profile = authenticateLocalAccount(email, password, requestedRole)
+        saveLocalSession(profile, remember)
+        handleLoginSuccess(profile, setPage)
+        return profile
+      }
+
       await setPersistence(
         firebaseAuth,
         remember ? browserLocalPersistence : browserSessionPersistence,
       )
       await signInWithEmailAndPassword(firebaseAuth, email, password)
       const profile = await loadProfile()
-      const requestedRole = role ?? authRole
       if (profile.role !== requestedRole) {
         await signOut(firebaseAuth)
         throw new Error(
@@ -141,13 +196,20 @@ export function useAuth() {
   }
 
   const handleLogout = async () => {
-    await signOut(firebaseAuth)
+    if (IS_LOCAL_AUTH_MODE) {
+      clearLocalSession()
+    } else {
+      await signOut(firebaseAuth)
+    }
     setCurrentUser(null)
     setAuthMode('login')
     window.history.pushState({}, '', ENDPOINTS.STORE_LOGIN)
   }
 
   const handlePasswordReset = async (email) => {
+    if (IS_LOCAL_AUTH_MODE) {
+      throw new Error('로컬 개발 계정은 빠른 로그인 버튼을 사용해 주세요.')
+    }
     const normalizedEmail = email.trim().toLowerCase()
     if (!normalizedEmail) {
       throw new Error('비밀번호를 설정할 이메일을 입력해 주세요.')

@@ -155,6 +155,47 @@ Admin SDK로 토큰과 `role`, `store_id` claim을 검증한다. 점주는 claim
 실제 비밀번호는 Git에 추가하지 않는다. 웹 앱 설정과 서버 설정은 `.env.example`을
 참고한다.
 
+### 팀원 프런트 전용 시작 (Firebase 불필요)
+
+미니PC의 팀 개발 API와 AICC는 운영 서비스와 다른 포트에서 실행한다. 개발 서비스는
+Tailscale IP에만 바인딩하고 Cloudflare에는 연결하지 않는다. 미니PC 관리자는 `.env`에
+다음을 추가하고 한 번 실행한다.
+
+```env
+API_DEV_BIND_HOST=100.86.5.67
+API_DEV_PORT=8001
+AICC_DEV_BIND_HOST=100.86.5.67
+AICC_DEV_PORT=8101
+```
+
+```bash
+docker compose --profile team-dev up -d --build api-dev aicc-dev
+```
+
+팀원은 Tailscale에 연결한 뒤 대시보드 폴더의 안전한 공용 설정을 복사한다. Firebase
+웹 설정, Firebase 계정, ADC, 서비스 계정 키는 필요하지 않다.
+
+```bash
+cd apps/dashboard
+cp team.env.example .env.local
+npm ci
+npm run dev
+```
+
+Windows 명령 프롬프트에서는 첫 번째 복사 명령 대신 다음을 사용한다.
+
+```cmd
+copy team.env.example .env.local
+```
+
+로그인 화면의 팀 개발용 빠른 로그인에서 동명점, 수완점, 본사 관리자 중 하나를
+선택한다. `VITE_AUTH_MODE=local`은 Vite 개발 서버에서만 적용되며 프로덕션 빌드에서는
+Firebase 인증을 강제로 사용한다. 운영 API `8000`과 AICC `8100`의 인증 설정은 변경되지
+않는다.
+
+본사 관리자 로컬 계정은 `admin@local.test` / `1234`이다. 점주 계정은 빠른 로그인
+메뉴에서 매장을 선택하면 별도 입력 없이 로그인된다.
+
 ### 팀원 Firebase 로컬 시작
 
 팀원은 기존 Vertex AI용 ADC 로그인을 그대로 유지한 채 Firebase 위임 ADC만 별도로

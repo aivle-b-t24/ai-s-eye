@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class QualityStatus(StrEnum):
@@ -24,6 +24,35 @@ class OrderStatus(StrEnum):
 class OrderDataSource(StrEnum):
     SYNTHETIC_ORDER_SIMULATOR = "synthetic_order_simulator"
     ORDER_EVENT = "order_event"
+
+
+class StoreManagerAccountCreate(BaseModel):
+    email: str = Field(min_length=5, max_length=254)
+    name: str = Field(min_length=1, max_length=100)
+    store_id: str = Field(min_length=1, max_length=100)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        local, separator, domain = normalized.partition("@")
+        if not separator or not local or "." not in domain:
+            raise ValueError("유효한 이메일 주소를 입력해 주세요")
+        return normalized
+
+    @field_validator("name", "store_id")
+    @classmethod
+    def strip_text(cls, value: str) -> str:
+        return value.strip()
+
+
+class FirebaseUserSummary(BaseModel):
+    uid: str
+    email: str
+    name: str
+    role: str | None = None
+    store_id: str | None = None
+    disabled: bool = False
 
 
 class TwinMode(StrEnum):

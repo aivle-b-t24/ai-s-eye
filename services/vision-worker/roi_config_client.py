@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -17,6 +18,14 @@ ZONE_NAME = {
 }
 
 
+def internal_headers() -> dict[str, str]:
+    headers = {"Accept": "application/json"}
+    key = os.getenv("INTERNAL_API_KEY")
+    if key:
+        headers["X-Internal-API-Key"] = key
+    return headers
+
+
 def fetch_approved_config(
     api_base_url: str,
     store_id: str,
@@ -27,7 +36,7 @@ def fetch_approved_config(
         api_base_url.rstrip("/")
         + f"/internal/stores/{store_id}/cameras/{camera_id}/roi-config"
     )
-    request = urllib.request.Request(url, headers={"Accept": "application/json"})
+    request = urllib.request.Request(url, headers=internal_headers())
     with urllib.request.urlopen(request, timeout=timeout) as response:
         return json.loads(response.read().decode("utf-8"))
 

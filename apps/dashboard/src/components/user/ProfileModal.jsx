@@ -58,7 +58,7 @@ export default function ProfileModal({ user, onClose, onLogout }) {
 
           <div className="info-item">
             <span className="info-label">연락처 / 이메일</span>
-            <span className="info-value">{user.id}@aicafe.com</span>
+            <span className="info-value">{user.email ?? `${user.id}@aicafe.com`}</span>
           </div>
 
           <div className="info-item">

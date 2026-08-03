@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import time
 import urllib.error
 import urllib.request
@@ -29,6 +30,14 @@ DEFAULT_ROI_REFRESH_SECONDS = 2.0
 ROI_ZONE_PRIORITY = ("staff", "waiting", "seating", "entrance")
 
 
+def internal_headers(extra: dict[str, str] | None = None) -> dict[str, str]:
+    headers = dict(extra or {})
+    key = os.getenv("INTERNAL_API_KEY")
+    if key:
+        headers["X-Internal-API-Key"] = key
+    return headers
+
+
 def fetch_approved_roi_config(
     api_base_url: str,
     store_id: str,
@@ -40,7 +49,10 @@ def fetch_approved_roi_config(
         api_base_url.rstrip("/")
         + f"/internal/stores/{store_id}/cameras/{camera_id}/roi-config"
     )
-    request = urllib.request.Request(url, headers={"Accept": "application/json"})
+    request = urllib.request.Request(
+        url,
+        headers=internal_headers({"Accept": "application/json"}),
+    )
     with urllib.request.urlopen(request, timeout=timeout) as response:
         return json.loads(response.read().decode("utf-8"))
 
@@ -407,7 +419,10 @@ def group_states_by_tick(states: list[dict]) -> list[list[dict]]:
 def post_state(url: str, state: dict, timeout: float = 5.0) -> int:
     body = json.dumps(state).encode("utf-8")
     req = urllib.request.Request(
-        url, data=body, headers={"Content-Type": "application/json"}, method="POST"
+        url,
+        data=body,
+        headers=internal_headers({"Content-Type": "application/json"}),
+        method="POST",
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return resp.status
@@ -445,7 +460,9 @@ def post_snapshot(
     url = api.rstrip("/") + f"/internal/stores/{store_id}/{endpoint}"
     req = urllib.request.Request(
         url, data=body, method="POST",
-        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+        headers=internal_headers({
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+        }))
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return resp.status
 

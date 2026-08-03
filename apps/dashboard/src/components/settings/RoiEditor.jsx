@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import { authenticatedFetch } from '../../api/authenticatedFetch'
+import { useAuthenticatedImage } from '../../hooks/useAuthenticatedImage'
+
 const ZONE_OPTIONS = [
   { value: 'staff', label: '직원 구역' },
   { value: 'waiting', label: '대기 구역' },
@@ -66,6 +69,7 @@ export default function RoiEditor({
   const [imageSrc, setImageSrc] = useState(
     () => `${apiBaseUrl}/api/stores/${storeId}/vision/raw/latest?t=${Date.now()}`,
   )
+  const authenticatedImage = useAuthenticatedImage(imageSrc)
   const [imageSize, setImageSize] = useState({ width: 1920, height: 1080 })
   const [imageStatus, setImageStatus] = useState({
     kind: 'loading',
@@ -112,7 +116,7 @@ export default function RoiEditor({
   }, [occupancy, zones])
 
   const loadVersions = useCallback(async () => {
-    const response = await fetch(
+    const response = await authenticatedFetch(
       `${apiBaseUrl}/api/stores/${storeId}/cameras/${cameraId}/roi-configs`,
     )
     if (!response.ok) throw new Error(`설정 이력 조회 실패 (${response.status})`)
@@ -122,7 +126,7 @@ export default function RoiEditor({
   const loadApproved = useCallback(async () => {
     setStatus({ kind: 'loading', message: 'ROI 설정을 불러오는 중입니다.' })
     try {
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${apiBaseUrl}/api/stores/${storeId}/cameras/${cameraId}/roi-config`,
       )
       if (response.status === 404) {
@@ -176,12 +180,20 @@ export default function RoiEditor({
         message: '원본 CCTV 이미지가 없습니다. Vision에서 원본을 전송하거나 설정용 원본 이미지를 업로드해 주세요.',
       })
     }
-    probe.src = imageSrc
+    if (authenticatedImage.error) {
+      setImageStatus({
+        kind: 'error',
+        message: '원본 CCTV 이미지가 없습니다. Vision에서 원본을 전송하거나 설정용 원본 이미지를 업로드해 주세요.',
+      })
+      return undefined
+    }
+    if (!authenticatedImage.src) return undefined
+    probe.src = authenticatedImage.src
     return () => {
       probe.onload = null
       probe.onerror = null
     }
-  }, [imageSrc])
+  }, [authenticatedImage.error, authenticatedImage.src])
 
   const useLatestImage = () => {
     if (objectUrlRef.current) {
@@ -215,7 +227,7 @@ export default function RoiEditor({
   const loadOccupancy = async () => {
     setOccupancyStatus({ kind: 'loading', message: '현재 사람 위치를 불러오는 중입니다.' })
     try {
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${apiBaseUrl}/api/stores/${storeId}/occupancy/latest`,
       )
       if (!response.ok) throw new Error(`현재 위치 조회 실패 (${response.status})`)
@@ -351,7 +363,7 @@ export default function RoiEditor({
     }
     setStatus({ kind: 'loading', message: 'ROI 설정을 저장하고 적용하는 중입니다.' })
     try {
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${apiBaseUrl}/api/stores/${storeId}/cameras/${cameraId}/roi-config`,
         {
           method: 'PUT',
@@ -389,7 +401,7 @@ export default function RoiEditor({
   const approveVersion = async (version) => {
     setStatus({ kind: 'loading', message: `ROI v${version}을 다시 적용하는 중입니다.` })
     try {
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${apiBaseUrl}/api/stores/${storeId}/cameras/${cameraId}/roi-configs/${version}/approve`,
         { method: 'POST' },
       )
@@ -485,7 +497,7 @@ export default function RoiEditor({
             onPointerLeave={stopDragging}
           >
             <image
-              href={imageSrc}
+              href={authenticatedImage.src}
               width="1000"
               height="1000"
               preserveAspectRatio="none"

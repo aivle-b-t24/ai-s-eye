@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { authenticatedFetch, currentIdToken } from '../../api/authenticatedFetch'
 
 const CHATBOT_BASE_URL =
   import.meta.env.VITE_CHATBOT_BASE_URL ?? 'http://100.86.5.67:8100'
@@ -58,7 +59,7 @@ export default function StoreChatbotWidget({ page }) {
 
     try {
       const endpoint = `${CHATBOT_BASE_URL.replace(/\/$/, '')}/chat`
-      const response = await fetch(endpoint, {
+      const response = await authenticatedFetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -98,13 +99,14 @@ export default function StoreChatbotWidget({ page }) {
   }
 
   // Open external dedicated standalone popup window
-  const openExternalPopupWindow = () => {
+  const openExternalPopupWindow = async () => {
     const width = 450
     const height = 680
     const left = window.screen.width / 2 - width / 2
     const top = window.screen.height / 2 - height / 2
     const activeStoreId = page || 'store-001'
     const targetEndpoint = `${CHATBOT_BASE_URL.replace(/\/$/, '')}/chat`
+    const token = await currentIdToken()
 
     const popupHtml = `
       <!DOCTYPE html>
@@ -167,6 +169,8 @@ export default function StoreChatbotWidget({ page }) {
           <button class="send-btn" onclick="sendMsg()">➤</button>
         </div>
         <script>
+          const firebaseToken = ${JSON.stringify(token)};
+
           function sendFaq(text) {
             document.getElementById('userInput').value = text;
             sendMsg();
@@ -190,7 +194,10 @@ export default function StoreChatbotWidget({ page }) {
             try {
               const res = await fetch('${targetEndpoint}', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': 'Bearer ' + firebaseToken
+                },
                 body: JSON.stringify({ question: val, store_id: '${activeStoreId}' })
               });
 

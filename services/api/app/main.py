@@ -4,13 +4,20 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 import psycopg
 from pydantic import ValidationError
 
 from .config import get_settings
+from .auth import (
+    CurrentUser,
+    get_current_user,
+    require_admin,
+    require_internal_service,
+    require_store_access,
+)
 from .db_repository import DatabaseRepository
 from .models import (
     CameraRoiConfig,
@@ -18,14 +25,21 @@ from .models import (
     CameraSceneConfig,
     CameraSceneConfigInput,
     EtaResponse,
+    FirebaseUserSummary,
     OrderEvent,
     OperationsSimulationResult,
     OperationsSimulationScenario,
     StoreState,
+    StoreManagerAccountCreate,
     StoreSummaryResponse,
     StoreTimelineResponse,
     TwinFrame,
     VisionSnapshotMetadata,
+)
+from .firebase_users import (
+    FirebaseUserAlreadyExistsError,
+    create_store_manager_account,
+    list_managed_accounts,
 )
 from .operations_simulation import run_operations_simulation
 from .order_export import KST, build_order_export_csv
@@ -180,10 +194,52 @@ def health() -> dict[str, str]:
     }
 
 
+@app.get("/api/auth/me", tags=["auth"])
+def get_authenticated_user(
+    user: CurrentUser = Depends(get_current_user),
+) -> dict[str, str]:
+    return user.response()
+
+
+@app.get(
+    "/api/admin/users",
+    response_model=list[FirebaseUserSummary],
+    tags=["admin"],
+    dependencies=[Depends(require_admin)],
+)
+def get_admin_users() -> list[FirebaseUserSummary]:
+    return list_managed_accounts()
+
+
+@app.post(
+    "/api/admin/users",
+    response_model=FirebaseUserSummary,
+    status_code=status.HTTP_201_CREATED,
+    tags=["admin"],
+    dependencies=[Depends(require_admin)],
+)
+def create_admin_user(
+    request: StoreManagerAccountCreate,
+) -> FirebaseUserSummary:
+    if request.store_id not in settings.vision_store_ids:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="지원하지 않는 매장입니다",
+        )
+    try:
+        return create_store_manager_account(request)
+    except FirebaseUserAlreadyExistsError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="이미 등록된 이메일입니다",
+        ) from exc
+
+
 @app.post(
     "/internal/store-states",
     status_code=status.HTTP_201_CREATED,
     tags=["internal"],
+    dependencies=[Depends(require_internal_service)],
 )
 def save_store_state(state: StoreState) -> dict[str, Any]:
     saved = repository.save_store_state(state)
@@ -194,6 +250,7 @@ def save_store_state(state: StoreState) -> dict[str, Any]:
     "/internal/stores/{store_id}/occupancy",
     status_code=status.HTTP_201_CREATED,
     tags=["internal"],
+    dependencies=[Depends(require_internal_service)],
 )
 def save_store_occupancy(
     store_id: str,
@@ -221,6 +278,7 @@ def save_store_occupancy(
     "/internal/order-events",
     status_code=status.HTTP_202_ACCEPTED,
     tags=["internal"],
+    dependencies=[Depends(require_internal_service)],
 )
 def save_order_event(event: OrderEvent) -> dict[str, Any]:
     saved = repository.save_order_event(event)
@@ -231,6 +289,7 @@ def save_order_event(event: OrderEvent) -> dict[str, Any]:
     "/internal/stores/{store_id}/vision-snapshot",
     status_code=status.HTTP_201_CREATED,
     tags=["internal"],
+    dependencies=[Depends(require_internal_service)],
 )
 async def save_vision_snapshot(
     store_id: str,
@@ -269,6 +328,7 @@ async def save_vision_snapshot(
     "/internal/stores/{store_id}/vision-raw",
     status_code=status.HTTP_201_CREATED,
     tags=["internal"],
+    dependencies=[Depends(require_internal_service)],
 )
 async def save_raw_vision_snapshot(
     store_id: str,
@@ -366,6 +426,7 @@ def get_vision_snapshot_metadata(
     "/api/stores/{store_id}/vision/latest",
     response_class=FileResponse,
     tags=["stores"],
+    dependencies=[Depends(require_store_access)],
 )
 def get_latest_vision_snapshot(store_id: str) -> FileResponse:
     validate_vision_store_id(store_id)
@@ -376,6 +437,7 @@ def get_latest_vision_snapshot(store_id: str) -> FileResponse:
     "/api/stores/{store_id}/vision/raw/latest",
     response_class=FileResponse,
     tags=["stores"],
+    dependencies=[Depends(require_store_access)],
 )
 def get_latest_raw_vision_snapshot(store_id: str) -> FileResponse:
     """ROI 설정용 원본 CCTV 프레임을 반환한다."""
@@ -387,6 +449,7 @@ def get_latest_raw_vision_snapshot(store_id: str) -> FileResponse:
     "/api/stores/{store_id}/vision/metadata",
     response_model=VisionSnapshotMetadata,
     tags=["stores"],
+    dependencies=[Depends(require_store_access)],
 )
 def get_latest_vision_metadata(store_id: str) -> VisionSnapshotMetadata:
     validate_vision_store_id(store_id)
@@ -397,6 +460,7 @@ def get_latest_vision_metadata(store_id: str) -> VisionSnapshotMetadata:
     "/api/stores/{store_id}/vision/raw/metadata",
     response_model=VisionSnapshotMetadata,
     tags=["stores"],
+    dependencies=[Depends(require_store_access)],
 )
 def get_latest_raw_vision_metadata(store_id: str) -> VisionSnapshotMetadata:
     validate_vision_store_id(store_id)
@@ -408,6 +472,7 @@ def get_latest_raw_vision_metadata(store_id: str) -> VisionSnapshotMetadata:
     response_model=TwinFrame,
     response_model_exclude_none=True,
     tags=["stores"],
+    dependencies=[Depends(require_store_access)],
 )
 def get_latest_store_occupancy(store_id: str) -> TwinFrame:
     validate_vision_store_id(store_id)
@@ -421,6 +486,7 @@ def get_latest_store_occupancy(store_id: str) -> TwinFrame:
     "/api/stores/{store_id}/cameras/{camera_id}/roi-config",
     response_model=CameraRoiConfig,
     tags=["roi"],
+    dependencies=[Depends(require_store_access)],
 )
 def get_camera_roi_config(store_id: str, camera_id: str) -> CameraRoiConfig:
     validate_vision_store_id(store_id)
@@ -434,6 +500,7 @@ def get_camera_roi_config(store_id: str, camera_id: str) -> CameraRoiConfig:
     "/api/stores/{store_id}/cameras/{camera_id}/roi-config",
     response_model=CameraRoiConfig,
     tags=["roi"],
+    dependencies=[Depends(require_store_access)],
 )
 def save_camera_roi_config(
     store_id: str,
@@ -448,6 +515,7 @@ def save_camera_roi_config(
     "/api/stores/{store_id}/cameras/{camera_id}/roi-configs",
     response_model=list[CameraRoiConfig],
     tags=["roi"],
+    dependencies=[Depends(require_store_access)],
 )
 def list_camera_roi_configs(
     store_id: str,
@@ -461,6 +529,7 @@ def list_camera_roi_configs(
     "/api/stores/{store_id}/cameras/{camera_id}/roi-configs/{version}/approve",
     response_model=CameraRoiConfig,
     tags=["roi"],
+    dependencies=[Depends(require_store_access)],
 )
 def approve_camera_roi_config(
     store_id: str,
@@ -478,6 +547,7 @@ def approve_camera_roi_config(
     "/internal/stores/{store_id}/cameras/{camera_id}/roi-config",
     response_model=CameraRoiConfig,
     tags=["internal"],
+    dependencies=[Depends(require_internal_service)],
 )
 def get_internal_camera_roi_config(
     store_id: str,
@@ -494,6 +564,7 @@ def get_internal_camera_roi_config(
     "/api/stores/{store_id}/cameras/{camera_id}/scene-config",
     response_model=CameraSceneConfig,
     tags=["scene"],
+    dependencies=[Depends(require_store_access)],
 )
 def get_camera_scene_config(store_id: str, camera_id: str) -> CameraSceneConfig:
     validate_vision_store_id(store_id)
@@ -507,6 +578,7 @@ def get_camera_scene_config(store_id: str, camera_id: str) -> CameraSceneConfig:
     "/api/stores/{store_id}/cameras/{camera_id}/scene-config",
     response_model=CameraSceneConfig,
     tags=["scene"],
+    dependencies=[Depends(require_store_access)],
 )
 def save_camera_scene_config(
     store_id: str,
@@ -521,6 +593,7 @@ def save_camera_scene_config(
     "/api/stores/{store_id}/cameras/{camera_id}/scene-configs",
     response_model=list[CameraSceneConfig],
     tags=["scene"],
+    dependencies=[Depends(require_store_access)],
 )
 def list_camera_scene_configs(
     store_id: str,
@@ -534,6 +607,7 @@ def list_camera_scene_configs(
     "/api/stores/{store_id}/cameras/{camera_id}/scene-configs/{version}/approve",
     response_model=CameraSceneConfig,
     tags=["scene"],
+    dependencies=[Depends(require_store_access)],
 )
 def approve_camera_scene_config(
     store_id: str,
@@ -551,6 +625,7 @@ def approve_camera_scene_config(
     "/api/orders/{order_id}",
     response_model=OrderEvent,
     tags=["orders"],
+    dependencies=[Depends(require_admin)],
 )
 def get_order_status(order_id: str) -> OrderEvent:
     event = repository.get_latest_order_event(order_id)
@@ -563,6 +638,7 @@ def get_order_status(order_id: str) -> OrderEvent:
     "/api/exports/orders.csv",
     response_class=Response,
     tags=["orders"],
+    dependencies=[Depends(require_admin)],
 )
 def export_orders_csv(
     start_at: datetime,
@@ -612,6 +688,7 @@ def export_orders_csv(
     "/api/simulations/operations",
     response_model=OperationsSimulationResult,
     tags=["simulations"],
+    dependencies=[Depends(require_admin)],
 )
 def simulate_operations(
     scenario: OperationsSimulationScenario,
@@ -625,6 +702,7 @@ def simulate_operations(
     "/api/stores/{store_id}/orders/{order_id}",
     response_model=OrderEvent,
     tags=["orders"],
+    dependencies=[Depends(require_store_access)],
 )
 def get_store_order_status(store_id: str, order_id: str) -> OrderEvent:
     event = repository.get_latest_store_order_event(store_id, order_id)
@@ -637,6 +715,7 @@ def get_store_order_status(store_id: str, order_id: str) -> OrderEvent:
     "/api/stores/summary",
     response_model=StoreSummaryResponse,
     tags=["stores"],
+    dependencies=[Depends(require_admin)],
 )
 def get_stores_summary(
     start_at: datetime | None = None,
@@ -672,6 +751,7 @@ def get_stores_summary(
     "/api/stores/{store_id}/timeline",
     response_model=StoreTimelineResponse,
     tags=["stores"],
+    dependencies=[Depends(require_store_access)],
 )
 def get_store_timeline(
     store_id: str,
@@ -711,6 +791,7 @@ def get_store_timeline(
     "/api/stores/{store_id}/state",
     response_model=StoreState,
     tags=["stores"],
+    dependencies=[Depends(require_store_access)],
 )
 def get_store_state(store_id: str) -> StoreState:
     state_value = repository.get_store_state(store_id)
@@ -723,6 +804,7 @@ def get_store_state(store_id: str) -> StoreState:
     "/api/stores/{store_id}/eta",
     response_model=EtaResponse,
     tags=["stores"],
+    dependencies=[Depends(require_store_access)],
 )
 def get_store_eta(store_id: str) -> EtaResponse:
     state_value = repository.get_store_state(store_id)
@@ -753,7 +835,11 @@ def get_store_eta(store_id: str) -> EtaResponse:
     )
 
 
-@app.get("/api/stores/{store_id}/menus", tags=["stores"])
+@app.get(
+    "/api/stores/{store_id}/menus",
+    tags=["stores"],
+    dependencies=[Depends(require_store_access)],
+)
 def get_store_menus(store_id: str) -> dict[str, Any]:
     menu_data = load_json_file("menus.json")
     menus = [
@@ -764,7 +850,11 @@ def get_store_menus(store_id: str) -> dict[str, Any]:
     return {**menu_data, "store_id": store_id, "menus": menus}
 
 
-@app.get("/api/stores/{store_id}/policies", tags=["stores"])
+@app.get(
+    "/api/stores/{store_id}/policies",
+    tags=["stores"],
+    dependencies=[Depends(require_store_access)],
+)
 def get_store_policies(store_id: str) -> dict[str, Any]:
     policy_data = load_json_file("policies.json")
     policies = [

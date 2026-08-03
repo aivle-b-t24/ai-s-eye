@@ -1,12 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { ROLES, STORES } from '../../constants/auth';
+import { LOCAL_DEMO_ACCOUNTS } from '../../auth/localAuth';
+import { IS_LOCAL_AUTH_MODE } from '../../auth/runtimeAuth';
 
 const REMEMBERED_EMAIL_KEY = 'aicafe.rememberedEmail';
 const DEMO_LOGIN_ENABLED = (
-  import.meta.env.DEV
-  && String(import.meta.env.VITE_ENABLE_DEMO_LOGIN ?? 'false').toLowerCase() === 'true'
+  IS_LOCAL_AUTH_MODE
+  || (
+    import.meta.env.DEV
+    && String(import.meta.env.VITE_ENABLE_DEMO_LOGIN ?? 'false').toLowerCase() === 'true'
+  )
 );
-const DEMO_ACCOUNTS = import.meta.env.DEV
+const FIREBASE_DEMO_ACCOUNTS = import.meta.env.DEV
   ? {
       [STORES.DONGMYEONG]: {
         email: import.meta.env.VITE_DEMO_STORE_001_EMAIL,
@@ -25,6 +30,9 @@ const DEMO_ACCOUNTS = import.meta.env.DEV
       },
     }
   : {};
+const DEMO_ACCOUNTS = IS_LOCAL_AUTH_MODE
+  ? LOCAL_DEMO_ACCOUNTS
+  : FIREBASE_DEMO_ACCOUNTS;
 
 export default function LoginPage({ onLogin, onPasswordReset, onGoToSignup, initialRole = ROLES.STORE_MANAGER, initialError = '', onRoleChange }) {
   const [role, setRole] = useState(initialRole);
@@ -228,14 +236,18 @@ export default function LoginPage({ onLogin, onPasswordReset, onGoToSignup, init
               />
               이메일 저장
             </label>
-            <button
-              type="button"
-              className="auth-link auth-link-button"
-              onClick={handleResetPassword}
-              disabled={isSubmitting}
-            >
-              비밀번호 설정 / 재설정
-            </button>
+            {IS_LOCAL_AUTH_MODE ? (
+              <span className="auth-link">로컬 개발 모드</span>
+            ) : (
+              <button
+                type="button"
+                className="auth-link auth-link-button"
+                onClick={handleResetPassword}
+                disabled={isSubmitting}
+              >
+                비밀번호 설정 / 재설정
+              </button>
+            )}
           </div>
 
           <button type="submit" className="auth-submit-btn" disabled={isSubmitting}>
@@ -249,7 +261,11 @@ export default function LoginPage({ onLogin, onPasswordReset, onGoToSignup, init
 
         {DEMO_LOGIN_ENABLED && (
           <div className="demo-login-box">
-            <p className="demo-hint">[빠른 체험용 원클릭 로그인]</p>
+            <p className="demo-hint">
+              {IS_LOCAL_AUTH_MODE
+                ? '[팀 개발용 로컬 로그인 · Firebase 불필요]'
+                : '[빠른 체험용 원클릭 로그인]'}
+            </p>
             <div className="demo-btn-group">
               <div className="store-sub-wrapper">
                 <button

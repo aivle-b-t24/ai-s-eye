@@ -30,15 +30,15 @@ export default function SignupPage({ onGoToLogin, initialRole = ROLES.STORE_MANA
         <div className="account-guide-steps">
           <div>
             <strong>1</strong>
-            <span>관리자가 이메일과 담당 매장으로 계정을 등록합니다.</span>
+            <span>관리자가 로그인 이메일, 담당 매장, 초기 비밀번호를 등록합니다.</span>
           </div>
           <div>
             <strong>2</strong>
-            <span>로그인 화면에서 비밀번호 설정 메일을 요청합니다.</span>
+            <span>본사에서 발급받은 이메일과 초기 비밀번호를 확인합니다.</span>
           </div>
           <div>
             <strong>3</strong>
-            <span>이메일 링크에서 비밀번호를 정한 뒤 로그인합니다.</span>
+            <span>로그인 화면에 발급 정보를 입력해 매장 관제 화면에 접속합니다.</span>
           </div>
         </div>
 

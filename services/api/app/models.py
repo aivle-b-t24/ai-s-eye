@@ -30,6 +30,7 @@ class StoreManagerAccountCreate(BaseModel):
     email: str = Field(min_length=5, max_length=254)
     name: str = Field(min_length=1, max_length=100)
     store_id: str = Field(min_length=1, max_length=100)
+    password: str = Field(min_length=8, max_length=128)
 
     @field_validator("email")
     @classmethod
@@ -44,6 +45,10 @@ class StoreManagerAccountCreate(BaseModel):
     @classmethod
     def strip_text(cls, value: str) -> str:
         return value.strip()
+
+
+class StoreManagerPasswordUpdate(BaseModel):
+    password: str = Field(min_length=8, max_length=128)
 
 
 class FirebaseUserSummary(BaseModel):

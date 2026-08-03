@@ -31,6 +31,7 @@ from .models import (
     OperationsSimulationScenario,
     StoreState,
     StoreManagerAccountCreate,
+    StoreManagerPasswordUpdate,
     StoreSummaryResponse,
     StoreTimelineResponse,
     TwinFrame,
@@ -38,8 +39,12 @@ from .models import (
 )
 from .firebase_users import (
     FirebaseUserAlreadyExistsError,
+    FirebaseUserNotFoundError,
+    FirebaseUserNotStoreManagerError,
     create_store_manager_account,
+    delete_store_manager_account,
     list_managed_accounts,
+    update_store_manager_password,
 )
 from .operations_simulation import run_operations_simulation
 from .order_export import KST, build_order_export_csv
@@ -232,6 +237,51 @@ def create_admin_user(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="이미 등록된 이메일입니다",
+        ) from exc
+
+
+@app.delete(
+    "/api/admin/users/{uid}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    tags=["admin"],
+    dependencies=[Depends(require_admin)],
+)
+def delete_admin_user(uid: str) -> None:
+    try:
+        delete_store_manager_account(uid)
+    except FirebaseUserNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="계정을 찾을 수 없습니다",
+        ) from exc
+    except FirebaseUserNotStoreManagerError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="점주 계정만 삭제할 수 있습니다",
+        ) from exc
+
+
+@app.patch(
+    "/api/admin/users/{uid}/password",
+    status_code=status.HTTP_204_NO_CONTENT,
+    tags=["admin"],
+    dependencies=[Depends(require_admin)],
+)
+def update_admin_user_password(
+    uid: str,
+    request: StoreManagerPasswordUpdate,
+) -> None:
+    try:
+        update_store_manager_password(uid, request)
+    except FirebaseUserNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="계정을 찾을 수 없습니다",
+        ) from exc
+    except FirebaseUserNotStoreManagerError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="점주 계정 비밀번호만 변경할 수 있습니다",
         ) from exc
 
 

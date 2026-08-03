@@ -2,16 +2,26 @@
 
 from __future__ import annotations
 
-import secrets
-
 from firebase_admin import auth as firebase_auth
 
 from .auth import STORE_MANAGER_ROLE, get_firebase_app
-from .models import FirebaseUserSummary, StoreManagerAccountCreate
+from .models import (
+    FirebaseUserSummary,
+    StoreManagerAccountCreate,
+    StoreManagerPasswordUpdate,
+)
 
 
 class FirebaseUserAlreadyExistsError(Exception):
     """같은 이메일의 Firebase 사용자가 이미 존재한다."""
+
+
+class FirebaseUserNotFoundError(Exception):
+    """삭제하려는 Firebase 사용자가 존재하지 않는다."""
+
+
+class FirebaseUserNotStoreManagerError(Exception):
+    """점주가 아닌 계정에 삭제를 요청했다."""
 
 
 def _summary(user: firebase_auth.UserRecord) -> FirebaseUserSummary:
@@ -40,9 +50,9 @@ def create_store_manager_account(
     user = firebase_auth.create_user(
         email=request.email,
         display_name=request.name,
-        # 사용자가 로그인 화면의 비밀번호 설정 메일로 직접 비밀번호를 정한다.
-        password=secrets.token_urlsafe(32),
-        email_verified=False,
+        password=request.password,
+        # 가상 이메일 계정도 본사가 발급할 수 있으므로 메일 확인을 요구하지 않는다.
+        email_verified=True,
         app=app,
     )
     try:
@@ -60,6 +70,38 @@ def create_store_manager_account(
         firebase_auth.delete_user(user.uid, app=app)
         raise
     return _summary(user)
+
+
+def delete_store_manager_account(uid: str) -> None:
+    app = get_firebase_app()
+    try:
+        user = firebase_auth.get_user(uid, app=app)
+    except firebase_auth.UserNotFoundError as exc:
+        raise FirebaseUserNotFoundError(uid) from exc
+
+    claims = user.custom_claims or {}
+    if claims.get("role") != STORE_MANAGER_ROLE:
+        raise FirebaseUserNotStoreManagerError(uid)
+
+    firebase_auth.delete_user(uid, app=app)
+
+
+def update_store_manager_password(
+    uid: str,
+    request: StoreManagerPasswordUpdate,
+) -> None:
+    app = get_firebase_app()
+    try:
+        user = firebase_auth.get_user(uid, app=app)
+    except firebase_auth.UserNotFoundError as exc:
+        raise FirebaseUserNotFoundError(uid) from exc
+
+    claims = user.custom_claims or {}
+    if claims.get("role") != STORE_MANAGER_ROLE:
+        raise FirebaseUserNotStoreManagerError(uid)
+
+    firebase_auth.update_user(uid, password=request.password, app=app)
+    firebase_auth.revoke_refresh_tokens(uid, app=app)
 
 
 def list_managed_accounts() -> list[FirebaseUserSummary]:

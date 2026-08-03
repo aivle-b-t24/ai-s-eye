@@ -49,7 +49,7 @@ from roi_zone_counter import (
     ZONE_COLOR, KST,
 )
 from roi_config_client import load_roi_zone_data
-from replay_states import post_state, prepare_occupancy
+from replay_states import internal_headers, post_state, prepare_occupancy
 
 CAFE_ROOT = Path(os.getenv(
     "AISEYE_CAFE_ROOT", r"D:\Cafe_Dataset\Cafe_Dataset\Dataset\cafe"))
@@ -363,7 +363,9 @@ def upload_snapshot(api, store_id, img, *, raw=False, metadata=None):
     url = api.rstrip("/") + f"/internal/stores/{store_id}/{endpoint}"
     req = urllib.request.Request(
         url, data=body, method="POST",
-        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+        headers=internal_headers({
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+        }))
     urllib.request.urlopen(req, timeout=10).close()
 
 
@@ -1414,7 +1416,8 @@ def run_live(
                     )
                     req = urllib.request.Request(
                         url, data=json.dumps(outgoing).encode("utf-8"),
-                        headers={"Content-Type": "application/json"}, method="POST")
+                        headers=internal_headers({"Content-Type": "application/json"}),
+                        method="POST")
                     try:
                         urllib.request.urlopen(req, timeout=5).close()
                     except Exception as exc:  # noqa: BLE001
@@ -1544,7 +1547,8 @@ def main():
             payload = {k: v for k, v in s.items() if k != "positions"}
             req = urllib.request.Request(
                 url, data=json.dumps(payload).encode("utf-8"),
-                headers={"Content-Type": "application/json"}, method="POST")
+                headers=internal_headers({"Content-Type": "application/json"}),
+                method="POST")
             try:
                 with urllib.request.urlopen(req, timeout=5) as resp:
                     ok += resp.status < 300

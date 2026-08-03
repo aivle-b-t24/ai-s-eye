@@ -1,60 +1,70 @@
-import React, { useState } from 'react';
-import { ROLES, STORES, DEMO_CREDENTIALS } from '../../constants/auth';
+import React, { useEffect, useState } from 'react';
+import { ROLES, STORES } from '../../constants/auth';
 
-export default function LoginPage({ onLogin, onGoToSignup, onClose, initialRole = ROLES.STORE_MANAGER, onRoleChange }) {
+const REMEMBERED_EMAIL_KEY = 'aicafe.rememberedEmail';
+const DEMO_LOGIN_ENABLED = (
+  import.meta.env.DEV
+  && String(import.meta.env.VITE_ENABLE_DEMO_LOGIN ?? 'false').toLowerCase() === 'true'
+);
+const DEMO_ACCOUNTS = import.meta.env.DEV
+  ? {
+      [STORES.DONGMYEONG]: {
+        email: import.meta.env.VITE_DEMO_STORE_001_EMAIL,
+        password: import.meta.env.VITE_DEMO_STORE_001_PASSWORD,
+        role: ROLES.STORE_MANAGER,
+      },
+      [STORES.SUWAN]: {
+        email: import.meta.env.VITE_DEMO_STORE_002_EMAIL,
+        password: import.meta.env.VITE_DEMO_STORE_002_PASSWORD,
+        role: ROLES.STORE_MANAGER,
+      },
+      [STORES.HEAD_OFFICE]: {
+        email: import.meta.env.VITE_DEMO_ADMIN_EMAIL,
+        password: import.meta.env.VITE_DEMO_ADMIN_PASSWORD,
+        role: ROLES.ADMIN,
+      },
+    }
+  : {};
+
+export default function LoginPage({ onLogin, onPasswordReset, onGoToSignup, initialRole = ROLES.STORE_MANAGER, initialError = '', onRoleChange }) {
   const [role, setRole] = useState(initialRole);
-  const [userId, setUserId] = useState('');
+  const [userId, setUserId] = useState(() => localStorage.getItem(REMEMBERED_EMAIL_KEY) ?? '');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberId, setRememberId] = useState(false);
-  const [failedCount, setFailedCount] = useState(0);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [rememberId, setRememberId] = useState(() => Boolean(localStorage.getItem(REMEMBERED_EMAIL_KEY)));
+  const [errorMessage, setErrorMessage] = useState(initialError);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isStoreSubmenuOpen, setIsStoreSubmenuOpen] = useState(false);
+
+  useEffect(() => setRole(initialRole), [initialRole]);
+  useEffect(() => setErrorMessage(initialError), [initialError]);
 
   const handleTabSwitch = (newRole) => {
     setRole(newRole);
     setErrorMessage('');
+    setSuccessMessage('');
     if (onRoleChange) {
       onRoleChange(newRole);
     }
   };
 
-  const handleDemoLogin = (selectedRole, targetStoreId = STORES.DONGMYEONG) => {
-    const credKey = selectedRole === ROLES.STORE_MANAGER ? targetStoreId : STORES.HEAD_OFFICE;
-    const creds = DEMO_CREDENTIALS[credKey] || DEMO_CREDENTIALS[STORES.DONGMYEONG];
-
-    onLogin({
-      id: creds.id,
-      name: creds.name,
-      role: creds.role,
-      storeId: creds.storeId,
-    });
+  const handleResetPassword = async () => {
+    setErrorMessage('');
+    setSuccessMessage('');
+    try {
+      await onPasswordReset(userId);
+      setSuccessMessage('비밀번호 설정 메일을 보냈습니다. 이메일의 링크를 확인해 주세요.');
+    } catch (error) {
+      setErrorMessage(error.message || '비밀번호 설정 메일을 보내지 못했습니다.');
+    }
   };
 
-  const handleSelectDongmyeong = () => {
-    setIsStoreSubmenuOpen(false);
-    handleDemoLogin(ROLES.STORE_MANAGER, STORES.DONGMYEONG);
-  };
-
-  const handleSelectSuwan = () => {
-    setIsStoreSubmenuOpen(false);
-    handleDemoLogin(ROLES.STORE_MANAGER, STORES.SUWAN);
-  };
-
-  const handleAdminDemoLogin = () => {
-    handleDemoLogin(ROLES.ADMIN, STORES.HEAD_OFFICE);
-  };
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (failedCount >= 5) {
-      setErrorMessage('비밀번호 5회 이상 오류로 계정이 일시 잠금되었습니다. 고객센터에 문의하거나 비밀번호를 재설정해 주세요.');
-      return;
-    }
-
     if (!userId.trim()) {
-      setErrorMessage('아이디를 입력해 주세요.');
+      setErrorMessage('이메일을 입력해 주세요.');
       return;
     }
     if (!password) {
@@ -62,24 +72,52 @@ export default function LoginPage({ onLogin, onGoToSignup, onClose, initialRole 
       return;
     }
 
-    if ((role === ROLES.STORE_MANAGER && userId === 'owner' && password === '1234') ||
-        (role === ROLES.ADMIN && userId === 'admin' && password === '1234')) {
-      setFailedCount(0);
-      setErrorMessage('');
-      onLogin({
-        id: userId,
-        name: role === ROLES.STORE_MANAGER ? '강남점 점주' : '본사 관리자',
-        role: role,
-        storeId: role === ROLES.STORE_MANAGER ? STORES.DONGMYEONG : STORES.HEAD_OFFICE
+    setIsSubmitting(true);
+    try {
+      await onLogin({
+        email: userId.trim(),
+        password,
+        remember: rememberId,
       });
-    } else {
-      const newCount = failedCount + 1;
-      setFailedCount(newCount);
-      if (newCount >= 5) {
-        setErrorMessage('비밀번호 5회 이상 오류로 계정이 일시 잠금되었습니다.');
+      if (rememberId) {
+        localStorage.setItem(REMEMBERED_EMAIL_KEY, userId.trim());
       } else {
-        setErrorMessage(`아이디 또는 비밀번호가 올바르지 않습니다. (실패 횟수: ${newCount}/5회)`);
+        localStorage.removeItem(REMEMBERED_EMAIL_KEY);
       }
+      setErrorMessage('');
+    } catch (error) {
+      setErrorMessage(error.message || '로그인에 실패했습니다.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDemoLogin = async (storeId) => {
+    const account = DEMO_ACCOUNTS[storeId];
+    if (!account?.email || !account?.password) {
+      setErrorMessage('빠른 로그인 계정이 설정되지 않았습니다.');
+      return;
+    }
+
+    setIsStoreSubmenuOpen(false);
+    setRole(account.role);
+    setErrorMessage('');
+    setIsSubmitting(true);
+    if (onRoleChange) {
+      onRoleChange(account.role);
+    }
+
+    try {
+      await onLogin({
+        email: account.email,
+        password: account.password,
+        remember: false,
+        role: account.role,
+      });
+    } catch (error) {
+      setErrorMessage(error.message || '빠른 로그인에 실패했습니다.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -113,15 +151,16 @@ export default function LoginPage({ onLogin, onGoToSignup, onClose, initialRole 
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
             <label htmlFor="userId">
-              {role === ROLES.STORE_MANAGER ? '점주 아이디' : '본사 관리자 사번/아이디'}
+              {role === ROLES.STORE_MANAGER ? '점주 이메일' : '본사 관리자 이메일'}
             </label>
             <input
               id="userId"
-              type="text"
-              placeholder={role === ROLES.STORE_MANAGER ? '예: owner01' : '예: admin01'}
+              type="email"
+              autoComplete="username"
+              placeholder={role === ROLES.STORE_MANAGER ? '예: owner01@aicafe.com' : '예: admin01@aicafe.com'}
               value={userId}
               onChange={(e) => setUserId(e.target.value)}
-              disabled={failedCount >= 5}
+              disabled={isSubmitting}
             />
           </div>
 
@@ -134,7 +173,8 @@ export default function LoginPage({ onLogin, onGoToSignup, onClose, initialRole 
                 placeholder="비밀번호를 입력하세요"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                disabled={failedCount >= 5}
+                autoComplete="current-password"
+                disabled={isSubmitting}
               />
               <button
                 type="button"
@@ -172,6 +212,11 @@ export default function LoginPage({ onLogin, onGoToSignup, onClose, initialRole 
                 </button>
               </div>
             )}
+            {successMessage && (
+              <div className="auth-success-alert inline-single-line clean-text-only">
+                <span>{successMessage}</span>
+              </div>
+            )}
           </div>
 
           <div className="form-options">
@@ -181,66 +226,80 @@ export default function LoginPage({ onLogin, onGoToSignup, onClose, initialRole 
                 checked={rememberId}
                 onChange={(e) => setRememberId(e.target.checked)}
               />
-              아이디 저장
+              이메일 저장
             </label>
-            <span className="auth-link">아이디 / 비밀번호 찾기</span>
+            <button
+              type="button"
+              className="auth-link auth-link-button"
+              onClick={handleResetPassword}
+              disabled={isSubmitting}
+            >
+              비밀번호 설정 / 재설정
+            </button>
           </div>
 
-          <button type="submit" className="auth-submit-btn" disabled={failedCount >= 5}>
-            {role === ROLES.STORE_MANAGER ? '점주 관제 화면 로그인' : '본사 관리자 대시보드 로그인'}
+          <button type="submit" className="auth-submit-btn" disabled={isSubmitting}>
+            {isSubmitting
+              ? '로그인 확인 중...'
+              : role === ROLES.STORE_MANAGER
+                ? '점주 관제 화면 로그인'
+                : '본사 관리자 대시보드 로그인'}
           </button>
         </form>
 
-        <div className="demo-login-box">
-          <p className="demo-hint">[빠른 체험용 원클릭 로그인]</p>
-          <div className="demo-btn-group">
-            <div className="store-sub-wrapper">
+        {DEMO_LOGIN_ENABLED && (
+          <div className="demo-login-box">
+            <p className="demo-hint">[빠른 체험용 원클릭 로그인]</p>
+            <div className="demo-btn-group">
+              <div className="store-sub-wrapper">
+                <button
+                  type="button"
+                  className="demo-btn store-demo with-arrow-btn"
+                  onClick={() => setIsStoreSubmenuOpen((open) => !open)}
+                  aria-expanded={isStoreSubmenuOpen}
+                  disabled={isSubmitting}
+                >
+                  <span>[점주] 로그인</span>
+                  <span className={`dropdown-arrow-icon ${isStoreSubmenuOpen ? 'open' : ''}`} aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </span>
+                </button>
+
+                {isStoreSubmenuOpen && (
+                  <div className="store-sub-dropdown-menu">
+                    <button
+                      type="button"
+                      className="store-sub-option"
+                      onClick={() => handleDemoLogin(STORES.DONGMYEONG)}
+                      disabled={isSubmitting}
+                    >
+                      매장 1 (동명점)
+                    </button>
+                    <button
+                      type="button"
+                      className="store-sub-option"
+                      onClick={() => handleDemoLogin(STORES.SUWAN)}
+                      disabled={isSubmitting}
+                    >
+                      매장 2 (수완점)
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <button
                 type="button"
-                className="demo-btn store-demo with-arrow-btn"
-                onClick={() => setIsStoreSubmenuOpen(!isStoreSubmenuOpen)}
-                aria-expanded={isStoreSubmenuOpen}
+                className="demo-btn admin-demo"
+                onClick={() => handleDemoLogin(STORES.HEAD_OFFICE)}
+                disabled={isSubmitting}
               >
-                <span>[점주] 로그인</span>
-                <span className={`dropdown-arrow-icon ${isStoreSubmenuOpen ? 'open' : ''}`} aria-hidden="true">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
-                </span>
+                [본사 관리자] 로그인
               </button>
-
-              {isStoreSubmenuOpen && (
-                <div className="store-sub-dropdown-menu">
-                  <button
-                    type="button"
-                    className="store-sub-option"
-                    onClick={handleSelectDongmyeong}
-                  >
-                    매장 1 (동명점)
-                  </button>
-                  <button
-                    type="button"
-                    className="store-sub-option"
-                    onClick={handleSelectSuwan}
-                  >
-                    매장 2 (수완점)
-                  </button>
-                </div>
-              )}
             </div>
-
-            <button
-              type="button"
-              className="demo-btn admin-demo"
-              onClick={handleAdminDemoLogin}
-            >
-              [본사 관리자] 로그인
-            </button>
           </div>
-        </div>
-
-
-
+        )}
 
         <div className="auth-footer-links">
           <span>아직 계정이 없으신가요?</span>
@@ -256,4 +315,3 @@ export default function LoginPage({ onLogin, onGoToSignup, onClose, initialRole 
     </div>
   );
 }
-

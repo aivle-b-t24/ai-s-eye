@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 
+import { authenticatedFetch } from '../../api/authenticatedFetch'
 import CameraSceneTwin from '../store/CameraSceneTwin'
 import './OperationsSimulator.css'
 import {
@@ -102,7 +103,7 @@ export default function OperationsSimulator({ apiBaseUrl }) {
     setIsPlaying(false)
     try {
       const requests = buildPresentationScenarios(conditions).map(async ({ key, payload }) => {
-        const response = await fetch(`${apiBaseUrl}/api/simulations/operations`, {
+        const response = await authenticatedFetch(`${apiBaseUrl}/api/simulations/operations`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import { authenticatedFetch } from '../../api/authenticatedFetch'
+import { useAuthenticatedImage } from '../../hooks/useAuthenticatedImage'
 import { getCameraScene } from '../store/cameraScenes'
 import { DEFAULT_PERSPECTIVE } from '../store/sceneProjection'
 
@@ -132,6 +134,7 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
   const [imageSrc, setImageSrc] = useState(
     () => `${apiBaseUrl}/api/stores/${storeId}/vision/raw/latest?t=${Date.now()}`,
   )
+  const authenticatedImage = useAuthenticatedImage(imageSrc)
   const [imageSize, setImageSize] = useState({ width: 1920, height: 1080 })
   const [imageStatus, setImageStatus] = useState({
     kind: 'loading',
@@ -157,7 +160,7 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
   )
 
   const loadVersions = useCallback(async () => {
-    const response = await fetch(
+    const response = await authenticatedFetch(
       `${apiBaseUrl}/api/stores/${storeId}/cameras/${cameraId}/scene-configs`,
     )
     if (!response.ok) throw new Error(`장면 이력 조회 실패 (${response.status})`)
@@ -178,7 +181,7 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
   const loadApproved = useCallback(async () => {
     setStatus({ kind: 'loading', message: '적용 중인 장면 설정을 불러오는 중입니다.' })
     try {
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${apiBaseUrl}/api/stores/${storeId}/cameras/${cameraId}/scene-config`,
       )
       if (response.status === 404) {
@@ -248,12 +251,20 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
         message: '원본 CCTV 이미지가 없습니다. 설정용 이미지를 업로드해 주세요.',
       })
     }
-    probe.src = imageSrc
+    if (authenticatedImage.error) {
+      setImageStatus({
+        kind: 'error',
+        message: '원본 CCTV 이미지가 없습니다. 설정용 이미지를 업로드해 주세요.',
+      })
+      return undefined
+    }
+    if (!authenticatedImage.src) return undefined
+    probe.src = authenticatedImage.src
     return () => {
       probe.onload = null
       probe.onerror = null
     }
-  }, [imageSrc])
+  }, [authenticatedImage.error, authenticatedImage.src])
 
   const useLatestImage = () => {
     if (objectUrlRef.current) {
@@ -419,7 +430,7 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
     }
     setStatus({ kind: 'loading', message: '장면 설정을 저장하고 적용하는 중입니다.' })
     try {
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${apiBaseUrl}/api/stores/${storeId}/cameras/${cameraId}/scene-config`,
         {
           method: 'PUT',
@@ -456,7 +467,7 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
   const approveVersion = async (version) => {
     setStatus({ kind: 'loading', message: `장면 v${version}을 다시 적용하는 중입니다.` })
     try {
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${apiBaseUrl}/api/stores/${storeId}/cameras/${cameraId}/scene-configs/${version}/approve`,
         { method: 'POST' },
       )
@@ -570,7 +581,7 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
             onPointerUp={() => setDragging(null)}
             onPointerCancel={() => setDragging(null)}
           >
-            <image href={imageSrc} width="1000" height="1000" preserveAspectRatio="none" />
+            <image href={authenticatedImage.src} width="1000" height="1000" preserveAspectRatio="none" />
             <g className="scene-perspective-guides" aria-hidden="true">
               <line x1="0" x2="1000" y1={perspective.far_y} y2={perspective.far_y} />
               <text x="18" y={Math.max(perspective.far_y - 12, 24)}>원거리 기준</text>

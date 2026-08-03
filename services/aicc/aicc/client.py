@@ -26,10 +26,16 @@ class StoreApiClient:
 
     def __init__(self, transport: httpx.BaseTransport | None = None) -> None:
         settings = get_settings()
+        headers = (
+            {"X-Internal-API-Key": settings.internal_api_key}
+            if settings.internal_api_key
+            else None
+        )
         self._client = httpx.Client(
             base_url=settings.api_base_url,
             timeout=settings.request_timeout_seconds,
             transport=transport,
+            headers=headers,
         )
 
     def close(self) -> None:

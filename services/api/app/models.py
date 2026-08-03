@@ -88,6 +88,7 @@ class OrderEvent(BaseModel):
 class EtaResponse(BaseModel):
     store_id: str
     estimated_wait_minutes: int = Field(ge=0)
+    waiting_order_count: int = Field(default=0, ge=0)
     calculation: str
     data_source: str
 
@@ -161,6 +162,8 @@ class StoreTimelinePoint(BaseModel):
     peak_visible_person_count: int | None = Field(default=None, ge=0)
     average_queue_count_estimate: float | None = Field(default=None, ge=0)
     peak_queue_count_estimate: int | None = Field(default=None, ge=0)
+    average_waiting_order_count: float | None = Field(default=None, ge=0)
+    peak_waiting_order_count: int | None = Field(default=None, ge=0)
     order_count: int = Field(ge=0)
     quality_issue_count: int = Field(ge=0)
 

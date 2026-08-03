@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
@@ -60,6 +61,25 @@ def load_json_file(filename: str) -> Any:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Sample data is unavailable: {filename}",
         ) from exc
+
+
+@lru_cache(maxsize=1)
+def _demo_waiting_table() -> dict[str, dict[str, int]]:
+    """CAFE 라벨 backlog로 미리 계산한 프레임별 대기값(demo_waiting.json).
+
+    파일이 없으면 빈 표를 돌려줘 데모 값이 없을 때 주문 기반 계산으로 넘어간다.
+    """
+    try:
+        data = load_json_file("demo_waiting.json")
+    except HTTPException:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _demo_waiting_for(frame_id: str | None) -> dict[str, int] | None:
+    if not frame_id:
+        return None
+    return _demo_waiting_table().get(frame_id)
 
 
 def preload_sample_state() -> None:
@@ -708,12 +728,28 @@ def get_store_eta(store_id: str) -> EtaResponse:
     state_value = repository.get_store_state(store_id)
     if state_value is None:
         raise HTTPException(status_code=404, detail="Store state not found")
-    estimated_minutes = state_value.queue_count_estimate * 3
+    # 데모: 현재 프레임에 CAFE 라벨 기반 backlog 대기값이 있으면 그대로 표시한다.
+    # (주문 1건=2분 작업, 직원이 1분당 1분 처리하는 단일 창구 큐로 미리 계산.)
+    demo = _demo_waiting_for(state_value.frame_id)
+    if demo is not None:
+        return EtaResponse(
+            store_id=store_id,
+            estimated_wait_minutes=demo["wait_minutes"],
+            waiting_order_count=demo["waiting"],
+            calculation="cafe_label_backlog(2min/person, one-per-person)",
+            data_source="cafe_label_demo",
+        )
+    # 실데이터: 화면 프레임 시각에 진행 중인 주문 수(주문 로그 기반).
+    waiting_orders = repository.count_waiting_orders_at(
+        store_id, state_value.captured_at
+    )
+    estimated_minutes = waiting_orders * 3
     return EtaResponse(
         store_id=store_id,
         estimated_wait_minutes=estimated_minutes,
-        calculation="queue_count_estimate * 3",
-        data_source="mock_rule",
+        waiting_order_count=waiting_orders,
+        calculation="waiting_order_count * 3",
+        data_source="order_lifecycle",
     )
 
 

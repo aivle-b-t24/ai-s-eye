@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import './SupervisorHeadOfficeView.css'
+import { authenticatedFetch } from '../../api/authenticatedFetch'
 import OperationsSimulator from './OperationsSimulator'
+import AccountManagementPanel from './AccountManagementPanel'
 import OrderTrendChart from './OrderTrendChart'
 import {
   SUPERVISOR_STORE_IDS,
@@ -248,9 +250,8 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
     })
 
     try {
-      const baseUrl = (apiBaseUrl || 'http://100.86.5.67:8000').replace(/\/$/, '')
-      const response = await fetch(
-        `${baseUrl}/api/stores/summary?${params.toString()}`,
+      const response = await authenticatedFetch(
+        `${apiBaseUrl}/api/stores/summary?${params.toString()}`,
         { signal },
       )
       if (!response.ok) {
@@ -284,7 +285,7 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
           end_at: range.endAt,
           interval: range.interval,
         })
-        const response = await fetch(
+        const response = await authenticatedFetch(
           `${apiBaseUrl}/api/stores/${storeId}/timeline?${params.toString()}`,
           { signal },
         )
@@ -385,8 +386,7 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
     setInsights(null)
 
     try {
-      const baseUrl = (aiccBaseUrl || 'http://100.86.5.67:8100').replace(/\/$/, '')
-      const response = await fetch(`${baseUrl}/insights`, {
+      const response = await authenticatedFetch(`${aiccBaseUrl}/insights`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -432,6 +432,8 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
         <span>주문·메뉴: {orderDataLabel(orderMode)}</span>
         <em>실제 POS 실적이 아닙니다.</em>
       </section>
+
+      <AccountManagementPanel apiBaseUrl={apiBaseUrl} />
 
       <section className="supervisor-filter-section" aria-labelledby="period-filter-title">
         <div className="supervisor-section-heading">

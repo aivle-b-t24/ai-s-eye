@@ -13,11 +13,12 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, model_validator
 
 from .agent import StoreAgent
+from .auth import ADMIN_ROLE, CurrentUser, get_current_user, require_admin
 from .client import StoreApiClient
 from .config import get_settings
 from .errors import ToolError
@@ -107,7 +108,12 @@ def healthz() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.post("/insights", response_model=InsightsResponse, tags=["insights"])
+@app.post(
+    "/insights",
+    response_model=InsightsResponse,
+    tags=["insights"],
+    dependencies=[Depends(require_admin)],
+)
 def create_insights(req: InsightsRequest) -> Any:
     """기간별 집계를 분석해 슈퍼바이저 인사이트를 생성한다."""
     # 1) 공통 API에서 집계 가져오기
@@ -132,16 +138,29 @@ def create_insights(req: InsightsRequest) -> Any:
 
 
 @app.post("/chat", response_model=ChatResponse, tags=["chat"])
-def create_chat(req: ChatRequest) -> Any:
+def create_chat(
+    req: ChatRequest,
+    user: CurrentUser = Depends(get_current_user),
+) -> Any:
     """고객 질문에 답한다.
 
     Gemini가 질문을 이해해 필요한 매장 정보를 조회하고 답변을 만든다.
     Gemini를 못 쓰면 키워드 방식으로 넘어가며, 어느 쪽이든 answer는 사람이 읽는 문장이다.
     """
-    store = req.store_id or "-"
+    if (
+        user.role != ADMIN_ROLE
+        and req.store_id is not None
+        and req.store_id != user.store_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="담당 매장에만 접근할 수 있습니다",
+        )
+    target_store_id = user.store_id if user.role != ADMIN_ROLE else req.store_id
+    store = target_store_id or "-"
     logger.info("chat 질문 store=%s: %s", store, req.question)
     try:
-        result = app.state.agent.ask(req.question, req.store_id)
+        result = app.state.agent.ask(req.question, target_store_id)
     except Exception as exc:
         # ask()는 대개 내부에서 오류를 흡수하지만, 예상 밖 예외가 새도 500으로 터지지 않게 막는다.
         logger.warning("chat 실패 store=%s: %s", store, exc, exc_info=True)

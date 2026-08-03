@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { AICC_URL, AICC_BASE_URL } from '../../constants/env'
+import { authenticatedFetch, currentIdToken } from '../../api/authenticatedFetch'
+import { CHATBOT_BASE_URL } from '../../constants/env'
 
 export default function StoreChatbotWidget({ page }) {
   const [isOpen, setIsOpen] = useState(false)
@@ -55,9 +56,8 @@ export default function StoreChatbotWidget({ page }) {
     setIsLoading(true)
 
     try {
-      const targetBaseUrl = (AICC_BASE_URL || CHATBOT_BASE_URL || AICC_URL).replace(/\/$/, '')
-      const endpoint = `${targetBaseUrl}/chat`
-      const response = await fetch(endpoint, {
+      const endpoint = `${CHATBOT_BASE_URL.replace(/\/$/, '')}/chat`
+      const response = await authenticatedFetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -97,13 +97,14 @@ export default function StoreChatbotWidget({ page }) {
   }
 
   // Open external dedicated standalone popup window
-  const openExternalPopupWindow = () => {
+  const openExternalPopupWindow = async () => {
     const width = 450
     const height = 680
     const left = window.screen.width / 2 - width / 2
     const top = window.screen.height / 2 - height / 2
-    const activeStoreId = (page === 'store-002' || page === 'suwan' || page === 'sangmu') ? 'store-002' : 'store-001'
-    const targetEndpoint = `${(AICC_BASE_URL || CHATBOT_BASE_URL || AICC_URL).replace(/\/$/, '')}/chat`
+    const activeStoreId = page || 'store-001'
+    const targetEndpoint = `${CHATBOT_BASE_URL.replace(/\/$/, '')}/chat`
+    const token = await currentIdToken()
 
     const popupHtml = `
       <!DOCTYPE html>
@@ -166,6 +167,8 @@ export default function StoreChatbotWidget({ page }) {
           <button class="send-btn" onclick="sendMsg()">➤</button>
         </div>
         <script>
+          const firebaseToken = ${JSON.stringify(token)};
+
           function sendFaq(text) {
             document.getElementById('userInput').value = text;
             sendMsg();
@@ -189,7 +192,10 @@ export default function StoreChatbotWidget({ page }) {
             try {
               const res = await fetch('${targetEndpoint}', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': 'Bearer ' + firebaseToken
+                },
                 body: JSON.stringify({ question: val, store_id: '${activeStoreId}' })
               });
 

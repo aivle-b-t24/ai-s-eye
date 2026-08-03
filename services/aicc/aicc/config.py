@@ -1,5 +1,6 @@
 from functools import lru_cache
 import os
+from pathlib import Path
 
 from pydantic import BaseModel
 
@@ -11,8 +12,13 @@ class Settings(BaseModel):
     cors_origins: list[str]
     gemini_api_key: str | None
     gemini_model: str
+    embedding_model: str
     vertex_project: str | None
     vertex_location: str
+    auth_required: bool
+    firebase_project_id: str | None
+    firebase_credentials_path: Path | None
+    internal_api_key: str | None
 
     @property
     def use_vertex(self) -> bool:
@@ -30,6 +36,7 @@ def get_settings() -> Settings:
     ]
     use_vertex = bool(os.getenv("AICC_VERTEX_PROJECT"))
     default_model = "gemini-2.5-flash" if use_vertex else "gemini-flash-lite-latest"
+    firebase_credentials = os.getenv("FIREBASE_CREDENTIALS")
     return Settings(
         api_base_url=base_url.rstrip("/"),
         request_timeout_seconds=float(os.getenv("AICC_REQUEST_TIMEOUT_SECONDS", "5")),
@@ -37,6 +44,14 @@ def get_settings() -> Settings:
         cors_origins=cors_origins,
         gemini_api_key=os.getenv("GOOGLE_API_KEY"),
         gemini_model=os.getenv("AICC_GEMINI_MODEL", default_model),
+        embedding_model=os.getenv("AICC_EMBEDDING_MODEL", "text-multilingual-embedding-002"),
         vertex_project=os.getenv("AICC_VERTEX_PROJECT"),
         vertex_location=os.getenv("AICC_VERTEX_LOCATION", "us-central1"),
+        auth_required=os.getenv("AUTH_REQUIRED", "false").lower()
+        in {"1", "true", "yes", "on"},
+        firebase_project_id=os.getenv("FIREBASE_PROJECT_ID"),
+        firebase_credentials_path=(
+            Path(firebase_credentials) if firebase_credentials else None
+        ),
+        internal_api_key=os.getenv("INTERNAL_API_KEY"),
     )

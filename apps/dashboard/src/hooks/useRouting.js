@@ -1,12 +1,27 @@
 import { useState, useEffect } from 'react'
 import { ROLES, STORES, ENDPOINTS } from '../constants/auth'
 
-export function useRouting(currentUser, setAuthMode, setAuthRole) {
+export function useRouting(currentUser, authReady, setAuthMode, setAuthRole) {
   const [page, setPage] = useState(STORES.DONGMYEONG)
 
   useEffect(() => {
     const handleUrlRouting = () => {
+      if (!authReady) return
       const pathname = window.location.pathname
+
+      const redirectAuthenticatedUser = () => {
+        if (!currentUser) return false
+        const targetPage = currentUser.role === ROLES.ADMIN
+          ? STORES.HEAD_OFFICE
+          : currentUser.storeId || STORES.DONGMYEONG
+        const targetEndpoint = targetPage === STORES.HEAD_OFFICE
+          ? ENDPOINTS.HQ_DASHBOARD
+          : `/${targetPage}.aicafe`
+        setPage(targetPage)
+        setAuthMode('dashboard')
+        window.history.replaceState({}, '', targetEndpoint)
+        return true
+      }
 
       // 1. Role-based Signup Endpoints (/storesignup.aicafe, /hqsignup.aicafe)
       if (
@@ -14,6 +29,7 @@ export function useRouting(currentUser, setAuthMode, setAuthRole) {
         pathname === '/storesignup' ||
         pathname === '/aicafe/storesignup'
       ) {
+        if (redirectAuthenticatedUser()) return
         setAuthMode('signup')
         setAuthRole(ROLES.STORE_MANAGER)
         if (pathname !== ENDPOINTS.STORE_SIGNUP) {
@@ -27,6 +43,7 @@ export function useRouting(currentUser, setAuthMode, setAuthRole) {
         pathname === '/hqsignup' ||
         pathname === '/aicafe/hqsignup'
       ) {
+        if (redirectAuthenticatedUser()) return
         setAuthMode('signup')
         setAuthRole(ROLES.ADMIN)
         if (pathname !== ENDPOINTS.HQ_SIGNUP) {
@@ -40,6 +57,7 @@ export function useRouting(currentUser, setAuthMode, setAuthRole) {
         pathname === '/signup' ||
         pathname === '/aicafe/signup'
       ) {
+        if (redirectAuthenticatedUser()) return
         setAuthMode('signup')
         setAuthRole(ROLES.STORE_MANAGER)
         window.history.replaceState({}, '', ENDPOINTS.STORE_SIGNUP)
@@ -52,6 +70,7 @@ export function useRouting(currentUser, setAuthMode, setAuthRole) {
         pathname === '/storelogin' ||
         pathname === '/aicafe/storelogin'
       ) {
+        if (redirectAuthenticatedUser()) return
         setAuthMode('login')
         setAuthRole(ROLES.STORE_MANAGER)
         if (pathname !== ENDPOINTS.STORE_LOGIN) {
@@ -65,6 +84,7 @@ export function useRouting(currentUser, setAuthMode, setAuthRole) {
         pathname === '/hqlogin' ||
         pathname === '/aicafe/hqlogin'
       ) {
+        if (redirectAuthenticatedUser()) return
         setAuthMode('login')
         setAuthRole(ROLES.ADMIN)
         if (pathname !== ENDPOINTS.HQ_LOGIN) {
@@ -77,6 +97,7 @@ export function useRouting(currentUser, setAuthMode, setAuthRole) {
         pathname === '/login.aicafe' ||
         pathname === '/aicafe/login'
       ) {
+        if (redirectAuthenticatedUser()) return
         setAuthMode('login')
         setAuthRole(ROLES.STORE_MANAGER)
         window.history.replaceState({}, '', ENDPOINTS.STORE_LOGIN)
@@ -122,15 +143,39 @@ export function useRouting(currentUser, setAuthMode, setAuthRole) {
         }
       } else if (pathname.endsWith('.aicafe')) {
         const storeId = pathname.replace('/', '').replace('.aicafe', '')
+        if (
+          currentUser.role === ROLES.STORE_MANAGER
+          && storeId !== currentUser.storeId
+        ) {
+          const userStore = currentUser.storeId || STORES.DONGMYEONG
+          setPage(userStore)
+          setAuthMode('dashboard')
+          window.history.replaceState({}, '', `/${userStore}.aicafe`)
+          return
+        }
         setPage(storeId || STORES.DONGMYEONG)
         setAuthMode('dashboard')
       } else if (pathname.startsWith('/aicafe/store/')) {
         const storeId = pathname.replace('/aicafe/store/', '')
+        if (currentUser.role === ROLES.STORE_MANAGER && storeId !== currentUser.storeId) {
+          const userStore = currentUser.storeId || STORES.DONGMYEONG
+          setPage(userStore)
+          setAuthMode('dashboard')
+          window.history.replaceState({}, '', `/${userStore}.aicafe`)
+          return
+        }
         setPage(storeId || STORES.DONGMYEONG)
         setAuthMode('dashboard')
         window.history.replaceState({}, '', `/${storeId || STORES.DONGMYEONG}.aicafe`)
       } else if (pathname.startsWith('/store/')) {
         const storeId = pathname.replace('/store/', '')
+        if (currentUser.role === ROLES.STORE_MANAGER && storeId !== currentUser.storeId) {
+          const userStore = currentUser.storeId || STORES.DONGMYEONG
+          setPage(userStore)
+          setAuthMode('dashboard')
+          window.history.replaceState({}, '', `/${userStore}.aicafe`)
+          return
+        }
         setPage(storeId || STORES.DONGMYEONG)
         setAuthMode('dashboard')
         window.history.replaceState({}, '', `/${storeId || STORES.DONGMYEONG}.aicafe`)
@@ -142,7 +187,7 @@ export function useRouting(currentUser, setAuthMode, setAuthRole) {
     handleUrlRouting()
     window.addEventListener('popstate', handleUrlRouting)
     return () => window.removeEventListener('popstate', handleUrlRouting)
-  }, [currentUser, setAuthMode, setAuthRole])
+  }, [authReady, currentUser, setAuthMode, setAuthRole])
 
   return {
     page,

@@ -1,5 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { authenticatedFetch } from '../../api/authenticatedFetch'
 import { API_BASE_URL } from '../../constants/env'
+import { useAuthenticatedImage } from '../../hooks/useAuthenticatedImage'
 
 const POLLING_INTERVAL_MS = 2000
 const TRAIL_RETENTION_MS = 12000
@@ -37,12 +39,13 @@ export default function VisionMonitorPanel({ storeId }) {
   const storeName = isStore2 ? '매장 2' : '매장 1'
 
   const [viewMode, setViewMode] = useState('camera')
-  const [imgTick, setImgTick] = useState(() => Date.now())
+  const [imageVersion, setImageVersion] = useState(() => String(Date.now()))
   const [hasImage, setHasImage] = useState(true)
   const [occupancy, setOccupancy] = useState(null)
   const [occupancyStatus, setOccupancyStatus] = useState('idle')
   const [roiConfig, setRoiConfig] = useState(null)
   const [trails, setTrails] = useState({})
+  const latestImageFrameRef = useRef(null)
 
   const isTwinMode = viewMode === 'twin'
   const agents = occupancy?.agents ?? []
@@ -90,7 +93,7 @@ export default function VisionMonitorPanel({ storeId }) {
 
   const loadOccupancy = useCallback(async (signal) => {
     try {
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${API_BASE_URL}/api/stores/${storeId}/occupancy/latest`,
         { signal },
       )
@@ -110,16 +113,51 @@ export default function VisionMonitorPanel({ storeId }) {
     }
   }, [storeId, updateTrails])
 
+  const loadImageMetadata = useCallback(async (signal) => {
+    const metadataEndpoint = isTwinMode
+      ? 'vision/raw/metadata'
+      : 'vision/metadata'
+    try {
+      const response = await authenticatedFetch(
+        `${API_BASE_URL}/api/stores/${storeId}/${metadataEndpoint}`,
+        { signal },
+      )
+      if (!response.ok) return
+      const metadata = await response.json()
+      const frameKey = [
+        metadata.frame_id ?? 'unknown-frame',
+        metadata.captured_at ?? '',
+        metadata.processed_at ?? '',
+      ].join(':')
+      if (frameKey === latestImageFrameRef.current) return
+      latestImageFrameRef.current = frameKey
+      setImageVersion(frameKey)
+    } catch (error) {
+      if (error.name === 'AbortError') return
+      // 일시적인 메타데이터 오류에는 마지막 정상 프레임을 유지한다.
+    }
+  }, [isTwinMode, storeId])
+
   useEffect(() => {
     setTrails({})
     setOccupancy(null)
     setHasImage(true)
+    latestImageFrameRef.current = null
+    setImageVersion(String(Date.now()))
   }, [storeId])
 
   useEffect(() => {
-    const imageTimer = setInterval(() => setImgTick(Date.now()), POLLING_INTERVAL_MS)
-    return () => clearInterval(imageTimer)
-  }, [])
+    const controller = new AbortController()
+    loadImageMetadata(controller.signal)
+    const imageTimer = setInterval(
+      () => loadImageMetadata(controller.signal),
+      POLLING_INTERVAL_MS,
+    )
+    return () => {
+      controller.abort()
+      clearInterval(imageTimer)
+    }
+  }, [loadImageMetadata])
 
   useEffect(() => {
     if (!isTwinMode) {
@@ -143,7 +181,7 @@ export default function VisionMonitorPanel({ storeId }) {
   useEffect(() => {
     if (!isTwinMode) return undefined
     const controller = new AbortController()
-    fetch(
+    authenticatedFetch(
       `${API_BASE_URL}/api/stores/${storeId}/cameras/${storeId}-cam1/roi-config`,
       { signal: controller.signal },
     )
@@ -156,7 +194,12 @@ export default function VisionMonitorPanel({ storeId }) {
   }, [isTwinMode, storeId])
 
   const imageEndpoint = isTwinMode ? 'vision/raw/latest' : 'vision/latest'
-  const imageUrl = `${API_BASE_URL}/api/stores/${storeId}/${imageEndpoint}?t=${imgTick}`
+  const imageUrl = `${API_BASE_URL}/api/stores/${storeId}/${imageEndpoint}?frame=${encodeURIComponent(imageVersion)}`
+  const authenticatedImage = useAuthenticatedImage(imageUrl)
+
+  useEffect(() => {
+    if (authenticatedImage.error && !authenticatedImage.src) setHasImage(false)
+  }, [authenticatedImage.error, authenticatedImage.src])
 
   return (
     <article className="vision-card">
@@ -195,7 +238,7 @@ export default function VisionMonitorPanel({ storeId }) {
       <div className={`vision-feed ${isTwinMode ? 'twin-mode' : ''}`}>
             <img
               className="vision-feed-image"
-              src={imageUrl}
+              src={authenticatedImage.src || undefined}
               alt={
                 isTwinMode
                   ? `${storeName} 원본 CCTV와 실시간 위치`

@@ -32,15 +32,23 @@ function App() {
     authRole,
     setAuthRole,
     currentUser,
+    authReady,
+    authError,
+    handleLogin,
+    handlePasswordReset,
     handleLoginRoleChange,
     handleSignupRoleChange,
     handleGoToSignup,
     handleGoToLogin,
-    handleLoginSuccess,
     handleLogout,
   } = useAuth()
 
-  const { page, setPage } = useRouting(currentUser, setAuthMode, setAuthRole)
+  const { page, setPage } = useRouting(
+    currentUser,
+    authReady,
+    setAuthMode,
+    setAuthRole,
+  )
 
   const isDedicatedHeadOffice = page === STORES.HEAD_OFFICE
 
@@ -131,7 +139,9 @@ function App() {
             <LoginPage
               initialRole={authRole}
               onRoleChange={handleLoginRoleChange}
-              onLogin={(userData) => handleLoginSuccess(userData, setPage)}
+              initialError={authError}
+              onLogin={(credentials) => handleLogin(credentials, setPage)}
+              onPasswordReset={handlePasswordReset}
               onGoToSignup={handleGoToSignup}
               onClose={() => setAuthMode('main')}
             />
@@ -184,6 +194,7 @@ function App() {
           {page === 'setting' && (
             <SettingsView
               apiBaseUrl={API_BASE_URL}
+              aiccBaseUrl={CHATBOT_BASE_URL}
               setPage={setPage}
               storeId={
                 currentUser?.role === ROLES.STORE_MANAGER

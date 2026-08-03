@@ -14,6 +14,10 @@ class Settings(BaseModel):
     vision_snapshot_dir: Path
     vision_snapshot_max_bytes: int
     vision_store_ids: set[str]
+    auth_required: bool
+    firebase_project_id: str | None
+    firebase_credentials_path: Path | None
+    internal_api_key: str | None
 
 
 def _default_sample_data_dir() -> Path:
@@ -43,6 +47,7 @@ def get_settings() -> Settings:
         else _default_sample_data_dir()
     )
     configured_snapshot_dir = os.getenv("VISION_SNAPSHOT_DIR")
+    configured_firebase_credentials = os.getenv("FIREBASE_CREDENTIALS")
     vision_snapshot_dir = (
         Path(configured_snapshot_dir)
         if configured_snapshot_dir
@@ -63,4 +68,13 @@ def get_settings() -> Settings:
             for store_id in vision_store_ids.split(",")
             if store_id.strip()
         },
+        auth_required=os.getenv("AUTH_REQUIRED", "false").lower()
+        in {"1", "true", "yes", "on"},
+        firebase_project_id=os.getenv("FIREBASE_PROJECT_ID"),
+        firebase_credentials_path=(
+            Path(configured_firebase_credentials)
+            if configured_firebase_credentials
+            else None
+        ),
+        internal_api_key=os.getenv("INTERNAL_API_KEY"),
     )

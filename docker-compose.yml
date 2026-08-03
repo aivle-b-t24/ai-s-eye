@@ -34,8 +34,52 @@ services:
       VISION_SNAPSHOT_DIR: /workspace/vision-snapshots
       VISION_SNAPSHOT_MAX_BYTES: ${VISION_SNAPSHOT_MAX_BYTES:-5242880}
       VISION_STORE_IDS: ${VISION_STORE_IDS:-store-001,store-002}
+      AUTH_REQUIRED: ${AUTH_REQUIRED:-true}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+      FIREBASE_CREDENTIALS: ${FIREBASE_CREDENTIALS:-}
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase-adc.json
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
     ports:
       - "${API_BIND_HOST:-0.0.0.0}:${API_PORT:-8000}:8000"
+    volumes:
+      - ./samples:/workspace/samples:ro
+      - vision_snapshot_data:/workspace/vision-snapshots
+      - type: bind
+        source: ${FIREBASE_ADC_HOST_PATH:-/dev/null}
+        target: /run/secrets/firebase-adc.json
+        read_only: true
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  api-dev:
+    build:
+      context: ./services/api
+    restart: unless-stopped
+    profiles:
+      - team-dev
+    environment:
+      APP_NAME: ${APP_NAME:-AI's Eye API} Team Dev
+      APP_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-store}:${POSTGRES_PASSWORD:-change-me-for-local-development}@db:5432/${POSTGRES_DB:-store}
+      CORS_ORIGINS: ${API_DEV_CORS_ORIGINS:-http://localhost:5173}
+      SAMPLE_DATA_DIR: /workspace/samples
+      VISION_SNAPSHOT_DIR: /workspace/vision-snapshots
+      VISION_SNAPSHOT_MAX_BYTES: ${VISION_SNAPSHOT_MAX_BYTES:-5242880}
+      VISION_STORE_IDS: ${VISION_STORE_IDS:-store-001,store-002}
+      AUTH_REQUIRED: "false"
+    ports:
+      - "${API_DEV_BIND_HOST:-127.0.0.1}:${API_DEV_PORT:-8001}:8000"
     volumes:
       - ./samples:/workspace/samples:ro
       - vision_snapshot_data:/workspace/vision-snapshots
@@ -79,7 +123,21 @@ services:
     environment:
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
       VITE_AICC_BASE_URL: ${VITE_AICC_BASE_URL:-http://localhost:8100}
+      VITE_AUTH_MODE: ${VITE_AUTH_MODE:-firebase}
       VITE_ENABLE_CAMERA_TWIN_V2: ${VITE_ENABLE_CAMERA_TWIN_V2:-true}
+      VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY:-}
+      VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN:-}
+      VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID:-}
+      VITE_FIREBASE_STORAGE_BUCKET: ${VITE_FIREBASE_STORAGE_BUCKET:-}
+      VITE_FIREBASE_MESSAGING_SENDER_ID: ${VITE_FIREBASE_MESSAGING_SENDER_ID:-}
+      VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID:-}
+      VITE_ENABLE_DEMO_LOGIN: ${VITE_ENABLE_DEMO_LOGIN:-false}
+      VITE_DEMO_STORE_001_EMAIL: ${VITE_DEMO_STORE_001_EMAIL:-}
+      VITE_DEMO_STORE_001_PASSWORD: ${VITE_DEMO_STORE_001_PASSWORD:-}
+      VITE_DEMO_STORE_002_EMAIL: ${VITE_DEMO_STORE_002_EMAIL:-}
+      VITE_DEMO_STORE_002_PASSWORD: ${VITE_DEMO_STORE_002_PASSWORD:-}
+      VITE_DEMO_ADMIN_EMAIL: ${VITE_DEMO_ADMIN_EMAIL:-}
+      VITE_DEMO_ADMIN_PASSWORD: ${VITE_DEMO_ADMIN_PASSWORD:-}
     ports:
       - "${DASHBOARD_BIND_HOST:-0.0.0.0}:${DASHBOARD_PORT:-5173}:5173"
     volumes:
@@ -112,6 +170,9 @@ services:
       AICC_VERTEX_PROJECT: ${AICC_VERTEX_PROJECT:-}
       AICC_VERTEX_LOCATION: ${AICC_VERTEX_LOCATION:-us-central1}
       AICC_GEMINI_MODEL: ${AICC_GEMINI_MODEL:-gemini-2.5-flash}
+      AUTH_REQUIRED: ${AUTH_REQUIRED:-true}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
       GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/google_adc.json
     ports:
@@ -137,11 +198,52 @@ services:
       retries: 5
       start_period: 10s
 
+  aicc-dev:
+    build:
+      context: ./services/aicc
+    restart: unless-stopped
+    profiles:
+      - team-dev
+    environment:
+      AICC_API_BASE_URL: http://api-dev:8000
+      AICC_REQUEST_TIMEOUT_SECONDS: ${AICC_REQUEST_TIMEOUT_SECONDS:-5}
+      AICC_DEFAULT_STORE_ID: ${AICC_DEFAULT_STORE_ID:-store-001}
+      AICC_CORS_ORIGINS: ${AICC_DEV_CORS_ORIGINS:-http://localhost:5173}
+      AICC_VERTEX_PROJECT: ${AICC_VERTEX_PROJECT:-}
+      AICC_VERTEX_LOCATION: ${AICC_VERTEX_LOCATION:-us-central1}
+      AICC_GEMINI_MODEL: ${AICC_GEMINI_MODEL:-gemini-2.5-flash}
+      AUTH_REQUIRED: "false"
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/google_adc.json
+    ports:
+      - "${AICC_DEV_BIND_HOST:-127.0.0.1}:${AICC_DEV_PORT:-8101}:8100"
+    volumes:
+      - type: bind
+        source: ${GOOGLE_APPLICATION_CREDENTIALS_HOST_PATH:-/dev/null}
+        target: /run/secrets/google_adc.json
+        read_only: true
+    tmpfs:
+      - /run/aicc:size=1m,mode=0700
+    depends_on:
+      api-dev:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8100/healthz', timeout=2)"
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
   vision-replay:
     image: python:3.12-slim
     restart: unless-stopped
     environment:
       PYTHONUNBUFFERED: "1"
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
     profiles:
       - demo
     command:

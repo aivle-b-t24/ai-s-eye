@@ -1,5 +1,5 @@
 from threading import RLock
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from .models import (
     CameraRoiConfig,
@@ -11,6 +11,9 @@ from .models import (
     SceneConfigStatus,
     StoreState,
 )
+from .order_queue import build_waiting_intervals, concurrency_at
+
+WAITING_LOOKUP_WINDOW = timedelta(hours=1)
 
 
 class InMemoryRepository:
@@ -87,6 +90,16 @@ class InMemoryRepository:
                 event.event_id,
             ),
         )
+
+    def count_waiting_orders_at(self, store_id: str, at: datetime) -> int:
+        """주어진 시각에 진행 중(접수~픽업 전)인 주문 수 = 그 순간 대기 인원."""
+        orders = self.list_order_events(
+            start_at=at - WAITING_LOOKUP_WINDOW,
+            end_at=at + WAITING_LOOKUP_WINDOW,
+            store_id=store_id,
+        )
+        intervals = build_waiting_intervals(orders)
+        return concurrency_at(intervals, at)
 
     def save_roi_config(
         self,

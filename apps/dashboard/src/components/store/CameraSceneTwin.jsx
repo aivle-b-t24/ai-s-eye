@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import { authenticatedFetch } from '../../api/authenticatedFetch'
+import { useAuthenticatedImage } from '../../hooks/useAuthenticatedImage'
 import { getCameraScene } from './cameraScenes'
 import {
   agentDepth,
@@ -199,7 +201,7 @@ export default function CameraSceneTwin({
     }
 
     try {
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${API_BASE_URL}/api/stores/${storeId}/occupancy/latest`,
         { signal },
       )
@@ -303,7 +305,7 @@ export default function CameraSceneTwin({
   useEffect(() => {
     if (!fallbackScene) return undefined
     const controller = new AbortController()
-    fetch(
+    authenticatedFetch(
       `${API_BASE_URL}/api/stores/${storeId}/cameras/${fallbackScene.cameraId}/roi-config`,
       { signal: controller.signal },
     )
@@ -318,7 +320,7 @@ export default function CameraSceneTwin({
   useEffect(() => {
     if (!fallbackScene) return undefined
     const controller = new AbortController()
-    fetch(
+    authenticatedFetch(
       `${API_BASE_URL}/api/stores/${storeId}/cameras/${fallbackScene.cameraId}/scene-config`,
       { signal: controller.signal },
     )
@@ -433,6 +435,11 @@ export default function CameraSceneTwin({
     status,
   ])
 
+  const imageEndpoint = 'vision/raw/latest'
+  const imageUrl = `${API_BASE_URL}/api/stores/${storeId}/${imageEndpoint}?t=${imageTick}`
+  const authenticatedImage = useAuthenticatedImage(imageUrl)
+  const showSource = viewMode !== 'twin'
+
   if (!scene) {
     return (
       <div className="camera-scene-empty">
@@ -440,10 +447,6 @@ export default function CameraSceneTwin({
       </div>
     )
   }
-
-  const imageEndpoint = 'vision/raw/latest'
-  const imageUrl = `${API_BASE_URL}/api/stores/${storeId}/${imageEndpoint}?t=${imageTick}`
-  const showSource = viewMode !== 'twin'
 
   return (
     <section
@@ -496,7 +499,7 @@ export default function CameraSceneTwin({
         {showSource && (
           <img
             className="camera-scene-source"
-            src={imageUrl}
+            src={authenticatedImage.src || undefined}
             alt={`${scene.label} 원본 CCTV`}
           />
         )}

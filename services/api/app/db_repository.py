@@ -1,7 +1,7 @@
 """PostgreSQL에 매장 상태와 주문 이벤트를 저장하는 Repository."""
 
 from collections.abc import Callable, Collection
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
@@ -31,12 +31,16 @@ from .models import (
     StoreSummaryResponse,
     StoreTimelineResponse,
 )
+from .order_queue import build_waiting_intervals, concurrency_at
 from .summary import build_store_summary
 from .timeline import build_store_timeline
 
 
 SessionFactory = Callable[[], Session]
 HISTORY_SAMPLE_SECONDS = 30
+# 주문 생애주기(접수~픽업)는 10분 안팎이라, 특정 시각에 진행 중인 주문을 모두
+# 담으려면 앞뒤로 1시간이면 충분하다.
+WAITING_LOOKUP_WINDOW = timedelta(hours=1)
 
 
 class DatabaseRepository:
@@ -189,6 +193,21 @@ class DatabaseRepository:
         with self._session_factory() as session:
             records = list(session.scalars(statement))
             return [_order_event_from_record(record) for record in records]
+
+    def count_waiting_orders_at(self, store_id: str, at: datetime) -> int:
+        """주어진 시각에 진행 중(접수~픽업 전)인 주문 수 = 그 순간 대기 인원.
+
+        라이브 화면이 보여주는 프레임 시각(state.captured_at)에 맞춰, 그때 아직
+        완료되지 않은 주문을 센다. 주문 로그의 정확한 시각만 쓰므로 비전 추적과
+        무관하다. 데이터가 합성이면 값은 생성기 재현이다(실 POS면 실측 대기).
+        """
+        orders = self.list_order_events(
+            start_at=at - WAITING_LOOKUP_WINDOW,
+            end_at=at + WAITING_LOOKUP_WINDOW,
+            store_id=store_id,
+        )
+        intervals = build_waiting_intervals(orders)
+        return concurrency_at(intervals, at)
 
     def get_store_summary(
         self,

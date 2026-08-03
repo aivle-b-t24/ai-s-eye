@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import time
 import urllib.error
 import urllib.request
@@ -29,6 +30,14 @@ DEFAULT_ROI_REFRESH_SECONDS = 2.0
 ROI_ZONE_PRIORITY = ("staff", "waiting", "seating", "entrance")
 
 
+def internal_headers(extra: dict[str, str] | None = None) -> dict[str, str]:
+    headers = dict(extra or {})
+    key = os.getenv("INTERNAL_API_KEY")
+    if key:
+        headers["X-Internal-API-Key"] = key
+    return headers
+
+
 def fetch_approved_roi_config(
     api_base_url: str,
     store_id: str,
@@ -40,7 +49,10 @@ def fetch_approved_roi_config(
         api_base_url.rstrip("/")
         + f"/internal/stores/{store_id}/cameras/{camera_id}/roi-config"
     )
-    request = urllib.request.Request(url, headers={"Accept": "application/json"})
+    request = urllib.request.Request(
+        url,
+        headers=internal_headers({"Accept": "application/json"}),
+    )
     with urllib.request.urlopen(request, timeout=timeout) as response:
         return json.loads(response.read().decode("utf-8"))
 
@@ -407,7 +419,10 @@ def group_states_by_tick(states: list[dict]) -> list[list[dict]]:
 def post_state(url: str, state: dict, timeout: float = 5.0) -> int:
     body = json.dumps(state).encode("utf-8")
     req = urllib.request.Request(
-        url, data=body, headers={"Content-Type": "application/json"}, method="POST"
+        url,
+        data=body,
+        headers=internal_headers({"Content-Type": "application/json"}),
+        method="POST",
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return resp.status
@@ -445,7 +460,9 @@ def post_snapshot(
     url = api.rstrip("/") + f"/internal/stores/{store_id}/{endpoint}"
     req = urllib.request.Request(
         url, data=body, method="POST",
-        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+        headers=internal_headers({
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+        }))
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return resp.status
 
@@ -619,6 +636,18 @@ def main():
     ap.add_argument("--file", type=Path, default=DEFAULT_FILE, help="결과 JSON 경로")
     ap.add_argument("--api", default="http://localhost:8000", help="API 베이스 URL")
     ap.add_argument("--interval", type=float, default=2.0, help="전송 간격(초)")
+    ap.add_argument(
+        "--realtime",
+        action="store_true",
+        help="captured_at 실제 간격대로 프레임별 가변 재생(--interval 대신). "
+             "실영상 시간축이면 각 프레임을 실제 경과만큼 대기해 실시간처럼 재생.",
+    )
+    ap.add_argument(
+        "--speed",
+        type=float,
+        default=1.0,
+        help="--realtime 배속(2.0=2배 빠르게, 0.5=느리게). 기본 1.0=실시간.",
+    )
     ap.add_argument("--limit", type=int, default=None, help="앞에서 N건만 전송")
     ap.add_argument("--loop", action="store_true", help="끝나면 처음부터 반복")
     ap.add_argument(
@@ -660,6 +689,18 @@ def main():
     if args.limit:
         states = states[: args.limit]
     state_batches = group_states_by_tick(states)
+    # --realtime용: 각 시점의 대표 captured_at(가장 이른 값)을 미리 파싱해 둔다.
+    tick_times: list[datetime | None] = []
+    for batch in state_batches:
+        parsed = []
+        for state in batch:
+            cap = state.get("captured_at")
+            if cap:
+                try:
+                    parsed.append(datetime.fromisoformat(cap))
+                except ValueError:
+                    pass
+        tick_times.append(min(parsed) if parsed else None)
     state_url = args.api.rstrip("/") + "/internal/store-states"
 
     print(
@@ -784,7 +825,22 @@ def main():
 
                 is_last_tick = tick_index == len(state_batches) - 1
                 if not is_last_tick or args.loop:
-                    time.sleep(args.interval)
+                    delay = args.interval
+                    if args.realtime:
+                        nxt = tick_index + 1
+                        # 다음 시점과의 실제 captured_at 간격만큼 대기(배속 반영).
+                        # 루프 경계(다음 없음/시각 역전)에서는 기본 간격으로 대체.
+                        if (
+                            nxt < len(tick_times)
+                            and tick_times[tick_index] is not None
+                            and tick_times[nxt] is not None
+                        ):
+                            gap = (
+                                tick_times[nxt] - tick_times[tick_index]
+                            ).total_seconds()
+                            if gap > 0:
+                                delay = gap / max(args.speed, 0.01)
+                    time.sleep(delay)
             if not args.loop:
                 break
             cycle_index += 1

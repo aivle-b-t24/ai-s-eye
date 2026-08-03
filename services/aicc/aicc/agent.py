@@ -154,10 +154,15 @@ class StoreAgent:
             """
             return tools.get_menus(target, menu_name)
 
-        def get_policies() -> dict[str, Any]:
-            """매장 정책 전체를 조회한다. 영업시간, 주차, 환불, 반려동물, 와이파이,
-            예약, 화장실, 흡연, 결제 수단 등 매장 이용 규칙 질문에 사용한다."""
-            return tools.get_policies(target)
+        def get_policies(query: str) -> dict[str, Any]:
+            """매장 정책을 조회한다. 영업시간, 주차, 환불, 반려동물, 와이파이,
+            예약, 화장실, 흡연, 결제 수단 등 매장 이용 규칙 질문에 사용한다.
+
+            Args:
+                query: 고객이 알고 싶어하는 내용. 고객 질문을 그대로 넣으면 된다.
+                    이 내용과 관련된 정책만 추려서 돌려준다. 예: "주차 되나요?"
+            """
+            return tools.get_policies(target, query)
 
         def get_order_status(order_id: str) -> dict[str, Any]:
             """주문번호로 현재 주문 상태(접수/제조중/준비완료 등)를 조회한다.

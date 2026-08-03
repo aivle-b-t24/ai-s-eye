@@ -3,6 +3,7 @@ from typing import Any
 from .client import StoreApiClient
 from .config import get_settings
 from .errors import ToolError, UnexpectedResponseError
+from .policy_rag import PolicyRetriever, build_embedder
 
 
 def _failure(error: ToolError) -> dict[str, Any]:
@@ -33,9 +34,20 @@ class StoreTools:
     고객에게 상황을 설명할 수 있어야 하기 때문이다.
     """
 
-    def __init__(self, client: StoreApiClient | None = None) -> None:
+    def __init__(
+        self,
+        client: StoreApiClient | None = None,
+        policy_retriever: PolicyRetriever | None = None,
+    ) -> None:
         self._client = client if client is not None else StoreApiClient()
-        self._default_store_id = get_settings().default_store_id
+        settings = get_settings()
+        self._default_store_id = settings.default_store_id
+        # 정책 RAG: 질문과 관련된 정책만 추린다. 임베딩을 못 만들면 전체 반환으로 물러난다.
+        self._policy_retriever = (
+            policy_retriever
+            if policy_retriever is not None
+            else PolicyRetriever(embed=build_embedder(settings))
+        )
 
     def close(self) -> None:
         self._client.close()
@@ -96,7 +108,11 @@ class StoreTools:
             result["message"] = f"'{menu_name}' 메뉴는 이 매장에 없습니다."
         return result
 
-    def get_policies(self, store_id: str | None = None) -> dict[str, Any]:
+    def get_policies(
+        self,
+        store_id: str | None = None,
+        query: str | None = None,
+    ) -> dict[str, Any]:
         target = self._store(store_id)
         try:
             body = self._client.get_policies(target)
@@ -106,6 +122,8 @@ class StoreTools:
             ]
         except ToolError as exc:
             return _failure(exc)
+        # query가 있으면 관련된 정책만 추린다(RAG). 없으면 전체를 그대로 돌려준다.
+        policies = self._policy_retriever.retrieve(policies, query, target)
         return {"ok": True, "store_id": target, "policies": policies}
 
     def get_order_status(self, order_id: str) -> dict[str, Any]:

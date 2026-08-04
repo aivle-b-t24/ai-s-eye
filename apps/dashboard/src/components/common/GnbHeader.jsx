@@ -21,8 +21,8 @@ const maskName = (name) => {
 export default function GnbHeader({
   page,
   setPage,
-  loadStateOnly,
-  loading,
+  _loadStateOnly,
+  _loading,
   user,
   onLogout,
   onOpenProfile,

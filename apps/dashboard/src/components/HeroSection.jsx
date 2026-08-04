@@ -1,9 +1,9 @@
 import React, { useState } from 'react'
 import { ROLES, STORES, DEMO_CREDENTIALS } from '../constants/auth'
-function HeroSection({ page, authMode, dashboard, onMenuOpen, onLogin, onSignup, onLoginSuccess }) {
+function HeroSection({ page, authMode, dashboard, _onMenuOpen, onLogin, onSignup, onLoginSuccess }) {
   const [isStoreSubmenuOpen, setIsStoreSubmenuOpen] = useState(false)
-  const isHeadOffice = page === 'head-office'
-  const isSettings = page === 'setting' || page === 'settings' || page === 'kos'
+  const _isHeadOffice = page === 'head-office'
+  const _isSettings = page === 'setting' || page === 'settings' || page === 'kos'
   const isAuthPage = authMode === 'login' || authMode === 'signup'
   const isMainLanding = authMode === 'main'
   /* =========================================================================
@@ -12,14 +12,14 @@ function HeroSection({ page, authMode, dashboard, onMenuOpen, onLogin, onSignup,
      ========================================================================= */
   const peopleCount = dashboard?.state?.visible_person_count ?? 0
   // 대기 팀 = 진행 중 주문 건수(backlog). 주문 1건 ≈ 한 팀(그룹). 없으면 비전 추정치.
-  const waitingTeams =
+  const _waitingTeams =
     dashboard?.eta?.waiting_order_count ??
     dashboard?.state?.queue_count_estimate ??
     0
-  const waitMinutes = dashboard?.eta?.estimated_wait_minutes ?? 0
+  const _waitMinutes = dashboard?.eta?.estimated_wait_minutes ?? 0
   // 수용 인원은 설정 페이지에서 저장한 매장별 값. 없으면 기본 30명.
   const maxCapacity = dashboard?.settings?.max_capacity ?? 30
-  const congestionRate = Math.min(
+  const _congestionRate = Math.min(
     Math.round((peopleCount / maxCapacity) * 100),
     100
   )

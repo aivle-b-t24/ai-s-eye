@@ -4,7 +4,7 @@ import { LOCAL_DEMO_ACCOUNTS } from '../../auth/localAuth';
 import { IS_LOCAL_AUTH_MODE } from '../../auth/runtimeAuth';
 
 const REMEMBERED_EMAIL_KEY = 'aicafe.rememberedEmail';
-const DEMO_LOGIN_ENABLED = (
+const _DEMO_LOGIN_ENABLED = (
   IS_LOCAL_AUTH_MODE
   || (
     import.meta.env.DEV
@@ -34,7 +34,7 @@ const DEMO_ACCOUNTS = IS_LOCAL_AUTH_MODE
   ? LOCAL_DEMO_ACCOUNTS
   : FIREBASE_DEMO_ACCOUNTS;
 
-export default function LoginPage({ onClose, onLogin, onPasswordReset, onGoToSignup, initialRole = ROLES.STORE_MANAGER, initialError = '', onRoleChange }) {
+export default function LoginPage({ onClose, onLogin, onPasswordReset, _onGoToSignup, initialRole = ROLES.STORE_MANAGER, initialError = '', onRoleChange }) {
   const [role, setRole] = useState(initialRole);
   const [userId, setUserId] = useState(() => localStorage.getItem(REMEMBERED_EMAIL_KEY) ?? '');
   const [password, setPassword] = useState('');
@@ -43,7 +43,7 @@ export default function LoginPage({ onClose, onLogin, onPasswordReset, onGoToSig
   const [errorMessage, setErrorMessage] = useState(initialError);
   const [successMessage, setSuccessMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isStoreSubmenuOpen, setIsStoreSubmenuOpen] = useState(false);
+  const [_isStoreSubmenuOpen, _setIsStoreSubmenuOpen] = useState(false);
 
   useEffect(() => setRole(initialRole), [initialRole]);
   useEffect(() => setErrorMessage(initialError), [initialError]);
@@ -100,7 +100,7 @@ export default function LoginPage({ onClose, onLogin, onPasswordReset, onGoToSig
     }
   };
 
-  const handleDemoLogin = async (storeId) => {
+  const _handleDemoLogin = async (storeId) => {
     const account = DEMO_ACCOUNTS[storeId];
     if (!account?.email || !account?.password) {
       setErrorMessage('빠른 로그인 계정이 설정되지 않았습니다.');

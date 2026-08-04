@@ -150,8 +150,29 @@ def test_system_prompt_has_probable_cause_guardrail() -> None:
 
     assert "probable_cause" in SYSTEM_PROMPT  # 필드 지시가 있다
     assert "추정" in SYSTEM_PROMPT  # 가설 어투 강제
-    assert "단정하지 않는다" in SYSTEM_PROMPT  # 주변 환경 지어내기 금지
+    assert "지어내지 않는다" in SYSTEM_PROMPT  # 상권 통계에 없는 사실 지어내기 금지
     assert "실제 POS 실적이라고 표현하지 않는다" in SYSTEM_PROMPT
+
+
+class FakeContext:
+    """상권 프로필 대역. profile_text가 정해둔 문자열을 준다."""
+
+    def profile_text(self, store_id):
+        return "동명동 20대·직장인구 높은 도심 상권" if store_id == "store-001" else None
+
+
+def test_prompt_includes_store_context() -> None:
+    """profiles를 주면 매장 아래에 상권 줄이 들어간다."""
+    p = build_prompt(summary(), {"store-001": "동명동 상권 통계 — 20대 27%"})
+    assert "상권: 동명동 상권 통계 — 20대 27%" in p
+
+
+def test_generate_injects_context_into_prompt() -> None:
+    """generate_insights가 context_provider의 상권을 프롬프트에 넣는다."""
+    capture: dict[str, Any] = {}
+    client = FakeGemini(json.dumps(FAKE_OUTPUT), capture=capture)
+    generate_insights(summary(), client=client, context_provider=FakeContext())
+    assert "상권: 동명동 20대·직장인구 높은 도심 상권" in capture["contents"]
 
 
 def test_prompt_does_not_leak_expected_insights() -> None:

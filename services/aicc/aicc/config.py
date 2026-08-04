@@ -19,6 +19,8 @@ class Settings(BaseModel):
     firebase_project_id: str | None
     firebase_credentials_path: Path | None
     internal_api_key: str | None
+    sgis_consumer_key: str | None
+    sgis_consumer_secret: str | None
     vision_scene_url: str
     scene_request_timeout_seconds: float
 
@@ -56,6 +58,8 @@ def get_settings() -> Settings:
             Path(firebase_credentials) if firebase_credentials else None
         ),
         internal_api_key=os.getenv("INTERNAL_API_KEY"),
+        sgis_consumer_key=os.getenv("AICC_SGIS_CONSUMER_KEY"),
+        sgis_consumer_secret=os.getenv("AICC_SGIS_CONSUMER_SECRET"),
         vision_scene_url=os.getenv(
             "AICC_VISION_SCENE_URL",
             "http://host.docker.internal:8200/internal/scene-suggestions",

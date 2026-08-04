@@ -441,11 +441,11 @@ export default function StoreOnboardingView({
     <section className="store-onboarding" aria-labelledby="store-onboarding-title">
       <header className="store-onboarding-heading">
         <div>
-          <p className="eyebrow">STORE ONBOARDING MVP</p>
+          <p className="roi-eyebrow">STORE ONBOARDING</p>
           <h3 id="store-onboarding-title">매장 카메라 온보딩</h3>
           <p>{storeId} · {cameraId} · 업로드 소스 + Scene/ROI로 분석을 시작합니다.</p>
         </div>
-        <span className="onboarding-scope-badge">업로드형 온보딩</span>
+        <span className="onboarding-scope-badge">업로드형</span>
       </header>
 
       <ol className="onboarding-steps">

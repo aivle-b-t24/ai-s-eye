@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { authenticatedFetch } from '../../api/authenticatedFetch'
-import { createAnalysisJob, uploadStoreMedia } from '../../api/storeMediaApi'
+import {
+  createAnalysisJob,
+  probeUploadApi,
+  uploadStoreMedia,
+} from '../../api/storeMediaApi'
+import {
+  REQUIRES_TAILSCALE_UPLOAD,
+  UPLOAD_API_BASE_URL,
+} from '../../constants/env'
 import { imageSourceToPayload } from '../settings/sceneSuggestion'
 import './StoreOnboardingView.css'
 import { extractVideoPoster } from './extractVideoPoster'
@@ -95,9 +103,36 @@ export default function StoreOnboardingView({
   const [savedVersions, setSavedVersions] = useState(null)
   const [uploadedMedia, setUploadedMedia] = useState(null)
   const [analysisJob, setAnalysisJob] = useState(null)
+  const [uploadApiReady, setUploadApiReady] = useState(!REQUIRES_TAILSCALE_UPLOAD)
+  const [uploadApiChecked, setUploadApiChecked] = useState(!REQUIRES_TAILSCALE_UPLOAD)
 
   useEffect(() => () => {
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    if (!REQUIRES_TAILSCALE_UPLOAD) {
+      setUploadApiReady(true)
+      setUploadApiChecked(true)
+      return undefined
+    }
+    setUploadApiChecked(false)
+    probeUploadApi().then((ok) => {
+      if (cancelled) return
+      setUploadApiReady(ok)
+      setUploadApiChecked(true)
+      if (!ok) {
+        setStatus({
+          kind: 'error',
+          message:
+            'Tailscale 업로드 API에 연결할 수 없습니다. PC에서 Tailscale 로그인 후 다시 열어 주세요.',
+        })
+      }
+    })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const tableObjects = useMemo(
@@ -130,6 +165,14 @@ export default function StoreOnboardingView({
   const selectMediaSource = async (event) => {
     const file = event.target.files?.[0]
     if (!file) return
+    if (!uploadApiReady) {
+      setStatus({
+        kind: 'error',
+        message: 'Tailscale 업로드 API가 준비되지 않아 파일을 올릴 수 없습니다.',
+      })
+      event.target.value = ''
+      return
+    }
     const name = file.name.toLowerCase()
     const isVideo = file.type.startsWith('video/') || /\.(mp4|webm|mov)$/.test(name)
     const isZip = file.type.includes('zip') || name.endsWith('.zip')
@@ -561,13 +604,21 @@ export default function StoreOnboardingView({
 
           {step === 0 && (
             <div className="onboarding-control-group">
+              {REQUIRES_TAILSCALE_UPLOAD && uploadApiChecked && !uploadApiReady && (
+                <p className="onboarding-help">
+                  클라우드 대시보드의 대용량 업로드는 Cloudflare를 거치지 않고
+                  Tailscale HTTPS({UPLOAD_API_BASE_URL})로만 동작합니다.
+                  Tailscale에 로그인한 PC에서 다시 시도하거나,
+                  데모용으로 http://100.86.5.67:5173 온보딩을 사용하세요.
+                </p>
+              )}
               <label className="onboarding-upload">
                 영상(mp4/webm/mov) 또는 프레임 ZIP
                 <input
                   type="file"
                   accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,application/zip,.zip"
                   onChange={selectMediaSource}
-                  disabled={isUploadingMedia}
+                  disabled={isUploadingMedia || !uploadApiReady}
                 />
               </label>
               {uploadedMedia && (
@@ -582,6 +633,9 @@ export default function StoreOnboardingView({
                 <li>영상은 업로드 후 대표 프레임을 자동으로 뽑습니다</li>
                 <li>ZIP은 다음 단계에서 대표 JPEG/PNG를 직접 선택합니다</li>
                 <li>실카메라(RTSP) 연결은 이번 범위에 없습니다</li>
+                {REQUIRES_TAILSCALE_UPLOAD && (
+                  <li>업로드 API: {UPLOAD_API_BASE_URL}</li>
+                )}
               </ul>
             </div>
           )}

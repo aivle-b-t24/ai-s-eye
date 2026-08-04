@@ -62,3 +62,34 @@ python upload_job_worker.py --loop --interval 5
 2. 대표 프레임으로 Scene/ROI 설정  
 3. 저장 시 analysis job 생성  
 4. GPU 워커가 처리하면 대시보드 폴링에 반영  
+
+## 브라우저 업로드 경로 (Cloudflare 우회)
+
+Cloudflare Free/Pro는 요청 본문 약 100MB 제한이 있어, **대용량 미디어 업로드는 CF를 타지 않는다.**
+
+| 트래픽 | 경로 |
+|--------|------|
+| UI + 작은 API 조회 | `https://aiseye.ldhcloud.com` → CF → 미니PC |
+| 미디어 업로드 / analysis-jobs | 브라우저 → Tailscale HTTPS → 미니PC API |
+
+### 미니PC: Tailscale Serve
+
+1. [DNS 관리 콘솔](https://login.tailscale.com/admin/dns)에서 **HTTPS Certificates** 활성화  
+2. 미니PC에서 (API가 `100.86.5.67:8000`에 bind된 경우):
+
+```bash
+sudo tailscale serve --bg --https=443 http://100.86.5.67:8000
+sudo tailscale serve status
+curl -fsS https://docker-test.tail0c814d.ts.net/health
+```
+
+결과 URL: `https://docker-test.tail0c814d.ts.net`
+
+### 대시보드
+
+- 클라우드 호스트(`aiseye.ldhcloud.com`)에서는 `UPLOAD_API_BASE_URL` 기본값이 위 Tailscale HTTPS
+- Tailscale에 연결되지 않으면 업로드 입력을 비활성화하고 안내 문구 표시
+- 오버라이드: `VITE_UPLOAD_API_BASE_URL`
+- CORS에 `https://aiseye.ldhcloud.com` 포함 필요 (이미 `.env` 권장값)
+
+데모 PC에서 Tailscale이 없으면 `http://100.86.5.67:5173` 온보딩으로 같은 HTTP API에 올리면 된다. 

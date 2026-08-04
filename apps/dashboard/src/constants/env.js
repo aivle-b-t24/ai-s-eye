@@ -16,3 +16,14 @@ export const AICC_BASE_URL = isCloudDashboard
 
 export const CHATBOT_BASE_URL = AICC_BASE_URL
 export const AICC_URL = AICC_BASE_URL
+
+// Large media uploads stay on Tailscale HTTPS (not Cloudflare) to avoid CF size limits
+// and keep one-shot demo traffic on the private path.
+const DEFAULT_TAILSCALE_UPLOAD_API = 'https://docker-test.tail0c814d.ts.net'
+
+export const UPLOAD_API_BASE_URL =
+  import.meta.env.VITE_UPLOAD_API_BASE_URL
+  || (isCloudDashboard ? DEFAULT_TAILSCALE_UPLOAD_API : API_BASE_URL)
+
+export const REQUIRES_TAILSCALE_UPLOAD = isCloudDashboard
+  && UPLOAD_API_BASE_URL !== API_BASE_URL

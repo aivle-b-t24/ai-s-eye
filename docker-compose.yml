@@ -267,6 +267,8 @@ services:
     environment:
       PYTHONUNBUFFERED: "1"
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
+      # Compose service DNS (stable). Override only if replay runs outside the compose network.
+      VISION_REPLAY_API_URL: ${VISION_REPLAY_API_URL:-http://api:8000}
     profiles:
       - demo
     command:

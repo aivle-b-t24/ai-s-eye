@@ -30,6 +30,15 @@ docker compose up -d api aicc
 docker compose exec api alembic upgrade head
 ```
 
+## 비전 재생 역할 분리
+
+| 매장 | 재생 방식 |
+|------|-----------|
+| store-001 / 002 | 미니PC `vision-replay` (compose DNS `http://api:8000`, 상시) |
+| store-003+ 업로드 | GPU `upload_job_worker.py` (발표 시에만) |
+
+`vision-replay`는 API 재시작 중 DNS flake에 대비해 전송 재시도를 한다. 외부에서 돌릴 때만 `.env`에 `VISION_REPLAY_API_URL=http://100.86.5.67:8000`처럼 오버라이드한다.
+
 ## GPU 서버
 
 1. Tailscale으로 미니PC API(`http://MINIPC_TAILSCALE:8000`)에 접근 가능한지 확인

@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import quote
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -1138,12 +1139,17 @@ def download_analysis_job_media(job_id: str) -> Response:
     content = repository.get_store_media_bytes(job.media_id)
     if media is None or content is None:
         raise HTTPException(status_code=404, detail="Media bytes not found")
+    # HTTP header values must be latin-1; keep ASCII fallback + RFC 5987 filename*.
+    safe_name = Path(media.filename).suffix.lower() or ".bin"
+    ascii_name = f"download{safe_name}"
+    disposition = (
+        f'attachment; filename="{ascii_name}"; '
+        f"filename*=UTF-8''{quote(media.filename)}"
+    )
     return StreamingResponse(
         io.BytesIO(content),
         media_type=media.content_type,
-        headers={
-            "Content-Disposition": f'attachment; filename="{media.filename}"',
-        },
+        headers={"Content-Disposition": disposition},
     )
 
 

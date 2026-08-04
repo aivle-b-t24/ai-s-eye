@@ -2,6 +2,7 @@
 
 from collections.abc import Callable, Collection
 from datetime import datetime, timedelta, timezone
+import re
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
@@ -15,6 +16,7 @@ from .db_models import (
     HourlyStoreMetricRecord,
     OrderEventRecord,
     OrderItemRecord,
+    StoreRecord,
     StoreSettingsRecord,
     StoreStateHistoryRecord,
     StoreStateRecord,
@@ -28,6 +30,7 @@ from .models import (
     OrderItem,
     RoiConfigStatus,
     SceneConfigStatus,
+    StoreInfo,
     StoreSettings,
     StoreState,
     StoreSummaryResponse,
@@ -38,11 +41,16 @@ from .summary import build_store_summary
 from .timeline import build_store_timeline
 
 
+class StoreNameAlreadyExistsError(Exception):
+    """같은 이름의 매장이 이미 존재한다."""
+
+
 SessionFactory = Callable[[], Session]
 HISTORY_SAMPLE_SECONDS = 30
 # 주문 생애주기(접수~픽업)는 10분 안팎이라, 특정 시각에 진행 중인 주문을 모두
 # 담으려면 앞뒤로 1시간이면 충분하다.
 WAITING_LOOKUP_WINDOW = timedelta(hours=1)
+_STORE_ID_PATTERN = re.compile(r"^store-(\d+)$")
 
 
 class DatabaseRepository:
@@ -83,6 +91,46 @@ class DatabaseRepository:
             if record is None:
                 return None
             return _store_state_from_record(record)
+
+    def list_stores(self) -> list[StoreInfo]:
+        """등록된 매장 마스터 목록을 반환한다."""
+        statement = select(StoreRecord).order_by(StoreRecord.id)
+        with self._session_factory() as session:
+            records = session.scalars(statement).all()
+            return [_store_info_from_record(record) for record in records]
+
+    def get_store(self, store_id: str) -> StoreInfo | None:
+        with self._session_factory() as session:
+            record = session.get(StoreRecord, store_id)
+            if record is None:
+                return None
+            return _store_info_from_record(record)
+
+    def store_exists(self, store_id: str) -> bool:
+        with self._session_factory() as session:
+            return session.get(StoreRecord, store_id) is not None
+
+    def create_store(self, name: str) -> StoreInfo:
+        """매장명을 받아 새 store_id를 발급하고 마스터에 등록한다."""
+        with self._session_factory() as session:
+            store_id = _next_store_id(session)
+            record = StoreRecord(id=store_id, name=name)
+            session.add(record)
+            try:
+                session.commit()
+            except IntegrityError as exc:
+                session.rollback()
+                raise StoreNameAlreadyExistsError(name) from exc
+            session.refresh(record)
+            return _store_info_from_record(record)
+
+    def delete_store(self, store_id: str) -> None:
+        with self._session_factory() as session:
+            record = session.get(StoreRecord, store_id)
+            if record is None:
+                return
+            session.delete(record)
+            session.commit()
 
     def get_store_settings(self, store_id: str) -> StoreSettings | None:
         """매장 운영 설정(수용 인원 등). 없으면 None."""
@@ -860,3 +908,22 @@ def _scene_config_from_record(record: CameraSceneConfigRecord) -> CameraSceneCon
         created_at=record.created_at,
         approved_at=record.approved_at,
     )
+
+
+def _store_info_from_record(record: StoreRecord) -> StoreInfo:
+    return StoreInfo(
+        id=record.id,
+        name=record.name,
+        created_at=record.created_at,
+        updated_at=record.updated_at,
+    )
+
+
+def _next_store_id(session: Session) -> str:
+    ids = session.scalars(select(StoreRecord.id)).all()
+    max_number = 0
+    for store_id in ids:
+        match = _STORE_ID_PATTERN.match(store_id)
+        if match:
+            max_number = max(max_number, int(match.group(1)))
+    return f"store-{max_number + 1:03d}"

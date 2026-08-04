@@ -3,14 +3,16 @@ import { useCallback, useEffect, useState } from 'react'
 import { authenticatedFetch } from '../../api/authenticatedFetch'
 import './AccountManagementPanel.css'
 
-const STORE_OPTIONS = [
-  { id: 'store-001', label: '매장 1' },
-  { id: 'store-002', label: '매장 2' },
-]
-
 async function errorMessage(response, fallback) {
   const body = await response.json().catch(() => null)
   return body?.detail ?? `${fallback} (${response.status})`
+}
+
+function storeLabel(user) {
+  if (user.store_name && user.store_id) {
+    return `${user.store_name} (${user.store_id})`
+  }
+  return user.store_name || user.store_id || '-'
 }
 
 export default function AccountManagementPanel({ apiBaseUrl }) {
@@ -26,7 +28,7 @@ export default function AccountManagementPanel({ apiBaseUrl }) {
   const [form, setForm] = useState({
     email: '',
     name: '',
-    storeId: STORE_OPTIONS[0].id,
+    storeName: '',
     password: '',
     passwordConfirm: '',
   })
@@ -79,7 +81,7 @@ export default function AccountManagementPanel({ apiBaseUrl }) {
         body: JSON.stringify({
           email: form.email,
           name: form.name,
-          store_id: form.storeId,
+          store_name: form.storeName,
           password: form.password,
         }),
       })
@@ -95,11 +97,12 @@ export default function AccountManagementPanel({ apiBaseUrl }) {
         ...current,
         email: '',
         name: '',
+        storeName: '',
         password: '',
         passwordConfirm: '',
       }))
       setSuccess(
-        `${created.email} 계정을 만들었습니다. 지정한 초기 비밀번호를 점주에게 전달해 주세요.`,
+        `${created.email} 점주 계정과 '${created.store_name || created.store_id}' 매장(${created.store_id})을 등록했습니다. 지정한 초기 비밀번호를 점주에게 전달해 주세요.`,
       )
     } catch (createError) {
       setError(createError.message || '점주 계정을 생성하지 못했습니다')
@@ -190,7 +193,7 @@ export default function AccountManagementPanel({ apiBaseUrl }) {
         <div>
           <p className="supervisor-section-kicker">계정 관리</p>
           <h2 id="account-management-title">점주 계정 발급</h2>
-          <p>본사에서 로그인 이메일, 담당 매장, 초기 비밀번호를 함께 지정합니다.</p>
+          <p>본사에서 로그인 이메일, 새 매장명, 초기 비밀번호를 함께 지정합니다.</p>
         </div>
         <span>{loading ? '불러오는 중' : `${storeManagers.length}명 등록`}</span>
       </div>
@@ -223,19 +226,17 @@ export default function AccountManagementPanel({ apiBaseUrl }) {
           />
         </label>
         <label>
-          <span>담당 매장</span>
-          <select
-            name="storeId"
-            value={form.storeId}
+          <span>매장명</span>
+          <input
+            type="text"
+            name="storeName"
+            value={form.storeName}
             onChange={updateField}
+            placeholder="예: 상무점"
+            maxLength={100}
+            required
             disabled={submitting}
-          >
-            {STORE_OPTIONS.map((store) => (
-              <option key={store.id} value={store.id}>
-                {store.label} ({store.id})
-              </option>
-            ))}
-          </select>
+          />
         </label>
         <label>
           <span>초기 비밀번호</span>
@@ -297,7 +298,7 @@ export default function AccountManagementPanel({ apiBaseUrl }) {
                 <tr key={user.uid}>
                   <td>{user.name}</td>
                   <td>{user.email}</td>
-                  <td>{user.store_id}</td>
+                  <td>{storeLabel(user)}</td>
                   <td>{user.disabled ? '사용 중지' : '사용 가능'}</td>
                   <td>
                     <div className="account-row-actions">

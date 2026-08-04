@@ -117,13 +117,12 @@ STAFF_ROLE_POLICIES = {
         "lock_grace_updates": 10,
     },
 }
+# 온보딩 매장(store-003+)용 기본값: staff ROI 발 위치 + 중간 bbox 겹침
+DEFAULT_STAFF_ROLE_POLICY = {"use_bbox": True, "bbox_overlap_threshold": 0.35}
 
 
 def staff_role_policy(store_id: str) -> dict:
-    try:
-        return STAFF_ROLE_POLICIES[store_id]
-    except KeyError as exc:
-        raise ValueError(f"직원 판정 정책이 없는 매장입니다: {store_id}") from exc
+    return STAFF_ROLE_POLICIES.get(store_id, DEFAULT_STAFF_ROLE_POLICY)
 
 
 def staff_candidates(boxes, zones, store_id: str) -> list[bool]:

@@ -29,6 +29,7 @@ from .models import (
     OrderEvent,
     OperationsSimulationResult,
     OperationsSimulationScenario,
+    QualityStatus,
     StoreInfo,
     StoreListItem,
     StoreListResponse,
@@ -139,6 +140,24 @@ def validate_vision_store_id(store_id: str) -> None:
     if repository.store_exists(store_id):
         return
     raise HTTPException(status_code=404, detail="Store not found")
+
+
+def empty_store_state(store_id: str) -> StoreState:
+    """비전 상태가 아직 없는 등록 매장용 빈 스냅샷."""
+    now = datetime.now(timezone.utc)
+    return StoreState(
+        store_id=store_id,
+        camera_id=f"{store_id}-cam1",
+        frame_id=None,
+        captured_at=now,
+        processed_at=None,
+        visible_person_count=0,
+        queue_count_estimate=0,
+        zone_counts={},
+        quality_status=QualityStatus.UNKNOWN,
+        source="empty",
+        model_version="none",
+    )
 
 
 def attach_store_names(
@@ -913,9 +932,11 @@ def get_store_timeline(
 )
 def get_store_state(store_id: str) -> StoreState:
     state_value = repository.get_store_state(store_id)
-    if state_value is None:
-        raise HTTPException(status_code=404, detail="Store state not found")
-    return state_value
+    if state_value is not None:
+        return state_value
+    if repository.store_exists(store_id):
+        return empty_store_state(store_id)
+    raise HTTPException(status_code=404, detail="Store state not found")
 
 
 @app.get(
@@ -927,6 +948,14 @@ def get_store_state(store_id: str) -> StoreState:
 def get_store_eta(store_id: str) -> EtaResponse:
     state_value = repository.get_store_state(store_id)
     if state_value is None:
+        if repository.store_exists(store_id):
+            return EtaResponse(
+                store_id=store_id,
+                estimated_wait_minutes=0,
+                waiting_order_count=0,
+                calculation="no_vision_state",
+                data_source="empty",
+            )
         raise HTTPException(status_code=404, detail="Store state not found")
     # 데모: 현재 프레임에 CAFE 라벨 기반 backlog 대기값이 있으면 그대로 표시한다.
     # (주문 1건=2분 작업, 직원이 1분당 1분 처리하는 단일 창구 큐로 미리 계산.)

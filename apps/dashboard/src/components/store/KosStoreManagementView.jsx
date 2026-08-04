@@ -27,8 +27,8 @@ export default function KosStoreManagementView({
 
       <div className="kos-page-header">
         <div>
-          <p className="eyebrow">KOS & SMART STORE MANAGEMENT</p>
-          <h2>KOS 스마트 매장 관리 (키오스크/POS/메뉴 정책)</h2>
+          <p className="eyebrow">SMART STORE MANAGEMENT</p>
+          <h2>스마트 매장 관리 (메뉴와 정책 관리)</h2>
           <p className="kos-page-subtitle">
             매장의 품절 메뉴 현황 관리 및 고객 안내 정책을 실시간으로 확인하고 관리합니다.
           </p>

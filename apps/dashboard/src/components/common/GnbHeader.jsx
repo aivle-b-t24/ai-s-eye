@@ -50,16 +50,7 @@ export default function GnbHeader({
 
 
 
-        <button
-          type="button"
-          className="tab-btn green-pill-btn"
-          onClick={() => {
-            setPage("store-001");
-            window.history.pushState({}, '', '/store-001.aicafe');
-          }}
-        >
-          실시간 모니터링 ↗
-        </button>
+        
 
         <button
           type="button"
@@ -69,7 +60,7 @@ export default function GnbHeader({
             window.history.pushState({}, '', '/kos');
           }}
         >
-          전체 메뉴 +
+          메뉴 & 정책
         </button>
 
       <nav className="store-tabs" aria-label="가맹점 정보">       

@@ -6811,16 +6811,8 @@ body::before {
 }
 
 
-/* 녹색 실시간 모니터링 알약 버튼 스타일 */
-.green-pill-btn {
-  background: rgba(255, 255, 255, 0.1) !important;
-  color: #071714 !important;
-  border-radius: 9999px !important;
-  padding: 10px 24px !important;
-  font-weight: 800 !important;
-  border: none !important;
-}
-/* 다크 전체 메뉴 알약 버튼 스타일 */
+
+/* 다크 메뉴&정책 알약 버튼 스타일 */
 .dark-pill-btn {
   background: rgba(255, 255, 255, 0.1) !important;
   color: #071714 !important;

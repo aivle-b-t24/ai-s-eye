@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { authenticatedFetch } from '../../api/authenticatedFetch'
 import { useAuthenticatedImage } from '../../hooks/useAuthenticatedImage'
 import { getCameraScene } from '../store/cameraScenes'
-import { DEFAULT_PERSPECTIVE } from '../store/sceneProjection'
 
 const OBJECT_OPTIONS = [
   { value: 'table', label: '테이블' },
@@ -118,10 +117,6 @@ function defaultObjects(storeId) {
   }))
 }
 
-function defaultPerspective(storeId) {
-  return { ...DEFAULT_PERSPECTIVE, ...(getCameraScene(storeId)?.perspective ?? {}) }
-}
-
 function defaultSeatAnchors(storeId, objects) {
   const anchors = getCameraScene(storeId)?.seatAnchors
   return anchors?.length ? anchors.map((anchor) => ({ ...anchor })) : deriveSeatAnchors(objects)
@@ -141,7 +136,6 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
     message: '장면 보정에 사용할 원본 CCTV 이미지를 확인하는 중입니다.',
   })
   const [objects, setObjects] = useState([])
-  const [perspective, setPerspective] = useState(DEFAULT_PERSPECTIVE)
   const [seatAnchors, setSeatAnchors] = useState([])
   const [versions, setVersions] = useState([])
   const [selectedObjectId, setSelectedObjectId] = useState(null)
@@ -170,7 +164,6 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
   const applyDefaults = useCallback((message = '현재 매장의 기본 장면을 불러왔습니다.') => {
     const initialObjects = defaultObjects(storeId)
     setObjects(initialObjects)
-    setPerspective(defaultPerspective(storeId))
     setSeatAnchors(defaultSeatAnchors(storeId, initialObjects))
     setSelectedObjectId(initialObjects[0]?.id ?? null)
     setSelectedVertex(null)
@@ -193,7 +186,6 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
       const config = await response.json()
       const loadedObjects = supportedObjects(config.objects)
       setObjects(loadedObjects)
-      setPerspective(config.perspective ?? defaultPerspective(storeId))
       setSeatAnchors(config.seat_anchors?.length
         ? config.seat_anchors
         : deriveSeatAnchors(loadedObjects))
@@ -440,7 +432,6 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
             image_size: imageSize,
             source,
             objects,
-            perspective,
             seat_anchors: seatAnchors,
           }),
         },
@@ -451,7 +442,6 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
       }
       const saved = await response.json()
       setObjects(supportedObjects(saved.objects))
-      setPerspective(saved.perspective ?? DEFAULT_PERSPECTIVE)
       setSeatAnchors(saved.seat_anchors ?? [])
       setSource(saved.source)
       await loadVersions()
@@ -475,7 +465,6 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
       const approved = await response.json()
       const loadedObjects = supportedObjects(approved.objects)
       setObjects(loadedObjects)
-      setPerspective(approved.perspective ?? defaultPerspective(storeId))
       setSeatAnchors(approved.seat_anchors?.length
         ? approved.seat_anchors
         : deriveSeatAnchors(loadedObjects))
@@ -582,12 +571,6 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
             onPointerCancel={() => setDragging(null)}
           >
             <image href={authenticatedImage.src} width="1000" height="1000" preserveAspectRatio="none" />
-            <g className="scene-perspective-guides" aria-hidden="true">
-              <line x1="0" x2="1000" y1={perspective.far_y} y2={perspective.far_y} />
-              <text x="18" y={Math.max(perspective.far_y - 12, 24)}>원거리 기준</text>
-              <line x1="0" x2="1000" y1={perspective.near_y} y2={perspective.near_y} />
-              <text x="18" y={Math.max(perspective.near_y - 12, 24)}>근거리 기준</text>
-            </g>
             {objects.map((item) => (
               <g
                 key={item.id}
@@ -658,68 +641,6 @@ export default function SceneEditor({ apiBaseUrl, storeId }) {
         </div>
 
         <aside className="roi-zone-panel">
-          <div className="scene-perspective-form">
-            <h4>원근 보정</h4>
-            <label>
-              원거리 기준선
-              <input
-                type="range"
-                min="0"
-                max={perspective.near_y - 1}
-                value={perspective.far_y}
-                onChange={(event) => {
-                  setPerspective((current) => ({ ...current, far_y: Number(event.target.value) }))
-                  setSource('manual')
-                }}
-              />
-              <span>{perspective.far_y}</span>
-            </label>
-            <label>
-              근거리 기준선
-              <input
-                type="range"
-                min={perspective.far_y + 1}
-                max="1000"
-                value={perspective.near_y}
-                onChange={(event) => {
-                  setPerspective((current) => ({ ...current, near_y: Number(event.target.value) }))
-                  setSource('manual')
-                }}
-              />
-              <span>{perspective.near_y}</span>
-            </label>
-            <div className="scene-scale-inputs">
-              <label>
-                원거리 크기
-                <input
-                  type="number"
-                  min="0.35"
-                  max="1"
-                  step="0.01"
-                  value={perspective.far_scale}
-                  onChange={(event) => {
-                    setPerspective((current) => ({ ...current, far_scale: Number(event.target.value) }))
-                    setSource('manual')
-                  }}
-                />
-              </label>
-              <label>
-                근거리 크기
-                <input
-                  type="number"
-                  min="0.8"
-                  max="2"
-                  step="0.01"
-                  value={perspective.near_scale}
-                  onChange={(event) => {
-                    setPerspective((current) => ({ ...current, near_scale: Number(event.target.value) }))
-                    setSource('manual')
-                  }}
-                />
-              </label>
-            </div>
-          </div>
-
           <h4>장면 오브젝트</h4>
           {objects.length === 0 && <p className="roi-empty">설정된 오브젝트가 없습니다.</p>}
           <div className="roi-zone-list">

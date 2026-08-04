@@ -5196,15 +5196,6 @@ font-size: 16px !important;
 .scene-swatch-entrance { background: #009d9a; }
 .scene-swatch-occluder { background: #da1e28; }
 
-.scene-perspective-guides line {
-  stroke: #f1c21b;
-  stroke-width: 4;
-  stroke-dasharray: 14 10;
-  vector-effect: non-scaling-stroke;
-  pointer-events: none;
-}
-
-.scene-perspective-guides text,
 .scene-seat-anchor text {
   fill: #fff;
   font-size: 25px;
@@ -5221,43 +5212,6 @@ font-size: 16px !important;
   stroke-width: 5;
   vector-effect: non-scaling-stroke;
   pointer-events: none;
-}
-
-.scene-perspective-form {
-  display: grid;
-  gap: 12px;
-  margin-bottom: 20px;
-  padding-bottom: 18px;
-  border-bottom: 1px solid #c6c6c6;
-}
-
-.scene-perspective-form label {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 6px 10px;
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.scene-perspective-form label input[type="range"] {
-  grid-column: 1 / -1;
-  width: 100%;
-}
-
-.scene-scale-inputs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.scene-scale-inputs label {
-  display: grid;
-  grid-template-columns: 1fr;
-}
-
-.scene-scale-inputs input {
-  width: 100%;
 }
 
 .scene-seat-list {

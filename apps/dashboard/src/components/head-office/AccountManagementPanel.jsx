@@ -232,7 +232,7 @@ export default function AccountManagementPanel({ apiBaseUrl }) {
             name="storeName"
             value={form.storeName}
             onChange={updateField}
-            placeholder="예: 상무점"
+            placeholder="예: 매장 표시명"
             maxLength={100}
             required
             disabled={submitting}

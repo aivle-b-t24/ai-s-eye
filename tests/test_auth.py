@@ -47,6 +47,7 @@ def test_auth_me_returns_frontend_profile(
         "name": "동명점 점주",
         "role": "store_manager",
         "storeId": "store-001",
+        "storeName": "동명점",
     }
 
 

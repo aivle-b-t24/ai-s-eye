@@ -1,4 +1,6 @@
-import React from "react";
+import React from 'react'
+
+import { storeDisplayName } from '../../api/storeDirectory'
 
 const maskName = (name) => {
   if (!name) return ''
@@ -7,10 +9,10 @@ const maskName = (name) => {
     const mainName = parts[0]
     let masked = ''
     if (mainName.length === 2) {
-      masked = mainName[0] + '*'
+      masked = `${mainName[0]}*`
     } else {
       const mid = Math.floor(mainName.length / 2)
-      masked = mainName.slice(0, mid) + '*' + mainName.slice(mid + 1)
+      masked = `${mainName.slice(0, mid)}*${mainName.slice(mid + 1)}`
     }
     parts[0] = masked
     return parts.join(' ')
@@ -27,6 +29,10 @@ export default function GnbHeader({
   onLogout,
   onOpenProfile,
 }) {
+  const storeId = user?.storeId || page
+  const storeName = user?.storeName || storeDisplayName(storeId)
+  const storePath = storeId ? `/${storeId}.aicafe` : '/'
+
   return (
     <header className="gnb-header">
       <button
@@ -47,61 +53,42 @@ export default function GnbHeader({
         <h1 className="brand-title">AI&apos;s Eye</h1>
       </div>
 
+      <button
+        type="button"
+        className="tab-btn dark-pill-btn"
+        onClick={() => {
+          setPage('kos')
+          window.history.pushState({}, '', '/kos')
+        }}
+      >
+        메뉴 & 정책
+      </button>
 
-
-
-        
-
-        <button
-          type="button"
-          className="tab-btn dark-pill-btn"
-          onClick={() => {
-            setPage("kos");
-            window.history.pushState({}, '', '/kos');
-          }}
-        >
-          메뉴 & 정책
-        </button>
-
-      <nav className="store-tabs" aria-label="가맹점 정보">       
-        {(user?.storeId === 'store-002' || page === 'store-002') ? (
+      <nav className="store-tabs" aria-label="가맹점 정보">
+        {storeId?.startsWith('store') && (
           <button
             type="button"
             className="tab-btn active"
             onClick={() => {
-              setPage("store-002");
-              window.history.pushState({}, '', '/store-002.aicafe');
+              setPage(storeId)
+              window.history.pushState({}, '', storePath)
             }}
           >
-            [점주] 매장 2 (수완점)
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="tab-btn active"
-            onClick={() => {
-              setPage("store-001");
-              window.history.pushState({}, '', '/store-001.aicafe');
-            }}
-          >
-            [점주] 매장 1 (동명점)
+            [점주] {storeName}
           </button>
         )}
       </nav>
-
-
 
       <div className="header-actions">
         <button
           type="button"
           className={`action-btn settings-btn ${
-            page === "setting" ? "active" : ""
+            page === 'setting' ? 'active' : ''
           }`}
-          onClick={() => setPage("setting")}
+          onClick={() => setPage('setting')}
         >
           설정
         </button>
-
 
         {user && (
           <div className="user-profile-badge">
@@ -123,6 +110,5 @@ export default function GnbHeader({
         )}
       </div>
     </header>
-  );
+  )
 }
-

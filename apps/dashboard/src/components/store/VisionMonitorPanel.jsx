@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { authenticatedFetch } from '../../api/authenticatedFetch'
+import { storeDisplayName } from '../../api/storeDirectory'
 import { API_BASE_URL } from '../../constants/env'
 import { useAuthenticatedImage } from '../../hooks/useAuthenticatedImage'
 
@@ -33,10 +34,9 @@ function trailClass(trail) {
   return 'camera-trail-customer'
 }
 
-export default function VisionMonitorPanel({ storeId }) {
-  const isStore2 = storeId === 'store-002'
-  const cameraName = isStore2 ? 'CAM 02' : 'CAM 01'
-  const storeName = isStore2 ? '매장 2' : '매장 1'
+export default function VisionMonitorPanel({ storeId, storeName: storeNameProp }) {
+  const cameraName = `${storeId}-cam1`
+  const storeName = storeNameProp || storeDisplayName(storeId)
 
   const [viewMode, setViewMode] = useState('camera')
   const [imageVersion, setImageVersion] = useState(() => String(Date.now()))

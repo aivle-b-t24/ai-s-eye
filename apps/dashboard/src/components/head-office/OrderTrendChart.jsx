@@ -1,9 +1,6 @@
 import { useMemo } from 'react'
 
-const STORE_PRESENTATION = {
-  'store-001': { label: '강남점', color: '#0f62fe' },
-  'store-002': { label: '홍대점', color: '#8a3ffc' },
-}
+import { chartColorFor, storeDisplayName } from '../../api/storeDirectory'
 
 const VIEWBOX = {
   width: 900,
@@ -48,6 +45,7 @@ function xTickIndexes(length) {
 
 export default function OrderTrendChart({
   timelines,
+  storeNames = {},
   interval,
   dataLabel,
   loading,
@@ -55,14 +53,13 @@ export default function OrderTrendChart({
   onRetry,
 }) {
   const series = useMemo(
-    () => Object.entries(timelines).map(([storeId, timeline]) => ({
+    () => Object.entries(timelines).map(([storeId, timeline], index) => ({
       storeId,
-      ...STORE_PRESENTATION[storeId],
-      label: STORE_PRESENTATION[storeId]?.label ?? storeId,
-      color: STORE_PRESENTATION[storeId]?.color ?? '#525252',
+      label: storeDisplayName(storeId, storeNames),
+      color: chartColorFor(index),
       points: timeline?.points ?? [],
     })),
-    [timelines],
+    [storeNames, timelines],
   )
   const referencePoints = series.find((item) => item.points.length)?.points ?? []
   const maximum = Math.max(

@@ -7,6 +7,7 @@ import StoreChatbotWidget from './StoreChatbotWidget'
 
 export default function KosStoreManagementView({
   page,
+  storeName,
   dashboard,
   soldOutCount,
   apiBaseUrl,
@@ -20,7 +21,7 @@ export default function KosStoreManagementView({
   // 1. 실시간 백엔드 메뉴 및 정책 데이터 저장 상태
   const [menus, setMenus] = useState(dashboard?.menus ?? [])
   const [policies, setPolicies] = useState(dashboard?.policies ?? [])
-  const currentStoreId = page === 'store-002' ? 'store-002' : 'store-001'
+  const currentStoreId = page?.startsWith('store') ? page : 'store-001'
 
   // 2. 메뉴 & 정책 백엔드 API 경로 (/api/stores/${storeId}/menus, /api/stores/${storeId}/policies) 로딩
   useEffect(() => {
@@ -43,6 +44,7 @@ export default function KosStoreManagementView({
     <section className="store-dashboard-view kos-management-view">
       <RoleBanner
         page={page}
+        storeName={storeName}
         apiBaseUrl={apiBaseUrl}
         error={error}
         loading={loading}
@@ -78,7 +80,9 @@ export default function KosStoreManagementView({
       </section>
 
       {isChatbotEnabled && (
-        <StoreChatbotWidget storeId={currentStoreId} />
+        {isChatbotEnabled !== false && (
+          <StoreChatbotWidget page={currentStoreId} storeName={storeName} />
+        )}
       )}
     </section>
   )

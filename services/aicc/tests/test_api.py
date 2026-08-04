@@ -1,4 +1,5 @@
 import json
+import base64
 from typing import Any, Callable
 
 import httpx
@@ -6,6 +7,10 @@ from fastapi.testclient import TestClient
 
 import aicc.api as api
 from aicc.client import StoreApiClient
+from aicc.scene_detection import (
+    SceneSuggestionResponse,
+    SceneSuggestionUnavailableError,
+)
 
 
 def summary_body() -> dict[str, Any]:
@@ -157,6 +162,96 @@ def test_bad_period_returns_422(monkeypatch) -> None:
 def test_healthz() -> None:
     tc = TestClient(api.app)
     assert tc.get("/healthz").json() == {"status": "ok"}
+
+
+
+def test_scene_suggestion_ok(monkeypatch) -> None:
+    expected = SceneSuggestionResponse(
+        store_id="store-001",
+        camera_id="store-001-cam1",
+        model="yoloe-26s-seg.pt",
+        objects=[
+            {
+                "id": "yolo-table-1",
+                "type": "table",
+                "label": "YOLO 테이블 1",
+                "polygon": [
+                    {"x": 100, "y": 100},
+                    {"x": 300, "y": 100},
+                    {"x": 300, "y": 300},
+                    {"x": 100, "y": 300},
+                ],
+            }
+        ],
+        detections=[{"type": "table", "label": "YOLO 테이블 1", "confidence": 0.9}],
+        warnings=["사람이 확인해야 합니다."],
+    )
+    monkeypatch.setattr(api, "generate_scene_suggestion", lambda req: expected)
+    png = base64.b64encode(b"\x89PNG\r\n\x1a\nminimal").decode()
+    tc = TestClient(api.app)
+
+    response = tc.post(
+        "/scene-suggestions",
+        json={
+            "store_id": "store-001",
+            "camera_id": "store-001-cam1",
+            "image_base64": png,
+            "mime_type": "image/png",
+            "image_width": 1920,
+            "image_height": 1080,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["objects"][0]["type"] == "table"
+    assert body["seat_anchors"] == []
+
+
+def test_scene_suggestion_rejects_camera_from_other_store(monkeypatch) -> None:
+    monkeypatch.setattr(api, "generate_scene_suggestion", lambda req: None)
+    png = base64.b64encode(b"\x89PNG\r\n\x1a\nminimal").decode()
+    tc = TestClient(api.app)
+
+    response = tc.post(
+        "/scene-suggestions",
+        json={
+            "store_id": "store-001",
+            "camera_id": "store-002-cam1",
+            "image_base64": png,
+            "mime_type": "image/png",
+            "image_width": 1920,
+            "image_height": 1080,
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_scene_suggestion_worker_failure_returns_503(monkeypatch) -> None:
+    def _raise(_req):
+        raise SceneSuggestionUnavailableError("connection refused")
+
+    monkeypatch.setattr(api, "generate_scene_suggestion", _raise)
+    png = base64.b64encode(b"\x89PNG\r\n\x1a\nminimal").decode()
+    tc = TestClient(api.app)
+
+    response = tc.post(
+        "/scene-suggestions",
+        json={
+            "store_id": "store-001",
+            "camera_id": "store-001-cam1",
+            "image_base64": png,
+            "mime_type": "image/png",
+            "image_width": 1920,
+            "image_height": 1080,
+        },
+    )
+
+    assert response.status_code == 503
+    detail = response.json()["detail"]
+    assert detail["error"] == "scene_suggestion_unavailable"
+    assert "장면 초안을 생성하지 못했습니다" in detail["message"]
 
 
 # --- 챗봇 (/chat) ---

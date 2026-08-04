@@ -175,10 +175,14 @@ services:
       AUTH_REQUIRED: ${AUTH_REQUIRED:-true}
       FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
+      AICC_VISION_SCENE_URL: ${AICC_VISION_SCENE_URL:-http://host.docker.internal:8200/internal/scene-suggestions}
+      AICC_SCENE_REQUEST_TIMEOUT_SECONDS: ${AICC_SCENE_REQUEST_TIMEOUT_SECONDS:-120}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
       GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/google_adc.json
     ports:
       - "${AICC_BIND_HOST:-0.0.0.0}:${AICC_PORT:-8100}:8100"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - type: bind
         source: ${GOOGLE_APPLICATION_CREDENTIALS_HOST_PATH:-/dev/null}
@@ -215,10 +219,15 @@ services:
       AICC_VERTEX_LOCATION: ${AICC_VERTEX_LOCATION:-us-central1}
       AICC_GEMINI_MODEL: ${AICC_GEMINI_MODEL:-gemini-2.5-flash}
       AUTH_REQUIRED: "false"
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
+      AICC_VISION_SCENE_URL: ${AICC_VISION_SCENE_URL:-http://host.docker.internal:8200/internal/scene-suggestions}
+      AICC_SCENE_REQUEST_TIMEOUT_SECONDS: ${AICC_SCENE_REQUEST_TIMEOUT_SECONDS:-120}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
       GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/google_adc.json
     ports:
       - "${AICC_DEV_BIND_HOST:-127.0.0.1}:${AICC_DEV_PORT:-8101}:8100"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - type: bind
         source: ${GOOGLE_APPLICATION_CREDENTIALS_HOST_PATH:-/dev/null}

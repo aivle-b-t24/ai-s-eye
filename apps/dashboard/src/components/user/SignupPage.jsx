@@ -1,7 +1,7 @@
 import React from 'react'
 import { ROLES } from '../../constants/auth'
 
-export default function SignupPage({ onGoToLogin, initialRole = ROLES.STORE_MANAGER }) {
+export default function SignupPage({ onClose, onGoToLogin, initialRole = ROLES.STORE_MANAGER }) {
   const isAdmin = initialRole === ROLES.ADMIN
 
   return (

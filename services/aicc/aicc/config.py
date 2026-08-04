@@ -21,6 +21,8 @@ class Settings(BaseModel):
     internal_api_key: str | None
     sgis_consumer_key: str | None
     sgis_consumer_secret: str | None
+    vision_scene_url: str
+    scene_request_timeout_seconds: float
 
     @property
     def use_vertex(self) -> bool:
@@ -58,4 +60,11 @@ def get_settings() -> Settings:
         internal_api_key=os.getenv("INTERNAL_API_KEY"),
         sgis_consumer_key=os.getenv("AICC_SGIS_CONSUMER_KEY"),
         sgis_consumer_secret=os.getenv("AICC_SGIS_CONSUMER_SECRET"),
+        vision_scene_url=os.getenv(
+            "AICC_VISION_SCENE_URL",
+            "http://host.docker.internal:8200/internal/scene-suggestions",
+        ),
+        scene_request_timeout_seconds=float(
+            os.getenv("AICC_SCENE_REQUEST_TIMEOUT_SECONDS", "120")
+        ),
     )

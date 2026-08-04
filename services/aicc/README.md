@@ -170,6 +170,84 @@ curl http://localhost:8100/healthz
 | `502` | `store_api_error` | 공통(집계) API 호출 실패 |
 | `503` | `insights_unavailable` | Gemini 분석 실패 |
 
+## 카카오톡 손님 챗봇 (스킬 웹훅)
+
+손님이 카카오톡 채널에 물어보면, 대시보드가 아니라 **카카오톡에서** 매장 혼잡도·대기시간·
+메뉴·정책을 안내한다. 답을 만드는 두뇌는 `/chat`과 같은 `StoreAgent`(Gemini + 키워드
+fallback)를 그대로 재사용하고, `kakao.py`는 **카카오 스킬 형식 ↔ 우리 답변**의 변환만 한다.
+
+`/chat`은 점주 로그인(firebase)이 필요하지만, 손님은 로그인하지 않으므로 웹훅은 공개
+엔드포인트다. 대신 공유 토큰(`AICC_KAKAO_SKILL_TOKEN`)으로 보호한다.
+
+### 엔드포인트
+
+`POST /kakao/skill` — 카카오 i 오픈빌더 스킬 서버 규약(요청/응답 2.0)을 따른다.
+
+요청(카카오가 보냄, 필요한 부분만):
+```json
+{ "userRequest": { "utterance": "지금 붐벼요?" },
+  "action": { "clientExtra": { "store_id": "store-001" } } }
+```
+- `utterance`가 손님 질문. 매장은 채널 1개=매장 1개가 기본(`AICC_DEFAULT_STORE_ID`)이고,
+  멀티 매장이면 봇 설정에서 `store_id`를 `clientExtra`로 넘겨 덮어쓴다.
+
+응답(우리가 돌려줌):
+```json
+{ "version": "2.0",
+  "template": { "outputs": [ { "simpleText": { "text": "현재 5명, 대기 주문 2건이에요." } } ],
+                "quickReplies": [ { "label": "대기시간", "action": "message", "messageText": "..." } ] } }
+```
+- 카카오는 **비-200이면 문장 대신 시스템 오류만** 보여주므로, 두뇌가 실패해도 정중한
+  안내문을 담은 **200 스킬 응답**으로 답한다.
+
+### 여러 매장(공용 채널) 라우팅
+
+채널을 매장마다 개설하지 않는다. **공용 채널 하나로 모든 매장**을 안내하고, 대화마다
+어느 매장인지만 정한다. 새 매장은 채널을 새로 만들 필요 없이 아래 목록에 한 줄만
+추가하면 선택지에 자동으로 등장한다. 매장을 정하는 순서:
+
+1. **QR·딥링크(A안)** — 카카오 봇 링크의 extra로 `store_id`를 넣으면 `action.clientExtra`로
+   도착한다. 그 매장으로 바로 고정하고 이후 대화도 기억한다. (매장 카운터에 QR을 붙이면
+   그 매장 대화로 열림)
+2. **이 손님이 앞서 고른 매장(세션)** — 유저별로 잠깐 기억한다(`SessionStore`, 프로세스
+   메모리라 재시작 시 소멸. 기본 30분, `AICC_SESSION_TTL_SECONDS`).
+3. **대화에서 선택(B안)** — 매장이 여럿인데 아직 미정이면, 매장 목록을 **선택 버튼**으로
+   띄운다. 손님이 이름을 누르거나 치면 그 매장으로 고정한다. `매장 변경`이라고 하면 초기화.
+4. 매장이 하나뿐/미설정이면 기본 매장(`AICC_DEFAULT_STORE_ID`)으로 바로 답한다.
+
+매장 목록·이름은 `AICC_STORE_DIRECTORY`(JSON)에서 읽는다. 지금은 백엔드에 매장 레지스트리
+API가 없어(이름이 대시보드 프론트에만 있음) 설정으로 두며, 나중에 목록 API가 생기면
+`load_store_directory`만 그쪽을 보게 바꾸면 된다.
+
+### 환경변수
+
+| 이름 | 기본값 | 설명 |
+|---|---|---|
+| `AICC_KAKAO_SKILL_TOKEN` | (없음) | 스킬 웹훅 공유 토큰. 넣으면 헤더 `X-Kakao-Skill-Token` 또는 쿼리 `?token=`이 일치해야 한다. 비우면 검사 생략(로컬) |
+| `AICC_DEFAULT_STORE_ID` | `store-001` | 매장이 하나뿐/미설정일 때 안내하는 기본 매장 |
+| `AICC_STORE_DIRECTORY` | (없음) | 공용 채널이 안내할 매장 목록 JSON. 예: `[{"id":"store-001","name":"동명점"},{"id":"store-002","name":"수완점"}]`. 여럿이면 대화에서 선택, 새 매장은 여기 한 줄 추가 |
+| `AICC_SESSION_TTL_SECONDS` | `1800` | 유저별 선택 매장을 기억하는 시간(초) |
+
+### 카카오 콘솔 연결 (한 번만)
+
+1. [카카오 비즈니스](https://business.kakao.com)에서 **채널** 개설.
+2. [카카오 i 오픈빌더](https://i.kakao.com)에서 봇 생성 → 채널 연결.
+3. **스킬** 등록 → URL에 우리 웹훅 주소를 넣는다.
+   - 배포 서버: `https://<도메인>/kakao/skill` (AICC 8100 포트를 HTTPS로 노출)
+   - 로컬 개발: 공개 HTTPS 터널이 필요하다. 예) `ngrok http 8100` → 나온 주소 뒤에
+     `/kakao/skill`을 붙여 등록.
+   - 토큰을 쓰면 스킬 헤더에 `X-Kakao-Skill-Token: <토큰>`을 추가하거나 URL에
+     `?token=<토큰>`을 붙인다.
+4. 시나리오의 **폴백 블록**(또는 원하는 블록)에서 이 스킬을 호출하도록 연결한다.
+5. 봇을 **배포**한 뒤 채널에서 실제로 물어본다.
+
+로컬에서 형식만 빠르게 확인하려면(카카오 없이):
+```bash
+curl -X POST http://localhost:8100/kakao/skill \
+  -H 'Content-Type: application/json' \
+  -d '{"userRequest":{"utterance":"지금 붐벼요?"}}'
+```
+
 ## 테스트
 
 ```bash

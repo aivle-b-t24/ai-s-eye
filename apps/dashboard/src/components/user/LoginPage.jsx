@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ROLES, STORES } from '../../constants/auth';
 import { getDemoAccount, usesCredentialDemoLogin } from '../../auth/demoAccounts';
+import { IS_LOCAL_AUTH_MODE } from '../../auth/runtimeAuth';
 
 const REMEMBERED_EMAIL_KEY = 'aicafe.rememberedEmail';
 const _DEMO_LOGIN_ENABLED = usesCredentialDemoLogin();

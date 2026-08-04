@@ -30,6 +30,8 @@ from .models import (
     OperationsSimulationResult,
     OperationsSimulationScenario,
     StoreInfo,
+    StoreListItem,
+    StoreListResponse,
     StoreSettings,
     StoreSettingsInput,
     StoreState,
@@ -836,6 +838,26 @@ def get_stores_summary(
             detail="PostgreSQL is required for store summary",
         )
     return repository.get_store_summary(start_at=start_at, end_at=end_at)
+
+
+@app.get(
+    "/internal/stores",
+    response_model=StoreListResponse,
+    tags=["internal"],
+    dependencies=[Depends(require_internal_service)],
+)
+def get_internal_stores() -> StoreListResponse:
+    """매장 마스터 목록(ID + 표시명). AICC 챗봇이 안내 가능한 매장을 자동으로 알기 위해 쓴다.
+
+    admin 전용인 /api/admin/stores와 달리 서비스 간 호출용(internal key)이다. 매장 마스터가
+    단일 출처라, 본사에서 매장을 등록하면 챗봇 선택지에 이름과 함께 자동 반영된다.
+    """
+    return StoreListResponse(
+        stores=[
+            StoreListItem(store_id=store.id, name=store.name)
+            for store in repository.list_stores()
+        ]
+    )
 
 
 @app.get(

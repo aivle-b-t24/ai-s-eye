@@ -47,6 +47,16 @@ def test_missing_store_state_returns_404(client: TestClient) -> None:
     assert response.status_code == 404
 
 
+def test_internal_stores_returns_master_with_names(client: TestClient) -> None:
+    """서비스용 /internal/stores는 매장 마스터(ID+표시명)를 반환한다. AICC 챗봇이 씀."""
+    response = client.get("/internal/stores")
+
+    assert response.status_code == 200
+    stores = {item["store_id"]: item["name"] for item in response.json()["stores"]}
+    assert stores.get("store-001") == "동명점"
+    assert stores.get("store-002") == "수완점"
+
+
 def test_invalid_store_state_is_rejected(client: TestClient) -> None:
     payload = valid_store_state("invalid-store")
     payload["visible_person_count"] = -1

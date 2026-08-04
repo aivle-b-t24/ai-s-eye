@@ -18,7 +18,7 @@ from .auth import (
     require_internal_service,
     require_store_access,
 )
-from .db_repository import DatabaseRepository
+from .db_repository import DatabaseRepository, StoreNameAlreadyExistsError
 from .models import (
     CameraRoiConfig,
     CameraRoiConfigInput,
@@ -29,6 +29,7 @@ from .models import (
     OrderEvent,
     OperationsSimulationResult,
     OperationsSimulationScenario,
+    StoreInfo,
     StoreListItem,
     StoreListResponse,
     StoreSettings,
@@ -133,8 +134,23 @@ def default_summary_period(
 
 
 def validate_vision_store_id(store_id: str) -> None:
-    if store_id not in settings.vision_store_ids:
-        raise HTTPException(status_code=404, detail="Store not found")
+    if store_id in settings.vision_store_ids:
+        return
+    if repository.store_exists(store_id):
+        return
+    raise HTTPException(status_code=404, detail="Store not found")
+
+
+def attach_store_names(
+    users: list[FirebaseUserSummary],
+) -> list[FirebaseUserSummary]:
+    names = {store.id: store.name for store in repository.list_stores()}
+    return [
+        user.model_copy(update={"store_name": names.get(user.store_id)})
+        if user.store_id
+        else user
+        for user in users
+    ]
 
 
 async def read_snapshot_upload(image: UploadFile) -> bytes:
@@ -211,13 +227,23 @@ def get_authenticated_user(
 
 
 @app.get(
+    "/api/admin/stores",
+    response_model=list[StoreInfo],
+    tags=["admin"],
+    dependencies=[Depends(require_admin)],
+)
+def get_admin_stores() -> list[StoreInfo]:
+    return repository.list_stores()
+
+
+@app.get(
     "/api/admin/users",
     response_model=list[FirebaseUserSummary],
     tags=["admin"],
     dependencies=[Depends(require_admin)],
 )
 def get_admin_users() -> list[FirebaseUserSummary]:
-    return list_managed_accounts()
+    return attach_store_names(list_managed_accounts())
 
 
 @app.post(
@@ -230,18 +256,31 @@ def get_admin_users() -> list[FirebaseUserSummary]:
 def create_admin_user(
     request: StoreManagerAccountCreate,
 ) -> FirebaseUserSummary:
-    if request.store_id not in settings.vision_store_ids:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="지원하지 않는 매장입니다",
-        )
     try:
-        return create_store_manager_account(request)
+        store = repository.create_store(request.store_name)
+    except StoreNameAlreadyExistsError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="이미 등록된 매장명입니다",
+        ) from exc
+
+    try:
+        return create_store_manager_account(
+            email=request.email,
+            name=request.name,
+            password=request.password,
+            store_id=store.id,
+            store_name=store.name,
+        )
     except FirebaseUserAlreadyExistsError as exc:
+        repository.delete_store(store.id)
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="이미 등록된 이메일입니다",
         ) from exc
+    except Exception:
+        repository.delete_store(store.id)
+        raise
 
 
 @app.delete(
@@ -807,13 +846,17 @@ def get_stores_summary(
     tags=["internal"],
     dependencies=[Depends(require_internal_service)],
 )
-def list_stores() -> StoreListResponse:
-    """상태가 등록된 매장 ID 목록. AICC 챗봇이 안내 가능한 매장을 자동으로 알기 위해 쓴다.
+def get_internal_stores() -> StoreListResponse:
+    """매장 마스터 목록(ID + 표시명). AICC 챗봇이 안내 가능한 매장을 자동으로 알기 위해 쓴다.
 
-    매장 표시명은 아직 백엔드에 없어 name은 비워 둔다(소비 측에서 채운다).
+    admin 전용인 /api/admin/stores와 달리 서비스 간 호출용(internal key)이다. 매장 마스터가
+    단일 출처라, 본사에서 매장을 등록하면 챗봇 선택지에 이름과 함께 자동 반영된다.
     """
     return StoreListResponse(
-        stores=[StoreListItem(store_id=store_id) for store_id in repository.list_store_ids()]
+        stores=[
+            StoreListItem(store_id=store.id, name=store.name)
+            for store in repository.list_stores()
+        ]
     )
 
 

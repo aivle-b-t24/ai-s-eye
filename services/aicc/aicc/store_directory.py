@@ -93,6 +93,27 @@ def directory_from_ids(
     )
 
 
+def directory_from_items(
+    items: list[dict],
+    name_overlay: dict[str, str] | None = None,
+) -> StoreDirectory:
+    """백엔드 매장 목록(각 {store_id, name})으로 디렉터리를 만든다.
+
+    표시명 우선순위: 백엔드 name → 설정 오버레이 → store_id. 백엔드(매장 마스터)가
+    이름을 주면 설정 없이도 예쁜 이름이 나온다(이름의 단일 출처)."""
+    overlay = name_overlay or {}
+    entries: list[StoreEntry] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        store_id = item.get("store_id")
+        if not store_id:
+            continue
+        name = item.get("name") or overlay.get(store_id) or store_id
+        entries.append(StoreEntry(id=str(store_id), name=str(name)))
+    return StoreDirectory(entries)
+
+
 def load_store_directory(raw: str | None) -> StoreDirectory:
     """`AICC_STORE_DIRECTORY` 원문(JSON 배열)을 StoreDirectory로 만든다.
 

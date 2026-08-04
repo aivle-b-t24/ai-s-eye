@@ -1,6 +1,8 @@
 from threading import RLock
 from datetime import datetime, timedelta, timezone
+import re
 
+from .db_repository import StoreNameAlreadyExistsError
 from .models import (
     CameraRoiConfig,
     CameraRoiConfigInput,
@@ -9,18 +11,34 @@ from .models import (
     OrderEvent,
     RoiConfigStatus,
     SceneConfigStatus,
+    StoreInfo,
     StoreSettings,
     StoreState,
 )
 from .order_queue import build_waiting_intervals, concurrency_at
 
 WAITING_LOOKUP_WINDOW = timedelta(hours=1)
+_STORE_ID_PATTERN = re.compile(r"^store-(\d+)$")
+_DEFAULT_STORE_NAMES = {
+    "store-001": "동명점",
+    "store-002": "수완점",
+}
 
 
 class InMemoryRepository:
     """Temporary repository used until the team agrees on the DB schema."""
 
     def __init__(self) -> None:
+        now = datetime.now(timezone.utc)
+        self._stores: dict[str, StoreInfo] = {
+            store_id: StoreInfo(
+                id=store_id,
+                name=name,
+                created_at=now,
+                updated_at=now,
+            )
+            for store_id, name in _DEFAULT_STORE_NAMES.items()
+        }
         self._store_states: dict[str, StoreState] = {}
         self._store_settings: dict[str, StoreSettings] = {}
         self._order_events: dict[str, OrderEvent] = {}
@@ -37,9 +55,41 @@ class InMemoryRepository:
         with self._lock:
             return self._store_states.get(store_id)
 
-    def list_store_ids(self) -> list[str]:
+    def list_stores(self) -> list[StoreInfo]:
         with self._lock:
-            return sorted(self._store_states.keys())
+            return sorted(self._stores.values(), key=lambda store: store.id)
+
+    def get_store(self, store_id: str) -> StoreInfo | None:
+        with self._lock:
+            return self._stores.get(store_id)
+
+    def store_exists(self, store_id: str) -> bool:
+        with self._lock:
+            return store_id in self._stores
+
+    def create_store(self, name: str) -> StoreInfo:
+        with self._lock:
+            if any(store.name == name for store in self._stores.values()):
+                raise StoreNameAlreadyExistsError(name)
+            max_number = 0
+            for store_id in self._stores:
+                match = _STORE_ID_PATTERN.match(store_id)
+                if match:
+                    max_number = max(max_number, int(match.group(1)))
+            store_id = f"store-{max_number + 1:03d}"
+            now = datetime.now(timezone.utc)
+            store = StoreInfo(
+                id=store_id,
+                name=name,
+                created_at=now,
+                updated_at=now,
+            )
+            self._stores[store_id] = store
+            return store
+
+    def delete_store(self, store_id: str) -> None:
+        with self._lock:
+            self._stores.pop(store_id, None)
 
     def get_store_settings(self, store_id: str) -> StoreSettings | None:
         with self._lock:

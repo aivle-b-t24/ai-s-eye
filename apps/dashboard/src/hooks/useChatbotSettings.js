@@ -5,7 +5,7 @@ export function useChatbotSettings() {
     try {
       const saved = localStorage.getItem('aicafe_chatbot_settings_map')
       return saved ? JSON.parse(saved) : {}
-    } catch (e) {
+    } catch {
       return {}
     }
   })

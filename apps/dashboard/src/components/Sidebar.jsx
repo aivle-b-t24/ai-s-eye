@@ -1,5 +1,6 @@
 const MENU_ITEMS = [
   { id: 'dashboard', label: '대시보드' },
+  { id: 'kos', label: 'KOS 매장 관리' },
   { id: 'monitoring', label: '실시간 모니터링' },
   { id: 'camera', label: 'AI 카메라' },
   { id: 'pos', label: 'POS 현황' },
@@ -12,6 +13,10 @@ function Sidebar({ isOpen, onClose, page, setPage }) {
   const handleMenuClick = (itemId) => {
     if (itemId === 'setting') {
       setPage('setting')
+    } else if (itemId === 'kos') {
+      setPage('kos')
+    } else if (itemId === 'dashboard') {
+      setPage('store-001')
     }
 
     onClose()
@@ -43,8 +48,10 @@ function Sidebar({ isOpen, onClose, page, setPage }) {
               key={item.id}
               type="button"
               className={
-                item.id === 'dashboard' &&
-                (page === 'store-001' || page === 'store-002' || page === 'head-office')
+                (item.id === 'dashboard' &&
+                (page === 'store-001' || page === 'store-002' || page === 'head-office')) ||
+                (item.id === 'kos' && page === 'kos') ||
+                (item.id === 'setting' && page === 'setting')
                   ? 'active'
                   : ''
               }

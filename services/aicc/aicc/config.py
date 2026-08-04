@@ -22,6 +22,8 @@ class Settings(BaseModel):
     kakao_skill_token: str | None
     store_directory_raw: str | None
     session_ttl_seconds: float
+    vision_scene_url: str
+    scene_request_timeout_seconds: float
 
     @property
     def use_vertex(self) -> bool:
@@ -64,4 +66,11 @@ def get_settings() -> Settings:
         store_directory_raw=os.getenv("AICC_STORE_DIRECTORY") or None,
         # 유저별 선택 매장을 기억하는 시간(초). 기본 30분.
         session_ttl_seconds=float(os.getenv("AICC_SESSION_TTL_SECONDS", "1800")),
+        vision_scene_url=os.getenv(
+            "AICC_VISION_SCENE_URL",
+            "http://host.docker.internal:8200/internal/scene-suggestions",
+        ),
+        scene_request_timeout_seconds=float(
+            os.getenv("AICC_SCENE_REQUEST_TIMEOUT_SECONDS", "120")
+        ),
     )

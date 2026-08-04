@@ -1,12 +1,25 @@
 import React from 'react'
 import { ROLES } from '../../constants/auth'
 
-export default function SignupPage({ onGoToLogin, initialRole = ROLES.STORE_MANAGER }) {
+export default function SignupPage({ onClose, onGoToLogin, initialRole = ROLES.STORE_MANAGER }) {
   const isAdmin = initialRole === ROLES.ADMIN
 
   return (
     <div className="auth-wrapper">
-      <div className="auth-card signup-card account-guide-card">
+      <div className="auth-card signup-card">
+        {onClose && (
+          <button
+            type="button"
+            className="auth-modal-close-btn"
+            onClick={onClose}
+            aria-label="취소 (메인 페이지로 이동)"
+            title="취소 (메인 페이지로 이동)"
+          >
+            ✕ 취소
+          </button>
+        )}
+
+        {/* 좌측 상단 뒤로가기 버튼 */}
         <button
           type="button"
           className="auth-back-arrow-btn"

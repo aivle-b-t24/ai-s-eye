@@ -40,9 +40,15 @@ from .kakao import (
 )
 from .session import SessionStore
 from .store_directory import (
-    directory_from_ids,
+    directory_from_items,
     load_store_directory,
     parse_name_overlay,
+)
+from .scene_detection import (
+    SceneImageRequest,
+    SceneSuggestionResponse,
+    SceneSuggestionUnavailableError,
+    generate_scene_suggestion,
 )
 
 logger = logging.getLogger(__name__)
@@ -231,10 +237,10 @@ STORE_DIRECTORY_TTL_SECONDS = 60.0
 def _build_store_directory():
     """공용 채널이 안내할 매장 목록을 만든다.
 
-    매장 목록은 백엔드(`/internal/stores`)에서 실시간으로 가져와, 새 매장이 등록되면
-    자동으로 선택지에 들어온다. 표시명은 백엔드에 없으므로 `AICC_STORE_DIRECTORY`의
-    이름 오버레이를 얹고, 없으면 store_id를 이름으로 쓴다. 백엔드를 못 읽으면(로컬 등)
-    설정값만으로 물러난다.
+    매장 목록·이름은 백엔드 매장 마스터(`/internal/stores`)에서 실시간으로 가져와, 본사가
+    매장을 등록하면 이름과 함께 선택지에 자동으로 들어온다. 백엔드가 이름을 주지 않는
+    경우엔 `AICC_STORE_DIRECTORY` 이름 오버레이 → store_id 순으로 물러난다. 백엔드를 못
+    읽으면(로컬 등) 설정값만으로 물러난다.
     """
     settings = get_settings()
     overlay = parse_name_overlay(settings.store_directory_raw)
@@ -242,13 +248,9 @@ def _build_store_directory():
     if client is not None:
         try:
             body = client.list_stores()
-            store_ids = [
-                item["store_id"]
-                for item in (body.get("stores") or [])
-                if isinstance(item, dict) and item.get("store_id")
-            ]
-            if store_ids:
-                return directory_from_ids(store_ids, overlay)
+            items = [item for item in (body.get("stores") or []) if isinstance(item, dict)]
+            if items:
+                return directory_from_items(items, overlay)
         except Exception:
             logger.warning("매장 목록 조회 실패 — 설정값으로 폴백", exc_info=True)
     return load_store_directory(settings.store_directory_raw)
@@ -342,3 +344,41 @@ async def kakao_skill(
         answer = ERROR_TEXT
     logger.info("kakao 답변 store=%s: %s", store_id, answer)
     return build_skill_response(answer, answer_quick_replies(directory))
+
+
+@app.post(
+    "/scene-suggestions",
+    response_model=SceneSuggestionResponse,
+    tags=["scene"],
+)
+def create_scene_suggestion(
+    req: SceneImageRequest,
+    user: CurrentUser = Depends(get_current_user),
+) -> Any:
+    """CCTV 한 장에서 테이블·카운터·좌석의 편집용 초안을 만든다."""
+    if user.role != ADMIN_ROLE and req.store_id != user.store_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="담당 매장에만 접근할 수 있습니다",
+        )
+    expected_camera_id = f"{req.store_id}-cam1"
+    if req.camera_id != expected_camera_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"camera_id는 {expected_camera_id}여야 합니다",
+        )
+    try:
+        return generate_scene_suggestion(req)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+    except SceneSuggestionUnavailableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "error": "scene_suggestion_unavailable",
+                "message": f"장면 초안을 생성하지 못했습니다: {exc}",
+            },
+        ) from exc

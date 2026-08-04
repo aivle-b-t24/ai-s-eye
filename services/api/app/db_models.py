@@ -87,6 +87,26 @@ class CurrentStoreStateRecord(Base):
     )
 
 
+class StoreRecord(Base):
+    """프랜차이즈 매장 마스터. store_id와 표시용 매장명을 관리한다."""
+
+    __tablename__ = "stores"
+
+    id: Mapped[str] = mapped_column(sa.String(100), primary_key=True)
+    name: Mapped[str] = mapped_column(sa.String(100), nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True),
+        nullable=False,
+        server_default=sa.text("CURRENT_TIMESTAMP"),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True),
+        nullable=False,
+        server_default=sa.text("CURRENT_TIMESTAMP"),
+        onupdate=sa.text("CURRENT_TIMESTAMP"),
+    )
+
+
 class StoreSettingsRecord(Base):
     """매장 운영 설정(수용 인원 등). 매장당 한 건."""
 

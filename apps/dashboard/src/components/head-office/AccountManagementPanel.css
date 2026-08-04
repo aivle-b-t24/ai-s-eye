@@ -42,7 +42,7 @@
 
 .account-create-form {
   display: grid;
-  grid-template-columns: minmax(220px, 1.4fr) minmax(160px, 1fr) minmax(190px, 1fr);
+  grid-template-columns: minmax(200px, 1.3fr) minmax(140px, 1fr) minmax(140px, 1fr) minmax(140px, 1fr) minmax(140px, 1fr) auto;
   align-items: end;
   gap: 14px;
   padding: 22px 28px;

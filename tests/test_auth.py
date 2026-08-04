@@ -87,14 +87,15 @@ def test_admin_can_create_store_manager_account(
 ) -> None:
     captured = {}
 
-    def fake_create(request):
-        captured["request"] = request
+    def fake_create(**kwargs):
+        captured["kwargs"] = kwargs
         return FirebaseUserSummary(
             uid="owner-002",
-            email=request.email,
-            name=request.name,
+            email=kwargs["email"],
+            name=kwargs["name"],
             role="store_manager",
-            store_id=request.store_id,
+            store_id=kwargs["store_id"],
+            store_name=kwargs["store_name"],
         )
 
     app.dependency_overrides[get_current_user] = lambda: admin_user
@@ -104,8 +105,8 @@ def test_admin_can_create_store_manager_account(
             "/api/admin/users",
             json={
                 "email": "Owner02@AICafe.com ",
-                "name": " 수완점 점주 ",
-                "store_id": "store-002",
+                "name": " 상무점 점주 ",
+                "store_name": " 상무점 ",
                 "password": "temporary-password-2026",
             },
         )
@@ -113,16 +114,39 @@ def test_admin_can_create_store_manager_account(
         app.dependency_overrides.clear()
 
     assert response.status_code == 201
-    assert response.json() == {
-        "uid": "owner-002",
-        "email": "owner02@aicafe.com",
-        "name": "수완점 점주",
-        "role": "store_manager",
-        "store_id": "store-002",
-        "disabled": False,
-    }
-    assert captured["request"].store_id == "store-002"
-    assert captured["request"].password == "temporary-password-2026"
+    body = response.json()
+    assert body["uid"] == "owner-002"
+    assert body["email"] == "owner02@aicafe.com"
+    assert body["name"] == "상무점 점주"
+    assert body["role"] == "store_manager"
+    assert body["store_id"] == "store-003"
+    assert body["store_name"] == "상무점"
+    assert body["disabled"] is False
+    assert captured["kwargs"]["store_id"] == "store-003"
+    assert captured["kwargs"]["store_name"] == "상무점"
+    assert captured["kwargs"]["password"] == "temporary-password-2026"
+
+
+def test_admin_user_creation_rejects_duplicate_store_name(
+    client: TestClient,
+    admin_user: CurrentUser,
+) -> None:
+    app.dependency_overrides[get_current_user] = lambda: admin_user
+    try:
+        response = client.post(
+            "/api/admin/users",
+            json={
+                "email": "owner99@aicafe.com",
+                "name": "중복 매장 점주",
+                "store_name": "동명점",
+                "password": "temporary-password-2026",
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "이미 등록된 매장명입니다"
 
 
 def test_store_manager_cannot_create_accounts(
@@ -136,7 +160,7 @@ def test_store_manager_cannot_create_accounts(
             json={
                 "email": "owner02@aicafe.com",
                 "name": "수완점 점주",
-                "store_id": "store-002",
+                "store_name": "신규점",
                 "password": "temporary-password-2026",
             },
         )
@@ -147,26 +171,20 @@ def test_store_manager_cannot_create_accounts(
     assert response.json()["detail"] == "본사 관리자 권한이 필요합니다"
 
 
-def test_admin_user_creation_rejects_unknown_store(
+def test_admin_can_list_stores(
     client: TestClient,
     admin_user: CurrentUser,
 ) -> None:
     app.dependency_overrides[get_current_user] = lambda: admin_user
     try:
-        response = client.post(
-            "/api/admin/users",
-            json={
-                "email": "owner99@aicafe.com",
-                "name": "미등록 매장 점주",
-                "store_id": "store-999",
-                "password": "temporary-password-2026",
-            },
-        )
+        response = client.get("/api/admin/stores")
     finally:
         app.dependency_overrides.clear()
 
-    assert response.status_code == 422
-    assert response.json()["detail"] == "지원하지 않는 매장입니다"
+    assert response.status_code == 200
+    stores = {store["id"]: store["name"] for store in response.json()}
+    assert stores["store-001"] == "동명점"
+    assert stores["store-002"] == "수완점"
 
 
 def test_admin_can_delete_store_manager_account(

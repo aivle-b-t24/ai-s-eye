@@ -1,10 +1,3 @@
-export const DEFAULT_PERSPECTIVE = {
-  far_y: 260,
-  near_y: 960,
-  far_scale: 0.68,
-  near_scale: 1.3,
-}
-
 export const SEAT_SNAP_DISTANCE = 150
 export const SEAT_RELEASE_DISTANCE = 220
 export const POSITION_DEAD_ZONE = 0.015
@@ -21,23 +14,10 @@ function clamp(value, minimum, maximum) {
   return Math.min(Math.max(value, minimum), maximum)
 }
 
-export function perspectiveScale(y, perspective = DEFAULT_PERSPECTIVE) {
-  const depthY = y * 1000
-  const range = Math.max(perspective.near_y - perspective.far_y, 1)
-  const depth = clamp((depthY - perspective.far_y) / range, 0, 1)
-  const easedDepth = depth ** 1.18
-  return perspective.far_scale
-    + (perspective.near_scale - perspective.far_scale) * easedDepth
-}
-
-export function agentScale(
-  agent,
-  perspective = DEFAULT_PERSPECTIVE,
-  calibration = DEFAULT_BBOX_SCALE,
-) {
-  const depthScale = perspectiveScale(agent.renderY ?? agent.y, perspective)
+/** 사람 아이콘 크기. bbox가 있으면 그에 맞추고, 없으면 1. */
+export function agentScale(agent, calibration = DEFAULT_BBOX_SCALE) {
   const bboxHeight = (agent.bbox?.y2 ?? 0) - (agent.bbox?.y1 ?? 0)
-  if (!Number.isFinite(bboxHeight) || bboxHeight <= 0) return depthScale
+  if (!Number.isFinite(bboxHeight) || bboxHeight <= 0) return 1
 
   const referenceHeight = Math.max(
     calibration.reference_height ?? DEFAULT_BBOX_SCALE.reference_height,
@@ -59,7 +39,7 @@ export function agentScale(
     1,
   )
   return clamp(
-    depthScale * (1 - weight) + bboxScale * weight,
+    (1 - weight) + bboxScale * weight,
     calibration.minimum ?? DEFAULT_BBOX_SCALE.minimum,
     calibration.maximum ?? DEFAULT_BBOX_SCALE.maximum,
   )

@@ -2,12 +2,6 @@ const STORE_ONE_SCENE = {
   storeId: 'store-001',
   cameraId: 'store-001-cam1',
   label: 'CAM 01',
-  perspective: {
-    far_y: 260,
-    near_y: 960,
-    far_scale: 0.68,
-    near_scale: 1.3,
-  },
   bboxScale: {
     reference_height: 0.32,
     weight: 0.68,
@@ -97,12 +91,6 @@ const STORE_TWO_SCENE = {
   storeId: 'store-002',
   cameraId: 'store-002-cam1',
   label: 'CAM 02',
-  perspective: {
-    far_y: 220,
-    near_y: 960,
-    far_scale: 0.68,
-    near_scale: 1.3,
-  },
   bboxScale: {
     reference_height: 0.27,
     weight: 0.68,

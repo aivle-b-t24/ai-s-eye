@@ -1,18 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import { defaultCameraId } from '../../api/storeSetupLogic'
 import { authenticatedFetch } from '../../api/authenticatedFetch'
+import { API_BASE_URL } from '../../constants/env'
 import { useAuthenticatedImage } from '../../hooks/useAuthenticatedImage'
 import { getCameraScene } from './cameraScenes'
 import {
   agentDepth,
   agentScale,
   allocateRenderPositions,
+  DEFAULT_BBOX_SCALE,
+  DEFAULT_PERSPECTIVE,
   objectDepth,
   stabilizeTrackPosition,
   stabilizeTrackState,
 } from './sceneProjection'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
 const POLLING_INTERVAL_MS = 500
 const POSITION_TRANSITION_MS = 900
 const MISSING_RETENTION_MS = 2000
@@ -166,22 +168,34 @@ export default function CameraSceneTwin({
   const isSimulation = Boolean(simulationResult)
   const simulationFrame = simulationResult?.frames?.[simulationFrameIndex] ?? null
   const fallbackScene = useMemo(() => getCameraScene(storeId), [storeId])
+  const cameraId = fallbackScene?.cameraId ?? defaultCameraId(storeId)
   const [sceneConfig, setSceneConfig] = useState(null)
   const scene = useMemo(() => {
-    if (!fallbackScene || !sceneConfig) return fallbackScene
-    const objects = sceneConfig.objects.map((item) => ({
+    // Hardcoded demo scenes (001/002) can render before API config arrives.
+    // Onboarded stores (e.g. store-003) only exist in API scene-config.
+    if (!sceneConfig) return fallbackScene
+    const objects = (sceneConfig.objects ?? []).map((item) => ({
       ...item,
       polygon: item.polygon.map(({ x, y }) => [x, y]),
     }))
+    const base = fallbackScene ?? {
+      storeId,
+      cameraId: sceneConfig.camera_id ?? defaultCameraId(storeId),
+      label: 'CAM',
+      perspective: DEFAULT_PERSPECTIVE,
+      bboxScale: DEFAULT_BBOX_SCALE,
+      objects: [],
+      seatAnchors: [],
+    }
     return {
-      ...fallbackScene,
+      ...base,
       objects,
-      perspective: sceneConfig.perspective ?? fallbackScene.perspective,
+      perspective: sceneConfig.perspective ?? base.perspective,
       seatAnchors: sceneConfig.seat_anchors?.length
         ? sceneConfig.seat_anchors
         : deriveSeatAnchors(objects),
     }
-  }, [fallbackScene, sceneConfig])
+  }, [fallbackScene, sceneConfig, storeId])
   const [tracks, setTracks] = useState({})
   const [roiConfig, setRoiConfig] = useState(null)
   const [status, setStatus] = useState('loading')
@@ -303,10 +317,9 @@ export default function CameraSceneTwin({
   }, [isSimulation, simulationFrame, simulationFrameIndex, simulationResult])
 
   useEffect(() => {
-    if (!fallbackScene) return undefined
     const controller = new AbortController()
     authenticatedFetch(
-      `${API_BASE_URL}/api/stores/${storeId}/cameras/${fallbackScene.cameraId}/roi-config`,
+      `${API_BASE_URL}/api/stores/${storeId}/cameras/${cameraId}/roi-config`,
       { signal: controller.signal },
     )
       .then((response) => (response.ok ? response.json() : null))
@@ -315,13 +328,12 @@ export default function CameraSceneTwin({
         if (error.name !== 'AbortError') setRoiConfig(null)
     })
     return () => controller.abort()
-  }, [fallbackScene, storeId])
+  }, [cameraId, storeId])
 
   useEffect(() => {
-    if (!fallbackScene) return undefined
     const controller = new AbortController()
     authenticatedFetch(
-      `${API_BASE_URL}/api/stores/${storeId}/cameras/${fallbackScene.cameraId}/scene-config`,
+      `${API_BASE_URL}/api/stores/${storeId}/cameras/${cameraId}/scene-config`,
       { signal: controller.signal },
     )
       .then((response) => (response.ok ? response.json() : null))
@@ -330,7 +342,7 @@ export default function CameraSceneTwin({
         if (error.name !== 'AbortError') setSceneConfig(null)
       })
     return () => controller.abort()
-  }, [fallbackScene, storeId])
+  }, [cameraId, storeId])
 
   const trackList = useMemo(() => Object.values(tracks), [tracks])
   const roiZoneTypes = useMemo(

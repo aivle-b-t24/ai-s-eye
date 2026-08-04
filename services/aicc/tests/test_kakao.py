@@ -18,7 +18,13 @@ from aicc.kakao import (
     resolve_store_id,
 )
 from aicc.session import SessionStore
-from aicc.store_directory import StoreDirectory, StoreEntry, load_store_directory
+from aicc.store_directory import (
+    StoreDirectory,
+    StoreEntry,
+    directory_from_ids,
+    load_store_directory,
+    parse_name_overlay,
+)
 
 
 def two_store_directory() -> StoreDirectory:
@@ -395,3 +401,55 @@ def test_single_store_directory_answers_directly() -> None:
     r = tc.post("/kakao/skill", json=skill_request("지금 붐벼요?", user_id="u1"))
     assert r.status_code == 200
     assert agent.seen["store_id"] == "store-001"
+
+
+# --- 매장 자동 등록(백엔드 목록 + 이름 오버레이) ---
+
+
+def test_parse_name_overlay_only_named_entries() -> None:
+    overlay = parse_name_overlay('[{"id":"store-001","name":"동명점"},{"store_id":"store-002"}]')
+    assert overlay == {"store-001": "동명점"}  # 이름 없는 건 오버레이에 안 들어감
+
+
+def test_directory_from_ids_uses_overlay_else_id() -> None:
+    d = directory_from_ids(["store-001", "store-003"], {"store-001": "동명점"})
+    assert [e.id for e in d.list()] == ["store-001", "store-003"]
+    assert d.name_of("store-001") == "동명점"  # 오버레이 있으면 예쁜 이름
+    assert d.name_of("store-003") == "store-003"  # 없으면 id를 이름으로 (자동 등장)
+
+
+class FakeStoreClient:
+    """StoreApiClient 대역. list_stores()가 정해둔 매장 ID를 돌려준다."""
+
+    def __init__(self, store_ids: list[str]) -> None:
+        self._ids = store_ids
+
+    def list_stores(self) -> dict[str, Any]:
+        return {"stores": [{"store_id": sid} for sid in self._ids]}
+
+
+def test_directory_auto_built_from_backend(monkeypatch) -> None:
+    """override 없이, 백엔드 매장 목록으로 선택지를 자동 구성한다(새 매장 자동 등장)."""
+    agent = FakeAgent()
+    tc = TestClient(api.app)
+    tc.app.state.agent = agent
+    tc.app.state.session = SessionStore()
+    tc.app.state.client = FakeStoreClient(["store-001", "store-002"])
+    # 명시 디렉터리/캐시 제거 → 동적 구성 경로를 타게 한다
+    for attr in ("store_directory", "_store_directory_cache"):
+        if hasattr(tc.app.state, attr):
+            delattr(tc.app.state, attr)
+    monkeypatch.setenv("AICC_STORE_DIRECTORY", '[{"id":"store-001","name":"동명점"}]')
+    config.get_settings.cache_clear()
+    try:
+        r = tc.post("/kakao/skill", json=skill_request("메뉴 알려줘", user_id="u1"))
+        assert r.status_code == 200
+        assert not agent.called  # 매장 여럿 → 선택 버튼
+        labels = {q["label"] for q in r.json()["template"]["quickReplies"]}
+        # store-001은 오버레이 이름(동명점), store-002는 이름 없어 id 그대로
+        assert labels == {"동명점", "store-002"}
+    finally:
+        config.get_settings.cache_clear()
+        for attr in ("store_directory", "_store_directory_cache"):
+            if hasattr(tc.app.state, attr):
+                delattr(tc.app.state, attr)

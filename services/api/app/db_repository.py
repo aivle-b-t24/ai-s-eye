@@ -84,6 +84,14 @@ class DatabaseRepository:
                 return None
             return _store_state_from_record(record)
 
+    def list_store_ids(self) -> list[str]:
+        """현재 상태가 등록된 매장 ID 목록(챗봇 매장 선택지 등에 쓴다)."""
+        statement = select(CurrentStoreStateRecord.store_id).order_by(
+            CurrentStoreStateRecord.store_id
+        )
+        with self._session_factory() as session:
+            return list(session.scalars(statement).all())
+
     def get_store_settings(self, store_id: str) -> StoreSettings | None:
         """매장 운영 설정(수용 인원 등). 없으면 None."""
         with self._session_factory() as session:

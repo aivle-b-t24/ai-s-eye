@@ -47,6 +47,17 @@ def test_missing_store_state_returns_404(client: TestClient) -> None:
     assert response.status_code == 404
 
 
+def test_list_stores_returns_registered_store_ids(client: TestClient) -> None:
+    client.post("/internal/store-states", json=valid_store_state("store-a"))
+    client.post("/internal/store-states", json=valid_store_state("store-b"))
+
+    response = client.get("/internal/stores")
+
+    assert response.status_code == 200
+    ids = {item["store_id"] for item in response.json()["stores"]}
+    assert {"store-a", "store-b"} <= ids
+
+
 def test_invalid_store_state_is_rejected(client: TestClient) -> None:
     payload = valid_store_state("invalid-store")
     payload["visible_person_count"] = -1

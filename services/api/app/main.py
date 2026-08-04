@@ -29,6 +29,8 @@ from .models import (
     OrderEvent,
     OperationsSimulationResult,
     OperationsSimulationScenario,
+    StoreListItem,
+    StoreListResponse,
     StoreSettings,
     StoreSettingsInput,
     StoreState,
@@ -797,6 +799,22 @@ def get_stores_summary(
             detail="PostgreSQL is required for store summary",
         )
     return repository.get_store_summary(start_at=start_at, end_at=end_at)
+
+
+@app.get(
+    "/internal/stores",
+    response_model=StoreListResponse,
+    tags=["internal"],
+    dependencies=[Depends(require_internal_service)],
+)
+def list_stores() -> StoreListResponse:
+    """상태가 등록된 매장 ID 목록. AICC 챗봇이 안내 가능한 매장을 자동으로 알기 위해 쓴다.
+
+    매장 표시명은 아직 백엔드에 없어 name은 비워 둔다(소비 측에서 채운다).
+    """
+    return StoreListResponse(
+        stores=[StoreListItem(store_id=store_id) for store_id in repository.list_store_ids()]
+    )
 
 
 @app.get(

@@ -57,6 +57,42 @@ class StoreDirectory:
         return None
 
 
+def parse_name_overlay(raw: str | None) -> dict[str, str]:
+    """`AICC_STORE_DIRECTORY`(JSON)에서 매장 표시명 오버레이만 뽑는다: {store_id: 이름}.
+
+    백엔드 매장 목록은 ID만 주므로, 여기 있는 매장은 예쁜 이름으로 보여주고 없는 매장은
+    ID를 이름 대신 쓴다. 즉 '새 매장은 자동 등장, 이름은 선택'이다."""
+    if not raw or not raw.strip():
+        return {}
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        logger.warning("AICC_STORE_DIRECTORY 파싱 실패 — 이름 오버레이 없이 진행", exc_info=True)
+        return {}
+    overlay: dict[str, str] = {}
+    if isinstance(data, list):
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+            store_id = item.get("id") or item.get("store_id")
+            name = item.get("name")
+            if store_id and name:
+                overlay[str(store_id)] = str(name)
+    return overlay
+
+
+def directory_from_ids(
+    store_ids: list[str],
+    name_overlay: dict[str, str] | None = None,
+) -> StoreDirectory:
+    """백엔드가 준 매장 ID 목록으로 디렉터리를 만든다. 이름은 오버레이에 있으면 그걸,
+    없으면 store_id를 표시명으로 쓴다."""
+    overlay = name_overlay or {}
+    return StoreDirectory(
+        [StoreEntry(id=store_id, name=overlay.get(store_id, store_id)) for store_id in store_ids]
+    )
+
+
 def load_store_directory(raw: str | None) -> StoreDirectory:
     """`AICC_STORE_DIRECTORY` 원문(JSON 배열)을 StoreDirectory로 만든다.
 

@@ -47,6 +47,10 @@ class StoreApiClient:
     def __exit__(self, *_: object) -> None:
         self.close()
 
+    def list_stores(self) -> Any:
+        """상태가 등록된 매장 목록. 공용 채널 챗봇의 매장 선택지를 자동 구성하는 데 쓴다."""
+        return self._get("/internal/stores")
+
     def get_store_state(self, store_id: str) -> Any:
         return self._get(f"/api/stores/{quote(store_id)}/state")
 

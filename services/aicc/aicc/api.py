@@ -10,6 +10,7 @@
 """
 
 import logging
+import time
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -38,7 +39,11 @@ from .kakao import (
     store_selected_text,
 )
 from .session import SessionStore
-from .store_directory import load_store_directory
+from .store_directory import (
+    directory_from_ids,
+    load_store_directory,
+    parse_name_overlay,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -219,12 +224,48 @@ def _get_session() -> SessionStore:
     return session
 
 
+# 매장 목록을 매 요청마다 백엔드에 묻지 않도록 잠깐 캐싱한다. 새 매장은 이 시간 안에 반영된다.
+STORE_DIRECTORY_TTL_SECONDS = 60.0
+
+
+def _build_store_directory():
+    """공용 채널이 안내할 매장 목록을 만든다.
+
+    매장 목록은 백엔드(`/internal/stores`)에서 실시간으로 가져와, 새 매장이 등록되면
+    자동으로 선택지에 들어온다. 표시명은 백엔드에 없으므로 `AICC_STORE_DIRECTORY`의
+    이름 오버레이를 얹고, 없으면 store_id를 이름으로 쓴다. 백엔드를 못 읽으면(로컬 등)
+    설정값만으로 물러난다.
+    """
+    settings = get_settings()
+    overlay = parse_name_overlay(settings.store_directory_raw)
+    client = getattr(app.state, "client", None)
+    if client is not None:
+        try:
+            body = client.list_stores()
+            store_ids = [
+                item["store_id"]
+                for item in (body.get("stores") or [])
+                if isinstance(item, dict) and item.get("store_id")
+            ]
+            if store_ids:
+                return directory_from_ids(store_ids, overlay)
+        except Exception:
+            logger.warning("매장 목록 조회 실패 — 설정값으로 폴백", exc_info=True)
+    return load_store_directory(settings.store_directory_raw)
+
+
 def _get_store_directory():
-    """공용 채널이 안내하는 매장 목록. 설정(AICC_STORE_DIRECTORY)에서 읽어 캐싱한다."""
-    directory = getattr(app.state, "store_directory", None)
-    if directory is None:
-        directory = load_store_directory(get_settings().store_directory_raw)
-        app.state.store_directory = directory
+    """공용 채널이 안내하는 매장 목록. 테스트가 명시 세팅했으면 그것을, 아니면 백엔드에서
+    가져와 TTL 동안 캐싱한다."""
+    override = getattr(app.state, "store_directory", None)
+    if override is not None:
+        return override
+    cache = getattr(app.state, "_store_directory_cache", None)
+    now = time.monotonic()
+    if cache is not None and now - cache[1] <= STORE_DIRECTORY_TTL_SECONDS:
+        return cache[0]
+    directory = _build_store_directory()
+    app.state._store_directory_cache = (directory, now)
     return directory
 
 

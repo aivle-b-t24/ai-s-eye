@@ -37,6 +37,10 @@ class InMemoryRepository:
         with self._lock:
             return self._store_states.get(store_id)
 
+    def list_store_ids(self) -> list[str]:
+        with self._lock:
+            return sorted(self._store_states.keys())
+
     def get_store_settings(self, store_id: str) -> StoreSettings | None:
         with self._lock:
             return self._store_settings.get(store_id)

@@ -23,6 +23,12 @@ from .client import StoreApiClient
 from .config import get_settings
 from .errors import ToolError
 from .franchise_insights import InsightsUnavailableError, generate_insights
+from .scene_detection import (
+    SceneImageRequest,
+    SceneSuggestionResponse,
+    SceneSuggestionUnavailableError,
+    generate_scene_suggestion,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -175,3 +181,41 @@ def create_chat(
         result.get("answer"),
     )
     return result
+
+
+@app.post(
+    "/scene-suggestions",
+    response_model=SceneSuggestionResponse,
+    tags=["scene"],
+)
+def create_scene_suggestion(
+    req: SceneImageRequest,
+    user: CurrentUser = Depends(get_current_user),
+) -> Any:
+    """CCTV 한 장에서 테이블·카운터·좌석의 편집용 초안을 만든다."""
+    if user.role != ADMIN_ROLE and req.store_id != user.store_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="담당 매장에만 접근할 수 있습니다",
+        )
+    expected_camera_id = f"{req.store_id}-cam1"
+    if req.camera_id != expected_camera_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"camera_id는 {expected_camera_id}여야 합니다",
+        )
+    try:
+        return generate_scene_suggestion(req)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+    except SceneSuggestionUnavailableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "error": "scene_suggestion_unavailable",
+                "message": f"장면 초안을 생성하지 못했습니다: {exc}",
+            },
+        ) from exc

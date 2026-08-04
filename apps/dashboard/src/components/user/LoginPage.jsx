@@ -4,14 +4,10 @@ import { LOCAL_DEMO_ACCOUNTS } from '../../auth/localAuth';
 import { IS_LOCAL_AUTH_MODE } from '../../auth/runtimeAuth';
 
 const REMEMBERED_EMAIL_KEY = 'aicafe.rememberedEmail';
-const _DEMO_LOGIN_ENABLED = (
-  IS_LOCAL_AUTH_MODE
-  || (
-    import.meta.env.DEV
-    && String(import.meta.env.VITE_ENABLE_DEMO_LOGIN ?? 'false').toLowerCase() === 'true'
-  )
-);
-const FIREBASE_DEMO_ACCOUNTS = import.meta.env.DEV
+const FIREBASE_DEMO_LOGIN_ENABLED =
+  String(import.meta.env.VITE_ENABLE_DEMO_LOGIN ?? 'false').toLowerCase() === 'true';
+const _DEMO_LOGIN_ENABLED = IS_LOCAL_AUTH_MODE || FIREBASE_DEMO_LOGIN_ENABLED;
+const FIREBASE_DEMO_ACCOUNTS = FIREBASE_DEMO_LOGIN_ENABLED
   ? {
       [STORES.DONGMYEONG]: {
         email: import.meta.env.VITE_DEMO_STORE_001_EMAIL,

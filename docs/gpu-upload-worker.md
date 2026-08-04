@@ -103,4 +103,14 @@ curl -fsS https://docker-test.tail0c814d.ts.net/health
 - 오버라이드: `VITE_UPLOAD_API_BASE_URL`
 - CORS에 `https://aiseye.ldhcloud.com` 포함 필요 (이미 `.env` 권장값)
 
-데모 PC에서 Tailscale이 없으면 `http://100.86.5.67:5173` 온보딩으로 같은 HTTP API에 올리면 된다. 
+데모 PC에서 Tailscale이 없으면 `http://100.86.5.67:5173` 온보딩으로 같은 HTTP API에 올리면 된다.
+
+### store-003+ 데모 재생
+
+analysis job은 한 번 처리하면 끝난다. 대시보드에서 계속 움직이게 하려면 캐시된 프레임을 루프한다:
+
+```bash
+python upload_job_worker.py --replay-store store-003 --play-interval 1.0 --model "$AISEYE_CAFE_MODEL"
+```
+
+첫 job 처리 시 `outputs/upload-replay/<store_id>/` 에 프레임이 저장된다.

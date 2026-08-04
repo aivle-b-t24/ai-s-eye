@@ -14,7 +14,17 @@ import time
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, status
+import httpx
+from fastapi import (
+    BackgroundTasks,
+    Depends,
+    FastAPI,
+    Header,
+    HTTPException,
+    Query,
+    Request,
+    status,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, model_validator
 
@@ -29,8 +39,10 @@ from .kakao import (
     GREETING_TEXT,
     PICK_STORE_TEXT,
     answer_quick_replies,
+    build_callback_ack,
     build_skill_response,
     coerce_payload,
+    extract_callback_url,
     extract_user_id,
     extract_utterance,
     is_change_store,
@@ -276,9 +288,39 @@ def _get_store_directory():
     return directory
 
 
+def _answer_text(utterance: str, store_id: str) -> str:
+    """StoreAgent로 답 문장을 만든다(느릴 수 있음). 어떤 경우에도 문장을 돌려준다."""
+    try:
+        result = app.state.agent.ask(utterance, store_id)
+        return (result.get("answer") or "").strip() or ERROR_TEXT
+    except Exception as exc:
+        logger.warning("kakao 답변 실패 store=%s: %s", store_id, exc, exc_info=True)
+        return ERROR_TEXT
+
+
+def _send_kakao_callback(
+    callback_url: str,
+    utterance: str,
+    store_id: str,
+    quick_replies: list[dict[str, str]],
+) -> None:
+    """느린 답변을 만들어 카카오 콜백 URL로 보낸다(백그라운드에서 실행).
+
+    5초 제한을 넘겨도 손님에게 답이 전달되도록, 즉시 useCallback을 준 뒤 여기서 실제
+    답을 계산해 콜백으로 POST한다.
+    """
+    answer = _answer_text(utterance, store_id)
+    body = build_skill_response(answer, quick_replies)
+    try:
+        httpx.post(callback_url, json=body, timeout=15.0)
+    except Exception as exc:
+        logger.warning("kakao 콜백 전송 실패 store=%s: %s", store_id, exc, exc_info=True)
+
+
 @app.post("/kakao/skill", tags=["kakao"])
 async def kakao_skill(
     request: Request,
+    background_tasks: BackgroundTasks,
     x_kakao_skill_token: str | None = Header(default=None),
     token: str | None = Query(default=None),
 ) -> Any:
@@ -339,16 +381,21 @@ async def kakao_skill(
         return build_skill_response(GREETING_TEXT, answer_quick_replies(directory))
 
     logger.info("kakao 질문 store=%s: %s", store_id, utterance)
-    try:
-        result = app.state.agent.ask(utterance, store_id)
-        answer = (result.get("answer") or "").strip() or ERROR_TEXT
-    except Exception as exc:
-        # 카카오는 비-200이면 시스템 오류만 보여준다. 안내가 사라지지 않도록
-        # 오류를 삼키고 정중한 문장 200으로 답한다(원인은 로그로 남긴다).
-        logger.warning("kakao 실패 store=%s: %s", store_id, exc, exc_info=True)
-        answer = ERROR_TEXT
+    quick_replies = answer_quick_replies(directory)
+
+    # LLM 답변은 5초를 넘길 수 있다. 콜백이 켜져 있으면(callbackUrl 존재) 즉시 '확인 중'을
+    # 주고 백그라운드로 답을 만들어 콜백으로 보낸다 → 카카오 타임아웃('멈춤')을 피한다.
+    callback_url = extract_callback_url(payload)
+    if callback_url:
+        background_tasks.add_task(
+            _send_kakao_callback, callback_url, utterance, store_id, quick_replies
+        )
+        return build_callback_ack()
+
+    # 콜백이 없으면(오픈빌더에서 콜백 미사용) 동기로 답한다.
+    answer = _answer_text(utterance, store_id)
     logger.info("kakao 답변 store=%s: %s", store_id, answer)
-    return build_skill_response(answer, answer_quick_replies(directory))
+    return build_skill_response(answer, quick_replies)
 
 
 @app.post(

@@ -403,6 +403,69 @@ def test_single_store_directory_answers_directly() -> None:
     assert agent.seen["store_id"] == "store-001"
 
 
+# --- 콜백(느린 LLM 답변, 카카오 5초 타임아웃 회피) ---
+
+
+def test_kakao_uses_callback_when_callback_url_present(monkeypatch) -> None:
+    """callbackUrl이 오면 즉시 useCallback을 주고, 실제 답은 콜백 URL로 POST한다."""
+    agent = FakeAgent("현재 5명 있습니다.")
+    tc = client_with(agent, directory=StoreDirectory([StoreEntry("store-001", "동명점")]))
+
+    posted: dict[str, Any] = {}
+
+    def fake_post(url: str, json: Any = None, timeout: Any = None):  # noqa: A002
+        posted["url"] = url
+        posted["json"] = json
+        return type("R", (), {"status_code": 200})()
+
+    monkeypatch.setattr(api.httpx, "post", fake_post)
+
+    body = {
+        "userRequest": {
+            "utterance": "지금 붐비나요?",
+            "user": {"id": "u1"},
+            "callbackUrl": "https://cb.test/x",
+        }
+    }
+    r = tc.post("/kakao/skill", json=body)
+
+    # 즉시 응답은 콜백 사용 알림
+    assert r.status_code == 200
+    assert r.json().get("useCallback") is True
+    # 백그라운드로 실제 답을 콜백 URL에 POST (TestClient는 응답 후 백그라운드 실행)
+    assert posted["url"] == "https://cb.test/x"
+    assert posted["json"]["template"]["outputs"][0]["simpleText"]["text"] == "현재 5명 있습니다."
+    assert agent.seen["store_id"] == "store-001"
+
+
+def test_kakao_no_callback_url_answers_synchronously() -> None:
+    """callbackUrl이 없으면(콜백 미사용) 기존처럼 동기로 답한다."""
+    agent = FakeAgent("현재 7명 있습니다.")
+    tc = client_with(agent, directory=StoreDirectory([StoreEntry("store-001", "동명점")]))
+    r = tc.post("/kakao/skill", json=skill_request("지금 붐비나요?", user_id="u1"))
+    assert r.status_code == 200
+    data = r.json()
+    assert "useCallback" not in data
+    assert data["template"]["outputs"][0]["simpleText"]["text"] == "현재 7명 있습니다."
+
+
+def test_kakao_picker_ignores_callback_url() -> None:
+    """매장 선택 단계(빠름)는 콜백 없이 즉시 선택 버튼을 준다."""
+    agent = FakeAgent()
+    tc = client_with(agent, directory=two_store_directory())
+    body = {
+        "userRequest": {
+            "utterance": "메뉴 알려줘",
+            "user": {"id": "u9"},
+            "callbackUrl": "https://cb.test/y",
+        }
+    }
+    r = tc.post("/kakao/skill", json=body)
+    assert r.json().get("useCallback") is None  # 선택 버튼은 콜백 아님
+    assert not agent.called
+    assert "어느 매장" in r.json()["template"]["outputs"][0]["simpleText"]["text"]
+
+
 # --- 매장 자동 등록(백엔드 목록 + 이름 오버레이) ---
 
 

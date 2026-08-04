@@ -166,8 +166,48 @@ docker compose exec api alembic upgrade head
 docker compose ps
 ```
 
+같은 작업을 스크립트로 실행하려면 미니PC 저장소 루트에서
+`bash scripts/deploy-minipc.sh`를 사용한다. 이 스크립트는 대시보드까지
+포함해 갱신하고, 볼륨 마운트된 Vite 환경변수 반영을 위해
+`docker compose restart dashboard`를 한 번 더 수행한다.
+
+대시보드 컨테이너는 `npm run dev`와 `./apps/dashboard` 볼륨 마운트를
+사용한다. 따라서 호스트에서 `git pull`만으로도 대부분 화면 코드는 Vite HMR로
+반영된다. 다만 `env.js`·의존성·Dockerfile 변경, API/AICC 코드 변경은
+위 compose 재빌드·재시작이 필요하다.
+
 DB 볼륨은 유지되므로 일반적인 이미지 재빌드로 데이터가 삭제되지 않는다.
 `docker compose down -v`는 PostgreSQL 데이터를 전부 지우므로 사용하지 않는다.
+
+### 5.1 자동 배포 (GitHub Actions)
+
+저장소에는 `develop` push와 `workflow_dispatch`로 미니PC에 SSH 배포하는
+`.github/workflows/deploy-develop.yml`이 있다.
+
+원래 팀 운영은 수동 `git pull`이었고, PR 병합만으로 미니PC가 자동 재시작되지는
+않았다. CI(`.github/workflows/ci.yml`)는 검사만 수행한다. 자동 배포를 켜려면
+GitHub 저장소 Settings → Secrets and variables → Actions에 아래 시크릿을
+등록한다. 시크릿 값은 이 문서나 코드에 넣지 않는다.
+
+| Secret | 필수 | 설명 |
+|---|---|---|
+| `MINIPC_HOST` | 예 | 미니PC 주소 (Tailscale IPv4 또는 SSH 가능 호스트) |
+| `DEPLOY_SSH_KEY` | 예 | Actions 전용 private key (미니PC `authorized_keys`에 대응 공개키 등록) |
+| `MINIPC_USER` | 아니오 | SSH 사용자. 기본값 `ubuntu` |
+| `MINIPC_PORT` | 아니오 | SSH 포트. 기본값 `22` |
+| `MINIPC_APP_PATH` | 아니오 | 미니PC 저장소 경로. 비우면 `$HOME/ai-s-eye` |
+
+시크릿이 없으면 배포 job은 건너뛴다. Actions → "develop 미니PC 배포"에서
+수동 실행(`workflow_dispatch`)으로도 같은 배포를 돌릴 수 있다.
+
+GitHub Actions runner가 미니PC SSH 포트에 도달해야 한다. Tailscale 전용
+주소만 열려 있으면 Actions에서 접속되지 않으므로, 공개 SSH·Cloudflare Tunnel
+또는 self-hosted runner 등 네트워크 경로를 따로 준비한다. 그 전에는
+미니PC cron으로 `scripts/deploy-minipc.sh`를 주기 실행하는 방식이 더 단순하다.
+
+```cron
+*/5 * * * * cd /home/ubuntu/ai-s-eye && /usr/bin/bash scripts/deploy-minipc.sh >>/tmp/ai-s-eye-deploy.log 2>&1
+```
 
 ## 6. 백업과 복구
 

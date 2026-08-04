@@ -1,0 +1,51 @@
+name: develop 미니PC 배포
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-develop
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: MiniPC git pull + compose
+    runs-on: ubuntu-latest
+    # 시크릿이 없으면 건너뛴다. 등록 방법은 docs/minipc-runbook.md 5.1절 참고.
+    if: ${{ secrets.MINIPC_HOST != '' && secrets.DEPLOY_SSH_KEY != '' }}
+
+    steps:
+      - name: 미니PC에 develop 반영
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          APP_PATH: ${{ secrets.MINIPC_APP_PATH }}
+        with:
+          host: ${{ secrets.MINIPC_HOST }}
+          username: ${{ secrets.MINIPC_USER != '' && secrets.MINIPC_USER || 'ubuntu' }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.MINIPC_PORT != '' && secrets.MINIPC_PORT || 22 }}
+          envs: APP_PATH
+          script_stop: true
+          command_timeout: 30m
+          script: |
+            set -euo pipefail
+            if [ -z "${APP_PATH:-}" ]; then
+              APP_PATH="$HOME/ai-s-eye"
+            fi
+            cd "$APP_PATH"
+            git fetch --prune origin
+            git switch develop
+            git pull --ff-only origin develop
+            # dashboard는 호스트 소스를 볼륨 마운트하고 npm run dev로 띄우므로
+            # git pull만으로 Vite HMR이 반영되는 경우가 많다.
+            # env.js / Dockerfile / package 변경과 API·AICC 코드는 재기동·재빌드가 필요하다.
+            docker compose up -d --build dashboard api aicc
+            docker compose exec -T api alembic upgrade head
+            docker compose restart dashboard
+            docker compose ps

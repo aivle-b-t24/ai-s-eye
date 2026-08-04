@@ -185,8 +185,9 @@ def _quick_reply(label: str, message_text: str) -> dict[str, str]:
 
 
 DEFAULT_QUICK_REPLIES: list[dict[str, str]] = [
-    _quick_reply("혼잡도", "지금 붐비나요?"),
-    _quick_reply("대기시간", "지금 가면 얼마나 기다려요?"),
+    # 라벨(버튼 글자)은 짧게, messageText(실제 보내는 질문)는 자연스러운 문장으로.
+    _quick_reply("사람 많나요?", "지금 사람 많나요?"),
+    _quick_reply("얼마나 기다려요?", "지금 가면 얼마나 기다려야 하나요?"),
     _quick_reply("메뉴", "메뉴 알려주세요"),
     _quick_reply("영업시간", "영업시간 알려주세요"),
 ]
@@ -203,6 +204,12 @@ ERROR_TEXT = "지금은 안내가 어려워요. 잠시 후 다시 시도해 주�
 MAX_STORE_QUICK_REPLIES = 10
 
 PICK_STORE_TEXT = "어느 매장을 도와드릴까요? 아래에서 선택해 주세요."
+
+# 채널 첫 진입 때 보여줄 인삿말 + 매장 선택 안내(선택 버튼과 함께 나간다).
+WELCOME_TEXT = (
+    "안녕하세요! 😊 매장 혼잡도·대기·메뉴·영업시간을 안내해 드려요.\n"
+    "먼저 어느 매장이 궁금하신지 아래에서 골라주세요!"
+)
 
 CHANGE_STORE_LABEL = "매장 변경"
 CHANGE_STORE_QUICK_REPLY = _quick_reply(CHANGE_STORE_LABEL, CHANGE_STORE_LABEL)

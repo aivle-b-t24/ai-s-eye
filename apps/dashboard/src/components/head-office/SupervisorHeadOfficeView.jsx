@@ -11,9 +11,9 @@ import {
   timelineIntervalForPeriod,
 } from './supervisorPresentation'
 
-const STORE_NAMES = {
-  'store-001': '강남점',
-  'store-002': '홍대점',
+const DEFAULT_STORE_NAMES = {
+  'store-001': '동명점',
+  'store-002': '수완점',
 }
 
 const PERIOD_OPTIONS = [
@@ -113,8 +113,8 @@ function formatMetric(value, digits = 1) {
   })
 }
 
-function getStoreName(storeId) {
-  return STORE_NAMES[storeId] ?? storeId
+function getStoreName(storeId, storeNames = DEFAULT_STORE_NAMES) {
+  return storeNames[storeId] ?? storeId
 }
 
 async function getErrorMessage(response, fallback) {
@@ -141,7 +141,7 @@ function getPeakStore(stores, field) {
     }, null)
 }
 
-function buildKpis(stores, orderMode) {
+function buildKpis(stores, orderMode, storeNames) {
   const peakPeopleStore = getPeakStore(stores, 'peak_visible_person_count')
   const peakQueueStore = getPeakStore(stores, 'peak_queue_count_estimate')
   const totalOrders = stores.reduce(
@@ -157,14 +157,18 @@ function buildKpis(stores, orderMode) {
     },
     {
       label: '최고 혼잡 매장',
-      value: peakPeopleStore ? getStoreName(peakPeopleStore.store_id) : '데이터 없음',
+      value: peakPeopleStore
+        ? getStoreName(peakPeopleStore.store_id, storeNames)
+        : '데이터 없음',
       detail: peakPeopleStore
         ? `피크 ${formatMetric(peakPeopleStore.traffic_summary.peak_visible_person_count, 0)}명`
         : '인원 데이터가 없습니다',
     },
     {
       label: '최대 대기 매장',
-      value: peakQueueStore ? getStoreName(peakQueueStore.store_id) : '데이터 없음',
+      value: peakQueueStore
+        ? getStoreName(peakQueueStore.store_id, storeNames)
+        : '데이터 없음',
       detail: peakQueueStore
         ? `최대 ${formatMetric(peakQueueStore.traffic_summary.peak_queue_count_estimate, 0)}명`
         : '대기 데이터가 없습니다',
@@ -238,6 +242,31 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
   const [insights, setInsights] = useState(null)
   const [insightsLoading, setInsightsLoading] = useState(false)
   const [insightsError, setInsightsError] = useState('')
+  const [storeNames, setStoreNames] = useState(DEFAULT_STORE_NAMES)
+  const [storeIds, setStoreIds] = useState(SUPERVISOR_STORE_IDS)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    ;(async () => {
+      try {
+        const response = await authenticatedFetch(`${apiBaseUrl}/api/admin/stores`, {
+          signal: controller.signal,
+        })
+        if (!response.ok) return
+        const stores = await response.json()
+        if (!Array.isArray(stores) || stores.length === 0) return
+        setStoreIds(stores.map((store) => store.id))
+        setStoreNames(
+          Object.fromEntries(stores.map((store) => [store.id, store.name])),
+        )
+      } catch (error) {
+        if (error.name !== 'AbortError') {
+          // 매장 마스터 조회 실패 시 기본 매장 목록을 유지한다.
+        }
+      }
+    })()
+    return () => controller.abort()
+  }, [apiBaseUrl])
 
   const loadSummary = useCallback(async (range, signal) => {
     setSummaryLoading(true)
@@ -279,7 +308,7 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
     setTimelines({})
 
     const results = await Promise.allSettled(
-      SUPERVISOR_STORE_IDS.map(async (storeId) => {
+      storeIds.map(async (storeId) => {
         const params = new URLSearchParams({
           start_at: range.startAt,
           end_at: range.endAt,
@@ -291,7 +320,10 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
         )
         if (!response.ok) {
           throw new Error(
-            await getErrorMessage(response, `${getStoreName(storeId)} 추이 조회 실패`),
+            await getErrorMessage(
+              response,
+              `${getStoreName(storeId, storeNames)} 추이 조회 실패`,
+            ),
           )
         }
         return [storeId, await response.json()]
@@ -312,7 +344,7 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
       )
     }
     setTimelinesLoading(false)
-  }, [apiBaseUrl])
+  }, [apiBaseUrl, storeIds, storeNames])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -327,7 +359,10 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
     [summary],
   )
   const orderMode = useMemo(() => orderDataMode(stores), [stores])
-  const kpis = useMemo(() => buildKpis(stores, orderMode), [orderMode, stores])
+  const kpis = useMemo(
+    () => buildKpis(stores, orderMode, storeNames),
+    [orderMode, storeNames, stores],
+  )
   const videoIssueStoreCount = useMemo(
     () => stores.filter(
       (store) => store.video_summary
@@ -613,7 +648,7 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
                   return (
                     <tr key={store.store_id}>
                       <th scope="row">
-                        <strong>{getStoreName(store.store_id)}</strong>
+                        <strong>{getStoreName(store.store_id, storeNames)}</strong>
                         <span>{store.store_id}</span>
                       </th>
                       <td className="is-numeric">
@@ -718,7 +753,7 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
               >
                 <header>
                   <div>
-                    <span>{getStoreName(insight.store_id)}</span>
+                    <span>{getStoreName(insight.store_id, storeNames)}</span>
                     <h3>
                       {INSIGHT_TYPE_LABELS[insight.insight_type] ?? '운영 특이사항'}
                     </h3>

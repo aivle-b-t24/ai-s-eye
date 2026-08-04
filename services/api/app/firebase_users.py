@@ -5,11 +5,7 @@ from __future__ import annotations
 from firebase_admin import auth as firebase_auth
 
 from .auth import STORE_MANAGER_ROLE, get_firebase_app
-from .models import (
-    FirebaseUserSummary,
-    StoreManagerAccountCreate,
-    StoreManagerPasswordUpdate,
-)
+from .models import FirebaseUserSummary, StoreManagerPasswordUpdate
 
 
 class FirebaseUserAlreadyExistsError(Exception):
@@ -24,7 +20,11 @@ class FirebaseUserNotStoreManagerError(Exception):
     """점주가 아닌 계정에 삭제를 요청했다."""
 
 
-def _summary(user: firebase_auth.UserRecord) -> FirebaseUserSummary:
+def _summary(
+    user: firebase_auth.UserRecord,
+    *,
+    store_name: str | None = None,
+) -> FirebaseUserSummary:
     claims = user.custom_claims or {}
     return FirebaseUserSummary(
         uid=user.uid,
@@ -32,25 +32,31 @@ def _summary(user: firebase_auth.UserRecord) -> FirebaseUserSummary:
         name=user.display_name or user.email or "사용자",
         role=claims.get("role"),
         store_id=claims.get("store_id"),
+        store_name=store_name,
         disabled=user.disabled,
     )
 
 
 def create_store_manager_account(
-    request: StoreManagerAccountCreate,
+    *,
+    email: str,
+    name: str,
+    password: str,
+    store_id: str,
+    store_name: str | None = None,
 ) -> FirebaseUserSummary:
     app = get_firebase_app()
     try:
-        firebase_auth.get_user_by_email(request.email, app=app)
+        firebase_auth.get_user_by_email(email, app=app)
     except firebase_auth.UserNotFoundError:
         pass
     else:
-        raise FirebaseUserAlreadyExistsError(request.email)
+        raise FirebaseUserAlreadyExistsError(email)
 
     user = firebase_auth.create_user(
-        email=request.email,
-        display_name=request.name,
-        password=request.password,
+        email=email,
+        display_name=name,
+        password=password,
         # 가상 이메일 계정도 본사가 발급할 수 있으므로 메일 확인을 요구하지 않는다.
         email_verified=True,
         app=app,
@@ -60,7 +66,7 @@ def create_store_manager_account(
             user.uid,
             {
                 "role": STORE_MANAGER_ROLE,
-                "store_id": request.store_id,
+                "store_id": store_id,
             },
             app=app,
         )
@@ -69,7 +75,7 @@ def create_store_manager_account(
         # 권한 설정까지 끝나지 않은 반쪽 계정은 남기지 않는다.
         firebase_auth.delete_user(user.uid, app=app)
         raise
-    return _summary(user)
+    return _summary(user, store_name=store_name)
 
 
 def delete_store_manager_account(uid: str) -> None:

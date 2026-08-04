@@ -40,6 +40,9 @@ class KakaoUserRequest(BaseModel):
 
     utterance: str = ""
     user: KakaoUser = Field(default_factory=KakaoUser)
+    # 오픈빌더에서 'AI 챗봇 콜백'을 켜면 카카오가 넘겨준다. 이 URL로 나중에 답을 POST하면
+    # 5초 제한을 넘겨도(느린 LLM 응답) 손님에게 답이 전달된다.
+    callbackUrl: str | None = None
 
     @field_validator("utterance", mode="before")
     @classmethod
@@ -49,6 +52,13 @@ class KakaoUserRequest(BaseModel):
         if value is None:
             return ""
         return value if isinstance(value, str) else str(value)
+
+    @field_validator("callbackUrl", mode="before")
+    @classmethod
+    def _coerce_callback_url(cls, value: Any) -> str | None:
+        if not value:
+            return None
+        return str(value)
 
     @field_validator("user", mode="before")
     @classmethod
@@ -112,6 +122,11 @@ def extract_user_id(payload: KakaoSkillPayload) -> str | None:
     return payload.userRequest.user.id or None
 
 
+def extract_callback_url(payload: KakaoSkillPayload) -> str | None:
+    """카카오 콜백 URL(있으면). 느린 답변을 나중에 이 URL로 POST한다."""
+    return payload.userRequest.callbackUrl or None
+
+
 def _param_value(value: Any) -> str | None:
     """카카오 파라미터 값을 문자열로 꺼낸다.
 
@@ -153,6 +168,15 @@ def build_skill_response(
     if quick_replies:
         template["quickReplies"] = quick_replies
     return {"version": "2.0", "template": template}
+
+
+# 답변이 5초를 넘길 수 있어서(느린 LLM), 콜백으로 "먼저 이 문구를 띄우고 나중에 진짜 답"을 보낸다.
+CALLBACK_WAIT_TEXT = "확인하고 있어요! 잠시만 기다려 주세요 🙂"
+
+
+def build_callback_ack(text: str = CALLBACK_WAIT_TEXT) -> dict[str, Any]:
+    """콜백을 쓰겠다는 즉시 응답. 카카오가 이걸 받으면 실제 답을 콜백까지 기다린다(최대 ~1분)."""
+    return {"version": "2.0", "useCallback": True, "data": {"text": text}}
 
 
 # 손님이 누르면 그 문장이 그대로 질문으로 다시 들어온다(→ StoreAgent가 처리).

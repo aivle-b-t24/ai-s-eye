@@ -15,6 +15,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from .config import get_settings
+from .store_context import StoreContextProvider, build_sgis_client
 
 logger = logging.getLogger(__name__)
 
@@ -48,13 +49,14 @@ SYSTEM_PROMPT = """너는 프랜차이즈 본사의 운영 분석가다.
 - 예시) 나쁨: "인원이 많았습니다" / 좋음: "점심 피크(12시) 대기 9명으로 평균(3명)의 3배였습니다"
 
 추정 원인(probable_cause) 규칙 — 이 특이사항이 왜 생겼는지에 대한 '가설'을 쓴다:
-- 근거는 오직 '시간대'와 집계 숫자뿐이다. 매장 주변 환경(회사·학교·대학가·주거지 등)은
-  데이터에 전혀 없으므로 "주변에 회사가 많아서"처럼 단정하지 않는다. 모르는 사실을 있다고 쓰면 안 된다.
+- 근거는 '시간대'·집계 숫자, 그리고 매장에 '상권' 정보가 주어지면 그 상권 통계(SGIS 인구·상권 지수)다.
+  상권 통계가 있으면 그 연령 구성·직장인구/거주인구·아파트 비율을 근거로 "어떤 손님이 왜 오는지"를 추정한다.
+- 상권 통계에 없는 구체 사실(특정 회사명·건물명 등)은 지어내지 않는다. 통계로 뒷받침되는 범위에서만 추정한다.
 - 반드시 "추정"이라는 단어를 넣고, "~로 추정됩니다 / ~일 가능성이 있습니다" 같은 가설 어투로만 쓴다.
-- 시간대 의미로만 추론한다: 점심(11~14시) 급증 → 직장인·식사 수요 추정, 오후(14~17시) → 카페 이용·휴식 수요 추정,
-  저녁(17시 이후) → 퇴근 후 수요 추정. 특이 시간대가 아니면 무리해서 이유를 만들지 않는다.
-- 예시) 좋음: "점심(12시)에 대기가 몰린 것으로 보아 인근 직장인의 점심 수요일 가능성이 있습니다(추정)."
-        나쁨: "주변에 회사가 많아 직장인이 많이 옵니다."(주변 환경을 단정 → 지어냄, 금지)
+- 시간대 의미 + 상권을 함께 본다: 점심(11~14시)/오후(14~17시)/저녁(17시~) 급증에, 상권의 연령·직장/거주 특성을 더한다.
+  상권 통계가 없으면 시간대만으로 추정한다. 특이 시간대가 아니면 무리해서 이유를 만들지 않는다.
+- 예시) 좋음: "동명동은 20대·직장인구 비중이 높은 도심 상권으로, 점심(12시) 급증은 인근 직장인 점심 수요일 가능성이 있습니다(추정)."
+        나쁨: "옆 건물 대기업 직원들이 옵니다."(상권 통계에 없는 특정 사실 → 지어냄, 금지)
 
 출력 JSON 형식:
 {
@@ -110,12 +112,14 @@ def build_client() -> Any | None:
     return genai.Client(api_key=settings.gemini_api_key)
 
 
-def build_prompt(summary: Any) -> str:
+def build_prompt(summary: Any, profiles: dict[str, str] | None = None) -> str:
     """집계 데이터를 사람이 읽는 숫자 목록으로 바꿔 프롬프트를 만든다.
 
+    profiles로 매장별 상권 프로필(SGIS)을 주면 각 매장 아래에 함께 넣는다.
     시각은 KST로 환산한다. expected_insights 같은 정답 필드는 넣지 않는다
     (애초에 집계 데이터에 없다).
     """
+    profiles = profiles or {}
     lines: list[str] = ["집계 데이터 (기간별, 시간은 KST):"]
     for store in summary.get("stores", []):
         sid = store.get("store_id")
@@ -147,6 +151,9 @@ def build_prompt(summary: Any) -> str:
         lines.append(
             f"  영상: {v.get('latest_quality_status')}, 이상 {v.get('quality_issue_count')}건"
         )
+        prof = profiles.get(sid)
+        if prof:
+            lines.append(f"  상권: {prof}")
     return "\n".join(lines)
 
 
@@ -211,9 +218,15 @@ def attach_display_text(
     return result
 
 
-def generate_insights(summary: Any, client: Any | None = None) -> dict[str, Any]:
+def generate_insights(
+    summary: Any,
+    client: Any | None = None,
+    context_provider: StoreContextProvider | None = None,
+) -> dict[str, Any]:
     """집계 데이터를 Gemini로 분석해 인사이트를 돌려준다.
 
+    context_provider가 있으면(또는 SGIS 키가 설정돼 있으면) 매장별 상권 프로필을 함께 넣어
+    추정 원인을 상권 통계로 뒷받침한다. 상권을 못 구하면 시간대만으로 추정한다.
     반환: {"insights": [...], "comparison": {...}}. 각 항목에 사람이 읽는 display_text 포함.
     집계 형식이 이상하거나 Gemini를 못 쓰면 InsightsUnavailableError를 던진다.
     """
@@ -228,7 +241,17 @@ def generate_insights(summary: Any, client: Any | None = None) -> dict[str, Any]
 
     from google.genai import types
 
-    prompt = build_prompt(summary)
+    # 매장별 상권 프로필(SGIS). 실패/미설정이면 빈 dict → 상권 없이 진행.
+    provider = context_provider or StoreContextProvider(build_sgis_client(get_settings()))
+    profiles: dict[str, str] = {}
+    for store in summary.get("stores", []):
+        sid = store.get("store_id")
+        if sid:
+            text = provider.profile_text(sid)
+            if text:
+                profiles[sid] = text
+
+    prompt = build_prompt(summary, profiles)
     try:
         response = client.models.generate_content(
             model=get_settings().gemini_model,

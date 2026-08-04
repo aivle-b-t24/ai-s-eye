@@ -19,6 +19,8 @@ class Settings(BaseModel):
     firebase_project_id: str | None
     firebase_credentials_path: Path | None
     internal_api_key: str | None
+    sgis_consumer_key: str | None
+    sgis_consumer_secret: str | None
 
     @property
     def use_vertex(self) -> bool:
@@ -54,4 +56,6 @@ def get_settings() -> Settings:
             Path(firebase_credentials) if firebase_credentials else None
         ),
         internal_api_key=os.getenv("INTERNAL_API_KEY"),
+        sgis_consumer_key=os.getenv("AICC_SGIS_CONSUMER_KEY"),
+        sgis_consumer_secret=os.getenv("AICC_SGIS_CONSUMER_SECRET"),
     )

@@ -769,6 +769,11 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
                   <h4>판단</h4>
                   <p>{insight.summary ?? '분석 결과가 없습니다.'}</p>
                 </div>
+                
+                <div className="supervisor-insight-block">
+                  <h4>추정 원인</h4>
+                  <p>{insight.probable_cause}</p>
+                </div>
 
                 <div className="supervisor-insight-block">
                   <h4>근거</h4>

@@ -90,7 +90,7 @@ export function useAuth() {
         setAuthRole(profile.role)
         setAuthMode('dashboard')
       } else {
-        setAuthMode('login')
+        setAuthMode('main')
       }
       setAuthReady(true)
       return undefined

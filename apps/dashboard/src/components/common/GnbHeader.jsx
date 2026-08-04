@@ -1,6 +1,8 @@
 import React from 'react'
+import { NavLink, useNavigate } from 'react-router-dom'
 
 import { storeDisplayName } from '../../api/storeDirectory'
+import { ROUTES } from '../../constants/routes'
 
 const maskName = (name) => {
   if (!name) return ''
@@ -22,16 +24,15 @@ const maskName = (name) => {
 
 export default function GnbHeader({
   page,
-  setPage,
   _loadStateOnly,
   _loading,
   user,
   onLogout,
   onOpenProfile,
 }) {
+  const navigate = useNavigate()
   const storeId = user?.storeId || page
   const storeName = user?.storeName || storeDisplayName(storeId)
-  const storePath = storeId ? `/${storeId}.aicafe` : '/'
 
   return (
     <header className="gnb-header">
@@ -53,29 +54,25 @@ export default function GnbHeader({
         <h1 className="brand-title">AI&apos;s Eye</h1>
       </div>
 
-      <button
-        type="button"
-        className="tab-btn dark-pill-btn"
-        onClick={() => {
-          setPage('kos')
-          window.history.pushState({}, '', '/kos')
-        }}
+      <NavLink
+        to={ROUTES.MENUS}
+        className={({ isActive }) =>
+          `tab-btn dark-pill-btn${isActive ? ' active' : ''}`
+        }
       >
         메뉴 & 정책
-      </button>
+      </NavLink>
 
       <nav className="store-tabs" aria-label="가맹점 정보">
         {storeId?.startsWith('store') && (
-          <button
-            type="button"
-            className="tab-btn active"
-            onClick={() => {
-              setPage(storeId)
-              window.history.pushState({}, '', storePath)
-            }}
+          <NavLink
+            to={ROUTES.DASHBOARD}
+            className={({ isActive }) =>
+              `tab-btn${isActive ? ' active' : ''}`
+            }
           >
             [점주] {storeName}
-          </button>
+          </NavLink>
         )}
       </nav>
 
@@ -85,7 +82,7 @@ export default function GnbHeader({
           className={`action-btn settings-btn ${
             page === 'setting' ? 'active' : ''
           }`}
-          onClick={() => setPage('setting')}
+          onClick={() => navigate(ROUTES.SETTINGS)}
         >
           설정
         </button>

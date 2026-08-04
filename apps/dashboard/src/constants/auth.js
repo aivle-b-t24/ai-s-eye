@@ -15,8 +15,13 @@ export const ENDPOINTS = Object.freeze({
   HQ_LOGIN: '/hqlogin.aicafe',
   STORE_SIGNUP: '/storesignup.aicafe',
   HQ_SIGNUP: '/hqsignup.aicafe',
-  HQ_DASHBOARD: '/hq.aicafe',
+  HQ_DASHBOARD: '/hq',
+  STORE_DASHBOARD: '/dashboard',
+  STORE_MENUS: '/menus',
+  STORE_SETTINGS: '/settings',
+  /** @deprecated 레거시 북마크 호환 — /dashboard 로 리다이렉트 */
   STORE_001_DASHBOARD: '/store-001.aicafe',
+  /** @deprecated 레거시 북마크 호환 — /dashboard 로 리다이렉트 */
   STORE_002_DASHBOARD: '/store-002.aicafe',
 })
 

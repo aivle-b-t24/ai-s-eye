@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "test": "node --test src/auth/*.test.js src/components/head-office/*.test.js src/components/store/*.test.js src/components/onboarding/*.test.js src/components/settings/*.test.js",
+    "test": "node --test src/auth/*.test.js src/api/*.test.js src/components/head-office/*.test.js src/components/store/*.test.js src/components/onboarding/*.test.js src/components/settings/*.test.js",
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview"

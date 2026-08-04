@@ -9,6 +9,7 @@ export const ROUTES = Object.freeze({
   DASHBOARD: '/dashboard',
   MENUS: '/menus',
   SETTINGS: '/settings',
+  ONBOARDING: '/onboarding',
 })
 
 /** 예전 북마크/링크 호환용 */
@@ -33,6 +34,7 @@ export function pageFromPathname(pathname) {
   }
   if (pathname === ROUTES.MENUS || pathname === LEGACY_ROUTES.KOS) return 'kos'
   if (pathname === ROUTES.SETTINGS) return 'setting'
+  if (pathname === ROUTES.ONBOARDING) return 'onboarding'
   if (pathname === ROUTES.DASHBOARD) return 'dashboard'
   if (pathname.endsWith('.aicafe') && pathname.includes('store-')) {
     return pathname.replace(/^\//, '').replace(/\.aicafe$/, '')

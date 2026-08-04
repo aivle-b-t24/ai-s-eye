@@ -27,6 +27,7 @@ export default function GnbHeader({
   _loadStateOnly,
   _loading,
   user,
+  needsOnboarding = false,
   onLogout,
   onOpenProfile,
 }) {
@@ -54,21 +55,32 @@ export default function GnbHeader({
         <h1 className="brand-title">AI&apos;s Eye</h1>
       </div>
 
-      <NavLink
-        to={ROUTES.MENUS}
-        className={({ isActive }) =>
-          `tab-btn dark-pill-btn${isActive ? ' active' : ''}`
-        }
-      >
-        메뉴 & 정책
-      </NavLink>
+      {needsOnboarding ? (
+        <NavLink
+          to={ROUTES.ONBOARDING}
+          className={({ isActive }) =>
+            `tab-btn dark-pill-btn${isActive ? ' active' : ''}`
+          }
+        >
+          매장 온보딩
+        </NavLink>
+      ) : (
+        <NavLink
+          to={ROUTES.MENUS}
+          className={({ isActive }) =>
+            `tab-btn dark-pill-btn${isActive ? ' active' : ''}`
+          }
+        >
+          메뉴 & 정책
+        </NavLink>
+      )}
 
       <nav className="store-tabs" aria-label="가맹점 정보">
         {storeId?.startsWith('store') && (
           <NavLink
-            to={ROUTES.DASHBOARD}
+            to={needsOnboarding ? ROUTES.ONBOARDING : ROUTES.DASHBOARD}
             className={({ isActive }) =>
-              `tab-btn${isActive ? ' active' : ''}`
+              `tab-btn${isActive || (needsOnboarding && page === 'onboarding') ? ' active' : ''}`
             }
           >
             [점주] {storeName}
@@ -77,6 +89,16 @@ export default function GnbHeader({
       </nav>
 
       <div className="header-actions">
+        {needsOnboarding && (
+          <NavLink
+            to={ROUTES.ONBOARDING}
+            className={({ isActive }) =>
+              `action-btn settings-btn${isActive || page === 'onboarding' ? ' active' : ''}`
+            }
+          >
+            온보딩 시작
+          </NavLink>
+        )}
         <button
           type="button"
           className={`action-btn settings-btn ${

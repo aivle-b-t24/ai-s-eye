@@ -681,7 +681,11 @@ export default function StoreOnboardingView({
                   {isSaving ? '운영 설정 저장 중…' : 'Scene·ROI 저장 및 적용'}
                 </button>
               ) : (
-                <button type="button" className="onboarding-primary" onClick={onComplete}>
+                <button
+                  type="button"
+                  className="onboarding-primary"
+                  onClick={() => onComplete?.()}
+                >
                   매장 대시보드로 이동
                 </button>
               )}

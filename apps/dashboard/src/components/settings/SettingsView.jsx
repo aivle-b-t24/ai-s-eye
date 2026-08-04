@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import StoreOnboardingView from '../onboarding/StoreOnboardingView';
 import RoiEditor from './RoiEditor';
 import SceneEditor from './SceneEditor';
 import CapacitySetting from './CapacitySetting';
 
 export default function SettingsView({
   apiBaseUrl,
+  aiccBaseUrl,
   setPage,
   storeId,
   isChatbotEnabled = true,
@@ -23,6 +25,17 @@ export default function SettingsView({
       </div>
 
       <div className="setting-tabs" role="tablist" aria-label="설정 항목">
+        <button
+          type="button"
+          id="setting-tab-onboarding"
+          role="tab"
+          aria-selected={activeTab === 'onboarding'}
+          aria-controls="setting-panel-onboarding"
+          className={activeTab === 'onboarding' ? 'active' : ''}
+          onClick={() => setActiveTab('onboarding')}
+        >
+          매장 온보딩
+        </button>
         <button
           type="button"
           id="setting-tab-space"
@@ -46,6 +59,22 @@ export default function SettingsView({
           시스템 정보
         </button>
       </div>
+
+      {activeTab === 'onboarding' && (
+        <div
+          id="setting-panel-onboarding"
+          role="tabpanel"
+          aria-labelledby="setting-tab-onboarding"
+          className="setting-tab-content"
+        >
+          <StoreOnboardingView
+            apiBaseUrl={apiBaseUrl}
+            aiccBaseUrl={aiccBaseUrl}
+            storeId={storeId}
+            onComplete={() => setPage(storeId)}
+          />
+        </div>
+      )}
 
       {activeTab === 'space' && (
         <div

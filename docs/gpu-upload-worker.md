@@ -105,12 +105,20 @@ curl -fsS https://docker-test.tail0c814d.ts.net/health
 
 데모 PC에서 Tailscale이 없으면 `http://100.86.5.67:5173` 온보딩으로 같은 HTTP API에 올리면 된다.
 
-### store-003+ 데모 재생
+### store-003+ 데모 재생 (자동)
 
-analysis job은 한 번 처리하면 끝난다. 대시보드에서 계속 움직이게 하려면 캐시된 프레임을 루프한다:
+권장: job 폴링 + 온보딩 완료 후 자동 루프 + 기동 시 캐시 resume
+
+```bash
+python upload_job_worker.py --loop --auto-replay --play-interval 1.0 --model "$AISEYE_CAFE_MODEL"
+```
+
+- 온보딩 analysis job 완료 후 해당 매장 재생 스레드 시작
+- 워커 재시작 시 `outputs/upload-replay/<store_id>/` 캐시로 재생 resume
+- occupancy는 API `current_store_occupancy`에 영속화 (API recreate 후에도 agents 복구)
+
+단일 매장만 수동 재생:
 
 ```bash
 python upload_job_worker.py --replay-store store-003 --play-interval 1.0 --model "$AISEYE_CAFE_MODEL"
 ```
-
-첫 job 처리 시 `outputs/upload-replay/<store_id>/` 에 프레임이 저장된다.

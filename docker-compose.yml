@@ -260,6 +260,9 @@ services:
       - --raw-frames-dir
       - /workspace/services/vision-worker/outputs/snapshots/raw-frames
       - --loop
+      - --realtime
+      - --speed
+      - ${VISION_REPLAY_SPEED:-1}
     volumes:
       - ./services/vision-worker:/workspace/services/vision-worker:ro
       - ./samples:/workspace/samples:ro

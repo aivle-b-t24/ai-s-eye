@@ -212,6 +212,16 @@ class StoreSummaryResponse(BaseModel):
     stores: list[StoreOperatingSummary]
 
 
+class StoreListItem(BaseModel):
+    store_id: str
+    # 매장 표시명은 아직 백엔드에 없다. 소비 측(챗봇 등)에서 채우거나 store_id로 대체한다.
+    name: str | None = None
+
+
+class StoreListResponse(BaseModel):
+    stores: list[StoreListItem]
+
+
 class StoreTimelinePoint(BaseModel):
     start_at: datetime
     end_at: datetime

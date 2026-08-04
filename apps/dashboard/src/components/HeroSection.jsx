@@ -1,7 +1,20 @@
 import React, { useState } from 'react'
+import { getDemoAccount, usesCredentialDemoLogin } from '../auth/demoAccounts'
 import { ROLES, STORES, DEMO_CREDENTIALS } from '../constants/auth'
-function HeroSection({ page, authMode, dashboard, _onMenuOpen, onLogin, onSignup, onLoginSuccess }) {
+
+function HeroSection({
+  page,
+  authMode,
+  dashboard,
+  _onMenuOpen,
+  onLogin,
+  onSignup,
+  onLoginSuccess,
+  onCredentialLogin,
+}) {
   const [isStoreSubmenuOpen, setIsStoreSubmenuOpen] = useState(false)
+  const [demoError, setDemoError] = useState('')
+  const [demoSubmitting, setDemoSubmitting] = useState(false)
   const _isHeadOffice = page === 'head-office'
   const _isSettings = page === 'setting' || page === 'settings' || page === 'kos'
   const isAuthPage = authMode === 'login' || authMode === 'signup'
@@ -23,7 +36,8 @@ function HeroSection({ page, authMode, dashboard, _onMenuOpen, onLogin, onSignup
     Math.round((peopleCount / maxCapacity) * 100),
     100
   )
-  const handleDemoLogin = (selectedRole, targetStoreId = STORES.DONGMYEONG) => {
+
+  const enterWithDemoProfile = (selectedRole, targetStoreId) => {
     const credKey = selectedRole === ROLES.STORE_MANAGER ? targetStoreId : STORES.HEAD_OFFICE
     const creds = DEMO_CREDENTIALS[credKey] || DEMO_CREDENTIALS[STORES.DONGMYEONG]
     if (onLoginSuccess) {
@@ -34,6 +48,34 @@ function HeroSection({ page, authMode, dashboard, _onMenuOpen, onLogin, onSignup
         storeId: creds.storeId,
       })
     }
+  }
+
+  const handleDemoLogin = async (selectedRole, targetStoreId = STORES.DONGMYEONG) => {
+    const credKey = selectedRole === ROLES.STORE_MANAGER ? targetStoreId : STORES.HEAD_OFFICE
+    setDemoError('')
+
+    // Firebase/로컬 데모 계정이 설정돼 있으면 실제 로그인, 아니면 기존 원클릭(비연결) 유지
+    if (usesCredentialDemoLogin() && onCredentialLogin) {
+      const account = getDemoAccount(credKey)
+      if (account?.email && account?.password) {
+        setDemoSubmitting(true)
+        try {
+          await onCredentialLogin({
+            email: account.email,
+            password: account.password,
+            remember: false,
+            role: account.role,
+          })
+        } catch (error) {
+          setDemoError(error.message || '빠른 로그인에 실패했습니다.')
+        } finally {
+          setDemoSubmitting(false)
+        }
+        return
+      }
+    }
+
+    enterWithDemoProfile(selectedRole, targetStoreId)
   }
   return (
     <section className={`hero-section ${isAuthPage ? 'is-auth-page' : ''} ${isMainLanding ? 'main-landing-hero' : ''}`}>
@@ -83,6 +125,7 @@ function HeroSection({ page, authMode, dashboard, _onMenuOpen, onLogin, onSignup
                   className="demo-btn store-demo with-arrow-btn"
                   onClick={() => setIsStoreSubmenuOpen(!isStoreSubmenuOpen)}
                   aria-expanded={isStoreSubmenuOpen}
+                  disabled={demoSubmitting}
                 >
                   <span>[점주] 로그인</span>
                   <span className={`dropdown-arrow-icon ${isStoreSubmenuOpen ? 'open' : ''}`} aria-hidden="true">
@@ -120,10 +163,14 @@ function HeroSection({ page, authMode, dashboard, _onMenuOpen, onLogin, onSignup
                 type="button"
                 className="demo-btn admin-demo"
                 onClick={() => handleDemoLogin(ROLES.ADMIN, STORES.HEAD_OFFICE)}
+                disabled={demoSubmitting}
               >
-                [본사 관리자] 로그인
+                {demoSubmitting ? '로그인 중…' : '[본사 관리자] 로그인'}
               </button>
             </div>
+            {demoError && (
+              <p className="demo-login-error" role="alert">{demoError}</p>
+            )}
           </div>
         </div>
         <div className="hero-visual main-landing-visual">

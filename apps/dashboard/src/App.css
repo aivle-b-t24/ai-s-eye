@@ -6632,6 +6632,13 @@ body::before {
   margin: 0 0 10px 0 !important;
 }
 
+.landing-demo-login-box .demo-login-error {
+  margin: 10px 0 0 !important;
+  color: #fecaca !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+}
+
 .main-landing-footer {
   width: 100% !important;
   max-width: 1360px !important;

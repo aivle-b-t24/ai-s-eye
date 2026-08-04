@@ -1,34 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { ROLES, STORES } from '../../constants/auth';
-import { LOCAL_DEMO_ACCOUNTS } from '../../auth/localAuth';
+import { getDemoAccount, usesCredentialDemoLogin } from '../../auth/demoAccounts';
 import { IS_LOCAL_AUTH_MODE } from '../../auth/runtimeAuth';
 
 const REMEMBERED_EMAIL_KEY = 'aicafe.rememberedEmail';
-const FIREBASE_DEMO_LOGIN_ENABLED =
-  String(import.meta.env.VITE_ENABLE_DEMO_LOGIN ?? 'false').toLowerCase() === 'true';
-const _DEMO_LOGIN_ENABLED = IS_LOCAL_AUTH_MODE || FIREBASE_DEMO_LOGIN_ENABLED;
-const FIREBASE_DEMO_ACCOUNTS = FIREBASE_DEMO_LOGIN_ENABLED
-  ? {
-      [STORES.DONGMYEONG]: {
-        email: import.meta.env.VITE_DEMO_STORE_001_EMAIL,
-        password: import.meta.env.VITE_DEMO_STORE_001_PASSWORD,
-        role: ROLES.STORE_MANAGER,
-      },
-      [STORES.SUWAN]: {
-        email: import.meta.env.VITE_DEMO_STORE_002_EMAIL,
-        password: import.meta.env.VITE_DEMO_STORE_002_PASSWORD,
-        role: ROLES.STORE_MANAGER,
-      },
-      [STORES.HEAD_OFFICE]: {
-        email: import.meta.env.VITE_DEMO_ADMIN_EMAIL,
-        password: import.meta.env.VITE_DEMO_ADMIN_PASSWORD,
-        role: ROLES.ADMIN,
-      },
-    }
-  : {};
-const DEMO_ACCOUNTS = IS_LOCAL_AUTH_MODE
-  ? LOCAL_DEMO_ACCOUNTS
-  : FIREBASE_DEMO_ACCOUNTS;
+const _DEMO_LOGIN_ENABLED = usesCredentialDemoLogin();
 
 export default function LoginPage({ onClose, onLogin, onPasswordReset, _onGoToSignup, initialRole = ROLES.STORE_MANAGER, initialError = '', onRoleChange }) {
   const [role, setRole] = useState(initialRole);
@@ -97,7 +73,7 @@ export default function LoginPage({ onClose, onLogin, onPasswordReset, _onGoToSi
   };
 
   const _handleDemoLogin = async (storeId) => {
-    const account = DEMO_ACCOUNTS[storeId];
+    const account = getDemoAccount(storeId);
     if (!account?.email || !account?.password) {
       setErrorMessage('빠른 로그인 계정이 설정되지 않았습니다.');
       return;

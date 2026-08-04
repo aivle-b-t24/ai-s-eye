@@ -49,7 +49,30 @@ export default function GnbHeader({
 
 
 
-      <nav className="store-tabs" aria-label="가맹점 정보">
+
+        <button
+          type="button"
+          className="tab-btn green-pill-btn"
+          onClick={() => {
+            setPage("store-001");
+            window.history.pushState({}, '', '/store-001.aicafe');
+          }}
+        >
+          실시간 모니터링 ↗
+        </button>
+
+        <button
+          type="button"
+          className="tab-btn dark-pill-btn"
+          onClick={() => {
+            setPage("kos");
+            window.history.pushState({}, '', '/kos');
+          }}
+        >
+          전체 메뉴 +
+        </button>
+
+      <nav className="store-tabs" aria-label="가맹점 정보">       
         {(user?.storeId === 'store-002' || page === 'store-002') ? (
           <button
             type="button"

@@ -29,6 +29,7 @@ function HeroSection({ page, authMode, dashboard, onMenuOpen, onLogin, onSignup,
       <div className="hero-background" />
       <div className="hero-gradient" />
 
+    {isMainLanding && (
       <header className="hero-header main-landing-header">
         <a className="hero-brand" href="#top">
           <span>
@@ -54,6 +55,7 @@ function HeroSection({ page, authMode, dashboard, onMenuOpen, onLogin, onSignup,
           </button>
         </div>
       </header>
+    )}
 
       <div className="hero-layout main-landing-layout">
         <div className="hero-copy main-landing-copy">

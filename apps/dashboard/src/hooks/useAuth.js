@@ -99,7 +99,7 @@ export function useAuth() {
     return onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
       if (!firebaseUser) {
         setCurrentUser(null)
-        setAuthMode((mode) => (mode === 'signup' ? mode : 'login'))
+        setAuthMode((mode) => (mode === 'signup' ? mode : 'main'))
         setAuthReady(true)
         return
       }

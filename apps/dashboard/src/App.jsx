@@ -40,6 +40,7 @@ function App() {
     handleSignupRoleChange,
     handleGoToSignup,
     handleGoToLogin,
+    handleLoginSuccess,
     handleLogout,
   } = useAuth()
 
@@ -75,7 +76,7 @@ function App() {
         .join(' ')}
     >
       {authMode === 'dashboard' && !isDedicatedHeadOffice && (
-        <div className="top-global-nav is-overlay">
+        
           <GnbHeader
             page={page}
             setPage={setPage}
@@ -85,7 +86,7 @@ function App() {
             onLogout={handleLogout}
             onOpenProfile={() => setIsProfileOpen(true)}
           />
-        </div>
+        
       )}
 
       {authMode === 'dashboard' && isDedicatedHeadOffice && (
@@ -106,7 +107,7 @@ function App() {
 
       {(authMode === 'login' ||
         authMode === 'signup' ||
-        !isDedicatedHeadOffice) && (
+        authMode === 'main') && (
         <HeroSection
           page={page}
           authMode={authMode}

@@ -34,7 +34,7 @@ const DEMO_ACCOUNTS = IS_LOCAL_AUTH_MODE
   ? LOCAL_DEMO_ACCOUNTS
   : FIREBASE_DEMO_ACCOUNTS;
 
-export default function LoginPage({ onLogin, onPasswordReset, onGoToSignup, initialRole = ROLES.STORE_MANAGER, initialError = '', onRoleChange }) {
+export default function LoginPage({ onClose, onLogin, onPasswordReset, onGoToSignup, initialRole = ROLES.STORE_MANAGER, initialError = '', onRoleChange }) {
   const [role, setRole] = useState(initialRole);
   const [userId, setUserId] = useState(() => localStorage.getItem(REMEMBERED_EMAIL_KEY) ?? '');
   const [password, setPassword] = useState('');
@@ -270,74 +270,9 @@ export default function LoginPage({ onLogin, onPasswordReset, onGoToSignup, init
           </button>
         </form>
 
-        {DEMO_LOGIN_ENABLED && (
-          <div className="demo-login-box">
-            <p className="demo-hint">
-              {IS_LOCAL_AUTH_MODE
-                ? '[팀 개발용 로컬 로그인 · Firebase 불필요]'
-                : '[빠른 체험용 원클릭 로그인]'}
-            </p>
-            <div className="demo-btn-group">
-              <div className="store-sub-wrapper">
-                <button
-                  type="button"
-                  className="demo-btn store-demo with-arrow-btn"
-                  onClick={() => setIsStoreSubmenuOpen((open) => !open)}
-                  aria-expanded={isStoreSubmenuOpen}
-                  disabled={isSubmitting}
-                >
-                  <span>[점주] 로그인</span>
-                  <span className={`dropdown-arrow-icon ${isStoreSubmenuOpen ? 'open' : ''}`} aria-hidden="true">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="6 9 12 15 18 9" />
-                    </svg>
-                  </span>
-                </button>
+        
 
-                {isStoreSubmenuOpen && (
-                  <div className="store-sub-dropdown-menu">
-                    <button
-                      type="button"
-                      className="store-sub-option"
-                      onClick={() => handleDemoLogin(STORES.DONGMYEONG)}
-                      disabled={isSubmitting}
-                    >
-                      매장 1 (동명점)
-                    </button>
-                    <button
-                      type="button"
-                      className="store-sub-option"
-                      onClick={() => handleDemoLogin(STORES.SUWAN)}
-                      disabled={isSubmitting}
-                    >
-                      매장 2 (수완점)
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <button
-                type="button"
-                className="demo-btn admin-demo"
-                onClick={() => handleDemoLogin(STORES.HEAD_OFFICE)}
-                disabled={isSubmitting}
-              >
-                [본사 관리자] 로그인
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div className="auth-footer-links">
-          <span>아직 계정이 없으신가요?</span>
-          <button type="button" className="signup-link-btn" onClick={onGoToSignup}>
-            회원가입 신청하기
-          </button>
-        </div>
-
-        <footer className="auth-compliance-footer">
-          <span>개인정보 처리방침</span> | <span>이용약관</span> | <span>© 2026 AI's Eye. All rights reserved.</span>
-        </footer>
+        
       </div>
     </div>
   );

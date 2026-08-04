@@ -19,6 +19,7 @@ class Settings(BaseModel):
     firebase_project_id: str | None
     firebase_credentials_path: Path | None
     internal_api_key: str | None
+    kakao_skill_token: str | None
 
     @property
     def use_vertex(self) -> bool:
@@ -54,4 +55,7 @@ def get_settings() -> Settings:
             Path(firebase_credentials) if firebase_credentials else None
         ),
         internal_api_key=os.getenv("INTERNAL_API_KEY"),
+        # 카카오 스킬 웹훅은 손님용이라 firebase 로그인이 없다. 대신 공유 토큰으로
+        # 아무나 못 부르게 막는다. 비워두면(개발 편의) 토큰 검사를 건너뛴다.
+        kakao_skill_token=os.getenv("AICC_KAKAO_SKILL_TOKEN") or None,
     )

@@ -13,7 +13,7 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, model_validator
 
@@ -23,6 +23,15 @@ from .client import StoreApiClient
 from .config import get_settings
 from .errors import ToolError
 from .franchise_insights import InsightsUnavailableError, generate_insights
+from .kakao import (
+    DEFAULT_QUICK_REPLIES,
+    ERROR_TEXT,
+    GREETING_TEXT,
+    build_skill_response,
+    coerce_payload,
+    extract_utterance,
+    resolve_store_id,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -175,3 +184,62 @@ def create_chat(
         result.get("answer"),
     )
     return result
+
+
+def _verify_kakao_token(header_token: str | None, query_token: str | None) -> None:
+    """스킬 웹훅 공유 토큰을 검사한다.
+
+    AICC_KAKAO_SKILL_TOKEN이 설정돼 있으면 헤더(X-Kakao-Skill-Token)나 쿼리(?token=)
+    중 하나가 일치해야 한다. 카카오는 요청에 서명을 붙이지 않으므로, 스킬 URL을 아는
+    아무나 부르는 것을 막는 최소 장치다. 설정이 비어 있으면(개발) 검사를 건너뛴다.
+    """
+    expected = get_settings().kakao_skill_token
+    if not expected:
+        return
+    if header_token != expected and query_token != expected:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="유효하지 않은 스킬 토큰입니다.",
+        )
+
+
+@app.post("/kakao/skill", tags=["kakao"])
+async def kakao_skill(
+    request: Request,
+    x_kakao_skill_token: str | None = Header(default=None),
+    token: str | None = Query(default=None),
+) -> Any:
+    """카카오톡 채널의 손님 질문을 받아 스킬 응답(2.0)으로 답한다.
+
+    질문 이해·조회·답변은 /chat과 같은 StoreAgent가 처리한다. 여기서는 카카오 형식
+    변환과, 어떤 상황에도 손님에게 문장을 보여주기 위한 200 보장만 담당한다.
+
+    요청 본문은 Pydantic 모델 파라미터로 받지 않고 직접 관대하게 파싱한다. 모델
+    파라미터로 받으면 검증 실패가 FastAPI 단계 422로 튀어(카카오가 거부) 200 보장이
+    깨지기 때문이다.
+    """
+    _verify_kakao_token(x_kakao_skill_token, token)
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    payload = coerce_payload(body)
+
+    utterance = extract_utterance(payload)
+    if not utterance:
+        # 채널 진입 등 빈 발화 → 인사 + 자주 묻는 질문 버튼
+        return build_skill_response(GREETING_TEXT, DEFAULT_QUICK_REPLIES)
+
+    store_id = resolve_store_id(payload, get_settings().default_store_id)
+    logger.info("kakao 질문 store=%s: %s", store_id, utterance)
+    try:
+        result = app.state.agent.ask(utterance, store_id)
+        answer = (result.get("answer") or "").strip() or ERROR_TEXT
+    except Exception as exc:
+        # 카카오는 비-200이면 시스템 오류만 보여준다. 안내가 사라지지 않도록
+        # 오류를 삼키고 정중한 문장 200으로 답한다(원인은 로그로 남긴다).
+        logger.warning("kakao 실패 store=%s: %s", store_id, exc, exc_info=True)
+        answer = ERROR_TEXT
+    logger.info("kakao 답변 store=%s: %s", store_id, answer)
+    return build_skill_response(answer, DEFAULT_QUICK_REPLIES)

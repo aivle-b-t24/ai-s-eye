@@ -8,7 +8,7 @@ export const API_BASE_URL = isCloudDashboard
   : import.meta.env.VITE_API_BASE_URL || 'http://100.86.5.67:8001'
 
 export const AICC_BASE_URL = isCloudDashboard
-  ? import.meta.env.VITE_CLOUD_AICC_BASE_URL || 'https://aiseye-aicc.ldhcloud.com'
+  ? import.meta.env.VITE_CLOUD_AICC_BASE_URL || 'https://aiseye-ai.ldhcloud.com'
   : import.meta.env.VITE_AICC_BASE_URL ||
     import.meta.env.VITE_CHATBOT_BASE_URL ||
     import.meta.env.VITE_AICC_URL ||

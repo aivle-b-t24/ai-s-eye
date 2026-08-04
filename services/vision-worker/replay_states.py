@@ -416,6 +416,28 @@ def group_states_by_tick(states: list[dict]) -> list[list[dict]]:
     ]
 
 
+def _request_with_retry(
+    req: urllib.request.Request,
+    *,
+    timeout: float,
+    attempts: int = 5,
+    delay_seconds: float = 1.0,
+) -> int:
+    """Retry transient DNS/connect failures (e.g. API recreate)."""
+    last_exc: BaseException | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return resp.status
+        except (urllib.error.URLError, TimeoutError, ConnectionError, OSError) as exc:
+            last_exc = exc
+            if attempt >= attempts:
+                break
+            time.sleep(delay_seconds * attempt)
+    assert last_exc is not None
+    raise last_exc
+
+
 def post_state(url: str, state: dict, timeout: float = 5.0) -> int:
     body = json.dumps(state).encode("utf-8")
     req = urllib.request.Request(
@@ -424,8 +446,7 @@ def post_state(url: str, state: dict, timeout: float = 5.0) -> int:
         headers=internal_headers({"Content-Type": "application/json"}),
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return resp.status
+    return _request_with_retry(req, timeout=timeout)
 
 
 def post_snapshot(
@@ -463,8 +484,7 @@ def post_snapshot(
         headers=internal_headers({
             "Content-Type": f"multipart/form-data; boundary={boundary}",
         }))
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return resp.status
+    return _request_with_retry(req, timeout=timeout)
 
 
 def prepare_state(

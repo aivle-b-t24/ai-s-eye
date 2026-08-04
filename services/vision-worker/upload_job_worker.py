@@ -130,6 +130,35 @@ def post_snapshot(api: str, api_key: str | None, store_id: str, image_bytes: byt
         response.read()
 
 
+def post_occupancy(
+    api: str,
+    api_key: str | None,
+    store_id: str,
+    frame_index: int,
+) -> None:
+    import json
+
+    now = datetime.now(timezone.utc).isoformat()
+    payload = {
+        "schema_version": "1.0",
+        "store_id": store_id,
+        "camera_id": f"{store_id}-cam1",
+        "frame_id": f"upload-{frame_index:04d}",
+        "mode": "live",
+        "captured_at": now,
+        "source": "upload_ingest",
+        "model_version": "upload-worker-v1",
+        "coordinate_space": "normalized_image",
+        "agents": [],
+    }
+    http_json(
+        "POST",
+        f"{api.rstrip('/')}/internal/stores/{store_id}/occupancy",
+        api_key,
+        json.dumps(payload).encode("utf-8"),
+    )
+
+
 def extract_frames(media_bytes: bytes, media_type: str, workdir: Path) -> list[Path]:
     frames_dir = workdir / "frames"
     frames_dir.mkdir(parents=True, exist_ok=True)
@@ -196,12 +225,22 @@ def process_claim(api: str, api_key: str | None, claim: dict) -> None:
     with tempfile.TemporaryDirectory(prefix="aiseeye-job-") as tmp:
         frames = extract_frames(media_bytes, media["media_type"], Path(tmp))
         first = frames[0].read_bytes()
+        # Prefer a JPEG for vision-raw; convert PNG first frame if needed later.
         try:
             post_snapshot(api, api_key, store_id, first)
         except Exception as exc:  # noqa: BLE001 — 스냅샷 실패해도 state는 시도
             print(f"[job {job_id}] snapshot warn: {exc}")
-        for index, _frame in enumerate(frames):
+        for index, frame_path in enumerate(frames):
+            if index > 0 and index % 10 == 0:
+                try:
+                    post_snapshot(api, api_key, store_id, frame_path.read_bytes())
+                except Exception as exc:  # noqa: BLE001
+                    print(f"[job {job_id}] snapshot warn@{index}: {exc}")
             post_state(api, api_key, store_id, index)
+            try:
+                post_occupancy(api, api_key, store_id, index)
+            except Exception as exc:  # noqa: BLE001
+                print(f"[job {job_id}] occupancy warn@{index}: {exc}")
             time.sleep(0.05)
     patch_job(api, api_key, job_id, "completed")
     print(f"[job {job_id}] completed frames={len(frames)}")

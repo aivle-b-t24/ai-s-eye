@@ -17,12 +17,29 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
+from .store_directory import StoreDirectory, StoreEntry
+
+
+class KakaoUser(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    # 채널 안에서 손님을 구분하는 키(botUserKey). 유저별 선택 매장을 기억하는 데 쓴다.
+    id: str | None = None
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def _coerce_id(cls, value: Any) -> str | None:
+        if value is None:
+            return None
+        return str(value)
+
 
 class KakaoUserRequest(BaseModel):
     # 카카오는 필드를 계속 늘리므로, 우리가 쓰는 것만 받고 나머지는 무시한다.
     model_config = ConfigDict(extra="ignore")
 
     utterance: str = ""
+    user: KakaoUser = Field(default_factory=KakaoUser)
 
     @field_validator("utterance", mode="before")
     @classmethod
@@ -32,6 +49,12 @@ class KakaoUserRequest(BaseModel):
         if value is None:
             return ""
         return value if isinstance(value, str) else str(value)
+
+    @field_validator("user", mode="before")
+    @classmethod
+    def _coerce_user(cls, value: Any) -> Any:
+        # user가 null로 와도 빈 유저로 다뤄 422를 피한다.
+        return {} if value is None else value
 
 
 class KakaoAction(BaseModel):
@@ -84,6 +107,11 @@ def extract_utterance(payload: KakaoSkillPayload) -> str:
     return (payload.userRequest.utterance or "").strip()
 
 
+def extract_user_id(payload: KakaoSkillPayload) -> str | None:
+    """채널 안 손님 식별자. 유저별 선택 매장을 기억하는 세션 키로 쓴다."""
+    return payload.userRequest.user.id or None
+
+
 def _param_value(value: Any) -> str | None:
     """카카오 파라미터 값을 문자열로 꺼낸다.
 
@@ -97,18 +125,23 @@ def _param_value(value: Any) -> str | None:
     return str(value).strip()
 
 
-def resolve_store_id(payload: KakaoSkillPayload, default_store_id: str) -> str:
-    """이 대화가 어느 매장인지 정한다.
+def store_id_override(payload: KakaoSkillPayload) -> str | None:
+    """봇 설정/링크가 넘겨준 매장(있으면). QR·딥링크로 특정 매장 대화를 여는 방식(A안).
 
-    채널 1개 = 매장 1개가 기본이라 default_store_id를 쓰되, 봇 설정에서 store_id를
-    넘겨주면(멀티 매장 확장) 그걸 우선한다. clientExtra > params > detailParams 순.
+    카카오 오픈빌더 봇 링크의 extra로 넣으면 action.clientExtra로 도착한다.
+    clientExtra > params > detailParams 순으로 본다. 없으면 None.
     """
     action = payload.action
     for source in (action.clientExtra, action.params, action.detailParams):
         picked = _param_value(source.get("store_id"))
         if picked:
             return picked
-    return default_store_id
+    return None
+
+
+def resolve_store_id(payload: KakaoSkillPayload, default_store_id: str) -> str:
+    """override가 있으면 그 매장, 없으면 기본 매장(하위 호환용)."""
+    return store_id_override(payload) or default_store_id
 
 
 def build_skill_response(
@@ -139,3 +172,48 @@ GREETING_TEXT = (
     "무엇이 궁금하세요?"
 )
 ERROR_TEXT = "지금은 안내가 어려워요. 잠시 후 다시 시도해 주세요."
+
+# --- 멀티 매장(공용 채널) ---
+
+# 카카오 퀵리플라이는 최대 10개까지만 노출된다.
+MAX_STORE_QUICK_REPLIES = 10
+
+PICK_STORE_TEXT = "어느 매장을 도와드릴까요? 아래에서 선택해 주세요."
+
+CHANGE_STORE_LABEL = "매장 변경"
+CHANGE_STORE_QUICK_REPLY = _quick_reply(CHANGE_STORE_LABEL, CHANGE_STORE_LABEL)
+
+_CHANGE_STORE_TRIGGERS = (
+    "매장변경",
+    "매장바꿔",
+    "매장바꾸",
+    "다른매장",
+    "매장선택",
+    "매장다시",
+)
+
+
+def is_change_store(utterance: str) -> bool:
+    """'매장 변경/다른 매장'처럼 매장을 다시 고르려는 발화인지."""
+    norm = "".join(utterance.split())
+    return any(trigger in norm for trigger in _CHANGE_STORE_TRIGGERS)
+
+
+def store_quick_replies(entries: list[StoreEntry]) -> list[dict[str, str]]:
+    """매장 목록을 선택 버튼으로. 누르면 그 매장 이름이 발화로 다시 들어온다."""
+    return [
+        _quick_reply(entry.name, entry.name)
+        for entry in entries[:MAX_STORE_QUICK_REPLIES]
+    ]
+
+
+def answer_quick_replies(directory: StoreDirectory | None) -> list[dict[str, str]]:
+    """답변에 붙일 퀵리플라이. 매장이 여러 개면 '매장 변경'을 덧붙인다."""
+    replies = list(DEFAULT_QUICK_REPLIES)
+    if directory is not None and directory.has_multiple():
+        replies.append(CHANGE_STORE_QUICK_REPLY)
+    return replies
+
+
+def store_selected_text(store_name: str) -> str:
+    return f"‘{store_name}’으로 안내해 드릴게요. 무엇이 궁금하세요?"

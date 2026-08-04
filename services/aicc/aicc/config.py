@@ -20,6 +20,8 @@ class Settings(BaseModel):
     firebase_credentials_path: Path | None
     internal_api_key: str | None
     kakao_skill_token: str | None
+    store_directory_raw: str | None
+    session_ttl_seconds: float
 
     @property
     def use_vertex(self) -> bool:
@@ -58,4 +60,8 @@ def get_settings() -> Settings:
         # 카카오 스킬 웹훅은 손님용이라 firebase 로그인이 없다. 대신 공유 토큰으로
         # 아무나 못 부르게 막는다. 비워두면(개발 편의) 토큰 검사를 건너뛴다.
         kakao_skill_token=os.getenv("AICC_KAKAO_SKILL_TOKEN") or None,
+        # 공용 채널이 안내할 매장 목록(JSON). 여러 매장이면 손님이 대화에서 고른다.
+        store_directory_raw=os.getenv("AICC_STORE_DIRECTORY") or None,
+        # 유저별 선택 매장을 기억하는 시간(초). 기본 30분.
+        session_ttl_seconds=float(os.getenv("AICC_SESSION_TTL_SECONDS", "1800")),
     )

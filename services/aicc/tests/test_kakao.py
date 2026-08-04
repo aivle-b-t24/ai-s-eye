@@ -17,6 +17,14 @@ from aicc.kakao import (
     extract_utterance,
     resolve_store_id,
 )
+from aicc.session import SessionStore
+from aicc.store_directory import StoreDirectory, StoreEntry, load_store_directory
+
+
+def two_store_directory() -> StoreDirectory:
+    return StoreDirectory(
+        [StoreEntry("store-001", "동명점"), StoreEntry("store-002", "수완점")]
+    )
 
 
 # 카카오 i 오픈빌더 스킬 테스트가 실제로 보내는 형태(널 필드 다수 포함).
@@ -61,14 +69,20 @@ class RaisingAgent:
         raise RuntimeError("두뇌 폭발")
 
 
-def client_with(agent: Any) -> TestClient:
+def client_with(agent: Any, directory: StoreDirectory | None = None) -> TestClient:
     tc = TestClient(api.app)
     tc.app.state.agent = agent
+    # app.state는 모듈 전역이라 테스트 간 새로 세팅해 상태 누수를 막는다.
+    tc.app.state.session = SessionStore()
+    tc.app.state.store_directory = directory if directory is not None else StoreDirectory([])
     return tc
 
 
-def skill_request(utterance: str, **extra: Any) -> dict[str, Any]:
-    body: dict[str, Any] = {"userRequest": {"utterance": utterance}}
+def skill_request(utterance: str, user_id: str | None = None, **extra: Any) -> dict[str, Any]:
+    user_request: dict[str, Any] = {"utterance": utterance}
+    if user_id is not None:
+        user_request["user"] = {"id": user_id}
+    body: dict[str, Any] = {"userRequest": user_request}
     if extra:
         body["action"] = extra
     return body
@@ -263,3 +277,121 @@ def test_kakao_skill_accepts_query_token(monkeypatch) -> None:
         assert r.status_code == 200
     finally:
         config.get_settings.cache_clear()
+
+
+# --- 매장 디렉터리 / 세션 유닛 ---
+
+
+def test_load_store_directory_parses_json() -> None:
+    d = load_store_directory('[{"id":"store-001","name":"동명점"},{"store_id":"store-002","name":"수완점"}]')
+    assert [e.id for e in d.list()] == ["store-001", "store-002"]
+    assert d.name_of("store-002") == "수완점"
+    assert d.has_multiple()
+
+
+def test_load_store_directory_empty() -> None:
+    assert load_store_directory(None).list() == []
+    assert load_store_directory("망가진 json").list() == []
+
+
+def test_store_directory_resolve() -> None:
+    d = two_store_directory()
+    assert d.resolve("동명점") == "store-001"          # 버튼 탭
+    assert d.resolve("수완점 지금 붐벼요?") == "store-002"  # 이름으로 시작
+    assert d.resolve("store-002") == "store-002"        # id 직접
+    assert d.resolve("메뉴 알려줘") is None              # 매장 아님
+
+
+def test_session_set_get_clear() -> None:
+    s = SessionStore()
+    s.set("u1", "store-002")
+    assert s.get("u1") == "store-002"
+    s.clear("u1")
+    assert s.get("u1") is None
+    assert s.get(None) is None  # user_id 없으면 항상 None
+
+
+def test_session_expires() -> None:
+    now = {"t": 1000.0}
+    s = SessionStore(ttl_seconds=60, clock=lambda: now["t"])
+    s.set("u1", "store-001")
+    now["t"] = 1100.0  # 100초 경과 > TTL 60
+    assert s.get("u1") is None
+
+
+# --- 멀티 매장 라우팅(공용 채널) ---
+
+
+def test_multistore_asks_to_pick_when_no_store() -> None:
+    """매장 여러 개 + 아직 미선택 → 두뇌 안 부르고 매장 선택 버튼."""
+    agent = FakeAgent()
+    tc = client_with(agent, directory=two_store_directory())
+    r = tc.post("/kakao/skill", json=skill_request("지금 붐벼요?", user_id="u1"))
+    assert r.status_code == 200
+    assert not agent.called
+    body = r.json()
+    assert "어느 매장" in body["template"]["outputs"][0]["simpleText"]["text"]
+    labels = {q["label"] for q in body["template"]["quickReplies"]}
+    assert labels == {"동명점", "수완점"}
+
+
+def test_multistore_select_then_ask_uses_selected_store() -> None:
+    """매장 이름으로 선택 → 확인, 그 뒤 질문은 선택한 매장으로 조회."""
+    agent = FakeAgent("현재 7명 있습니다.")
+    tc = client_with(agent, directory=two_store_directory())
+    # 1) 매장 선택
+    r1 = tc.post("/kakao/skill", json=skill_request("수완점", user_id="u1"))
+    assert r1.status_code == 200
+    assert not agent.called  # 선택은 두뇌 호출 없이 확인만
+    assert "수완점" in r1.json()["template"]["outputs"][0]["simpleText"]["text"]
+    # 2) 같은 유저의 질문 → 선택한 매장으로
+    r2 = tc.post("/kakao/skill", json=skill_request("지금 붐벼요?", user_id="u1"))
+    assert r2.status_code == 200
+    assert agent.seen["store_id"] == "store-002"
+
+
+def test_multistore_different_users_isolated() -> None:
+    agent = FakeAgent()
+    tc = client_with(agent, directory=two_store_directory())
+    tc.post("/kakao/skill", json=skill_request("동명점", user_id="u1"))
+    # 다른 유저는 아직 미선택 → 선택 버튼
+    r = tc.post("/kakao/skill", json=skill_request("메뉴 알려줘", user_id="u2"))
+    assert not agent.called
+    assert "어느 매장" in r.json()["template"]["outputs"][0]["simpleText"]["text"]
+
+
+def test_qr_override_sets_and_remembers_store() -> None:
+    """A안: QR/링크가 clientExtra.store_id로 매장 지정 → 즉시 그 매장, 이후에도 기억."""
+    agent = FakeAgent()
+    tc = client_with(agent, directory=two_store_directory())
+    # QR로 들어오며 첫 질문
+    r1 = tc.post(
+        "/kakao/skill",
+        json=skill_request("지금 붐벼요?", user_id="u1", clientExtra={"store_id": "store-002"}),
+    )
+    assert r1.status_code == 200
+    assert agent.seen["store_id"] == "store-002"
+    # 다음 발화엔 override 없어도 기억됨
+    r2 = tc.post("/kakao/skill", json=skill_request("메뉴 알려줘", user_id="u1"))
+    assert agent.seen["store_id"] == "store-002"
+
+
+def test_change_store_resets_selection() -> None:
+    agent = FakeAgent()
+    tc = client_with(agent, directory=two_store_directory())
+    tc.post("/kakao/skill", json=skill_request("동명점", user_id="u1"))
+    r = tc.post("/kakao/skill", json=skill_request("매장 변경", user_id="u1"))
+    assert "어느 매장" in r.json()["template"]["outputs"][0]["simpleText"]["text"]
+    # 초기화됐으니 다시 질문하면 선택 버튼
+    r2 = tc.post("/kakao/skill", json=skill_request("붐벼요?", user_id="u1"))
+    assert not agent.called
+    assert "어느 매장" in r2.json()["template"]["outputs"][0]["simpleText"]["text"]
+
+
+def test_single_store_directory_answers_directly() -> None:
+    """매장이 하나뿐(또는 디렉터리 비어있음)이면 선택 없이 바로 답한다."""
+    agent = FakeAgent("현재 3명 있습니다.")
+    tc = client_with(agent, directory=StoreDirectory([StoreEntry("store-001", "동명점")]))
+    r = tc.post("/kakao/skill", json=skill_request("지금 붐벼요?", user_id="u1"))
+    assert r.status_code == 200
+    assert agent.seen["store_id"] == "store-001"

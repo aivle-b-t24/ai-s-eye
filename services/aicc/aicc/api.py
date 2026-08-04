@@ -24,14 +24,21 @@ from .config import get_settings
 from .errors import ToolError
 from .franchise_insights import InsightsUnavailableError, generate_insights
 from .kakao import (
-    DEFAULT_QUICK_REPLIES,
     ERROR_TEXT,
     GREETING_TEXT,
+    PICK_STORE_TEXT,
+    answer_quick_replies,
     build_skill_response,
     coerce_payload,
+    extract_user_id,
     extract_utterance,
-    resolve_store_id,
+    is_change_store,
+    store_id_override,
+    store_quick_replies,
+    store_selected_text,
 )
+from .session import SessionStore
+from .store_directory import load_store_directory
 
 logger = logging.getLogger(__name__)
 
@@ -203,6 +210,24 @@ def _verify_kakao_token(header_token: str | None, query_token: str | None) -> No
         )
 
 
+def _get_session() -> SessionStore:
+    """유저별 선택 매장 세션. lifespan 없이(테스트) 접근해도 자동 생성된다."""
+    session = getattr(app.state, "session", None)
+    if session is None:
+        session = SessionStore(ttl_seconds=get_settings().session_ttl_seconds)
+        app.state.session = session
+    return session
+
+
+def _get_store_directory():
+    """공용 채널이 안내하는 매장 목록. 설정(AICC_STORE_DIRECTORY)에서 읽어 캐싱한다."""
+    directory = getattr(app.state, "store_directory", None)
+    if directory is None:
+        directory = load_store_directory(get_settings().store_directory_raw)
+        app.state.store_directory = directory
+    return directory
+
+
 @app.post("/kakao/skill", tags=["kakao"])
 async def kakao_skill(
     request: Request,
@@ -211,12 +236,15 @@ async def kakao_skill(
 ) -> Any:
     """카카오톡 채널의 손님 질문을 받아 스킬 응답(2.0)으로 답한다.
 
-    질문 이해·조회·답변은 /chat과 같은 StoreAgent가 처리한다. 여기서는 카카오 형식
-    변환과, 어떤 상황에도 손님에게 문장을 보여주기 위한 200 보장만 담당한다.
+    공용 채널 하나로 여러 매장을 처리한다. 매장을 정하는 순서:
+      1) QR·딥링크가 넘긴 store_id(clientExtra) — 있으면 그 매장으로 고정하고 기억(A안)
+      2) 이 손님이 앞서 고른 매장(세션)
+      3) 매장이 여러 개면 발화에서 선택을 읽거나, 없으면 선택 버튼을 보여줌(B안)
+      4) 매장이 하나뿐/미설정이면 기본 매장
 
-    요청 본문은 Pydantic 모델 파라미터로 받지 않고 직접 관대하게 파싱한다. 모델
-    파라미터로 받으면 검증 실패가 FastAPI 단계 422로 튀어(카카오가 거부) 200 보장이
-    깨지기 때문이다.
+    질문 이해·조회·답변은 /chat과 같은 StoreAgent가 처리한다. 여기서는 카카오 형식
+    변환·매장 라우팅과, 어떤 상황에도 200 스킬 응답을 주는 것만 담당한다(본문은
+    관대하게 파싱해 422를 내지 않는다).
     """
     _verify_kakao_token(x_kakao_skill_token, token)
 
@@ -227,11 +255,41 @@ async def kakao_skill(
     payload = coerce_payload(body)
 
     utterance = extract_utterance(payload)
-    if not utterance:
-        # 채널 진입 등 빈 발화 → 인사 + 자주 묻는 질문 버튼
-        return build_skill_response(GREETING_TEXT, DEFAULT_QUICK_REPLIES)
+    user_id = extract_user_id(payload)
+    session = _get_session()
+    directory = _get_store_directory()
 
-    store_id = resolve_store_id(payload, get_settings().default_store_id)
+    # 1) QR·딥링크가 매장을 지정했으면 그 매장으로 고정하고 기억(A안)
+    override = store_id_override(payload)
+    if override:
+        session.set(user_id, override)
+
+    # '매장 변경' 요청 → 기억 초기화하고 다시 선택받기
+    if not override and utterance and is_change_store(utterance) and directory.has_multiple():
+        session.clear(user_id)
+        return build_skill_response(PICK_STORE_TEXT, store_quick_replies(directory.list()))
+
+    store_id = override or session.get(user_id)
+
+    # 2·3) 아직 매장 미정 + 매장이 여러 개 → 발화로 선택 인식, 아니면 선택 버튼
+    if not store_id and directory.has_multiple():
+        selected = directory.resolve(utterance) if utterance else None
+        if selected:
+            session.set(user_id, selected)
+            return build_skill_response(
+                store_selected_text(directory.name_of(selected)),
+                answer_quick_replies(directory),
+            )
+        return build_skill_response(PICK_STORE_TEXT, store_quick_replies(directory.list()))
+
+    # 4) 단일 매장/미설정이면 기본 매장
+    if not store_id:
+        store_id = get_settings().default_store_id
+
+    # 매장은 정해졌는데 발화가 비었으면(채널 진입 등) 인사
+    if not utterance:
+        return build_skill_response(GREETING_TEXT, answer_quick_replies(directory))
+
     logger.info("kakao 질문 store=%s: %s", store_id, utterance)
     try:
         result = app.state.agent.ask(utterance, store_id)
@@ -242,4 +300,4 @@ async def kakao_skill(
         logger.warning("kakao 실패 store=%s: %s", store_id, exc, exc_info=True)
         answer = ERROR_TEXT
     logger.info("kakao 답변 store=%s: %s", store_id, answer)
-    return build_skill_response(answer, DEFAULT_QUICK_REPLIES)
+    return build_skill_response(answer, answer_quick_replies(directory))

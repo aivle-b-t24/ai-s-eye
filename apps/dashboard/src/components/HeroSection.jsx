@@ -26,24 +26,6 @@ function HeroSection({ page, authMode, dashboard, onMenuOpen, onLogin, onSignup,
   const handleDemoLogin = (selectedRole, targetStoreId = STORES.DONGMYEONG) => {
     const credKey = selectedRole === ROLES.STORE_MANAGER ? targetStoreId : STORES.HEAD_OFFICE
     const creds = DEMO_CREDENTIALS[credKey] || DEMO_CREDENTIALS[STORES.DONGMYEONG]
-<<<<<<< HEAD
-=======
-  const peopleCount = dashboard?.state?.visible_person_count ?? 0
-  // 대기 팀 = 진행 중 주문 건수(backlog). 주문 1건 ≈ 한 팀(그룹). 없으면 비전 추정치.
-  const waitingTeams =
-    dashboard?.eta?.waiting_order_count ??
-    dashboard?.state?.queue_count_estimate ??
-    0
-  const waitMinutes = dashboard?.eta?.estimated_wait_minutes ?? 0
-
-  // 수용 인원은 설정 페이지에서 저장한 매장별 값. 없으면 기본 30명.
-  const maxCapacity = dashboard?.settings?.max_capacity ?? 30
-  const congestionRate = Math.min(
-    Math.round((peopleCount / maxCapacity) * 100),
-    100
-  )
-
->>>>>>> 32b5c3cb554fa72d0231644a277b6c445c87b799
     if (onLoginSuccess) {
       onLoginSuccess({
         id: creds.id,

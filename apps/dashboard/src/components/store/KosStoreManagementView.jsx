@@ -79,10 +79,8 @@ export default function KosStoreManagementView({
         </div>
       </section>
 
-      {isChatbotEnabled && (
-        {isChatbotEnabled !== false && (
-          <StoreChatbotWidget page={currentStoreId} storeName={storeName} />
-        )}
+      {isChatbotEnabled !== false && (
+        <StoreChatbotWidget page={currentStoreId} storeName={storeName} />
       )}
     </section>
   )

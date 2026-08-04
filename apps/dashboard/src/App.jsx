@@ -122,6 +122,7 @@ function App() {
             setAuthMode('signup')
           }}
           onLoginSuccess={(userData) => handleLoginSuccess(userData, setPage)}
+          onCredentialLogin={(credentials) => handleLogin(credentials, setPage)}
         />
       )}
 

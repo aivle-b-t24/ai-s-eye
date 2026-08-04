@@ -4,6 +4,10 @@ import { authenticatedFetch } from './authenticatedFetch'
 
 export async function fetchStoreState(storeId) {
   const response = await authenticatedFetch(`${API_BASE_URL}/api/stores/${storeId}/state`)
+  if (response.status === 404) {
+    // 비전 상태가 아직 없는 매장 — 빈 대시보드로 표시
+    return null
+  }
   if (!response.ok) {
     throw new Error(`API 요청 실패 (${response.status})`)
   }

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
 
-from app.main import default_summary_period
+from app.main import default_summary_period, repository
 
 
 def valid_store_state(store_id: str = "store-test") -> dict:
@@ -45,6 +45,25 @@ def test_missing_store_state_returns_404(client: TestClient) -> None:
     response = client.get("/api/stores/store-does-not-exist/state")
 
     assert response.status_code == 404
+
+
+def test_registered_store_without_state_returns_empty_snapshot(
+    client: TestClient,
+) -> None:
+    created = repository.create_store("빈상태점")
+    store_id = created.id
+
+    state_response = client.get(f"/api/stores/{store_id}/state")
+    eta_response = client.get(f"/api/stores/{store_id}/eta")
+
+    assert state_response.status_code == 200
+    body = state_response.json()
+    assert body["store_id"] == store_id
+    assert body["visible_person_count"] == 0
+    assert body["source"] == "empty"
+    assert eta_response.status_code == 200
+    assert eta_response.json()["estimated_wait_minutes"] == 0
+    assert eta_response.json()["data_source"] == "empty"
 
 
 def test_internal_stores_returns_master_with_names(client: TestClient) -> None:

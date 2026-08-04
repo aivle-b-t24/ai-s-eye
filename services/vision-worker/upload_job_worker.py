@@ -17,7 +17,9 @@ import argparse
 import io
 import json
 import os
+import sys
 import tempfile
+import threading
 import time
 import zipfile
 from datetime import datetime, timezone
@@ -28,6 +30,12 @@ import urllib.request
 
 DEFAULT_CAFE_MODEL = "/home/kokdo/datasets/ai-s-eye/models/best.pt"
 WORKER_DIR = Path(__file__).resolve().parent
+REPLAY_CACHE_DIR = Path(
+    os.getenv(
+        "AISEYE_UPLOAD_REPLAY_DIR",
+        str(WORKER_DIR / "outputs" / "upload-replay"),
+    )
+)
 
 
 def _headers(api_key: str | None) -> dict[str, str]:
@@ -262,6 +270,7 @@ class CafeUploadTracker:
         self.build_store_state = build_store_state
         self.ft_model = YOLO(str(model_path))
         self.model_path = model_path
+        self._analyze_lock = threading.Lock()
         print(f"[tracker] loaded {model_path} conf={DETECTION_CONFIDENCE} tracker={TRACKER_CONFIG}")
 
     def analyze_frames(
@@ -270,117 +279,179 @@ class CafeUploadTracker:
         api_key: str | None,
         store_id: str,
         frames: list[Path],
+        *,
+        play_interval: float = 0.02,
+        loop_forever: bool = False,
+        cycle: int = 0,
     ) -> None:
         camera_id = f"{store_id}-cam1"
         epoch = self.TrackingEpoch(camera_id)
-        epoch.reset()
-        self.reset_ultralytics_tracker(self.ft_model)
-
         empty_pose = {"waiting": [], "seated": []}
-        for index, frame_path in enumerate(frames):
-            frame = self.cv2.imread(str(frame_path))
-            if frame is None:
-                print(f"[tracker] skip unreadable frame {frame_path.name}")
-                continue
-            height, width = frame.shape[:2]
-            zones = self.runtime_zones(store_id, camera_id, width, height)
-            roi_version, _roi_source = self.runtime_roi_identity(
-                store_id, camera_id, width, height
-            )
+        cycle_index = cycle
 
-            result = self.ft_model.track(
-                frame,
-                persist=True,
-                tracker=self.TRACKER_CONFIG,
-                classes=[0],
-                conf=self.DETECTION_CONFIDENCE,
-                iou=0.5,
-                agnostic_nms=True,
-                verbose=False,
-            )[0]
-            boxes = (
-                result.boxes.xyxy.cpu().numpy()
-                if result.boxes is not None
-                else self.np.empty((0, 4))
-            )
-            confidences = (
-                result.boxes.conf.cpu().numpy().tolist()
-                if result.boxes is not None
-                else []
-            )
-            local_ids = (
-                result.boxes.id.cpu().numpy().astype(int).tolist()
-                if result.boxes is not None and result.boxes.id is not None
-                else [None] * len(boxes)
-            )
-            public_ids = [
-                epoch.public_id(track_id) if track_id is not None else None
-                for track_id in local_ids
-            ]
-            staff_flags = self.staff_candidates(boxes, zones, store_id)
-            positions = self.person_positions(
-                boxes,
-                zones,
-                empty_pose,
-                public_ids,
-                confidences,
-                staff_flags,
-            )
-            customers = sum(1 for position in positions if position.get("type") != "staff")
-            staff = sum(1 for position in positions if position.get("type") == "staff")
-            waiting = sum(
-                1
-                for position in positions
-                if position.get("state") == "queue" or position.get("zone") == "waiting"
-            )
-
-            now = datetime.now(timezone.utc)
-            frame_id = f"upload-{index:04d}"
-            state = self.build_store_state(
-                {"staff": staff, "waiting": waiting},
-                customers,
-                waiting,
-                camera_id=camera_id,
-                store_id=store_id,
-                quality="normal",
-                captured_at=now,
-            )
-            state.update(
-                {
-                    "frame_id": frame_id,
-                    "processed_at": now.isoformat(),
-                    "roi_version": roi_version,
-                    "source": "upload_worker_track",
-                    "model_version": self.MODEL_VERSION,
-                    "tracking_epoch": epoch.value,
-                    "tracking_reset": index == 0,
-                    "positions": positions,
-                }
-            )
-            occupancy = self.prepare_occupancy(
-                state,
-                preserve_timestamp=True,
-                frame_width=width,
-                frame_height=height,
-            )
-            occupancy["source"] = "upload_worker_track"
-            occupancy["model_version"] = self.MODEL_VERSION
-
-            if index == 0 or index % 5 == 0:
-                try:
-                    post_snapshot(api, api_key, store_id, frame_path.read_bytes())
-                except Exception as exc:  # noqa: BLE001
-                    print(f"[tracker] snapshot warn@{index}: {exc}")
-
-            post_json(api, api_key, "/internal/store-states", state)
-            post_json(api, api_key, f"/internal/stores/{store_id}/occupancy", occupancy)
-
-            if index % 10 == 0 or index + 1 == len(frames):
+        while True:
+            with self._analyze_lock:
+                epoch.reset()
+                self.reset_ultralytics_tracker(self.ft_model)
                 print(
-                    f"[tracker] {index + 1}/{len(frames)} "
-                    f"people={customers} staff={staff} agents={len(occupancy.get('agents', []))}"
+                    f"[tracker] play store={store_id} cycle={cycle_index} "
+                    f"frames={len(frames)} interval={play_interval}s"
                 )
-            time.sleep(0.02)
+                for index, frame_path in enumerate(frames):
+                    frame = self.cv2.imread(str(frame_path))
+                    if frame is None:
+                        print(f"[tracker] skip unreadable frame {frame_path.name}")
+                        continue
+                    height, width = frame.shape[:2]
+                    zones = self.runtime_zones(store_id, camera_id, width, height)
+                    roi_version, _roi_source = self.runtime_roi_identity(
+                        store_id, camera_id, width, height
+                    )
+
+                    result = self.ft_model.track(
+                        frame,
+                        persist=True,
+                        tracker=self.TRACKER_CONFIG,
+                        classes=[0],
+                        conf=self.DETECTION_CONFIDENCE,
+                        iou=0.5,
+                        agnostic_nms=True,
+                        verbose=False,
+                    )[0]
+                    boxes = (
+                        result.boxes.xyxy.cpu().numpy()
+                        if result.boxes is not None
+                        else self.np.empty((0, 4))
+                    )
+                    confidences = (
+                        result.boxes.conf.cpu().numpy().tolist()
+                        if result.boxes is not None
+                        else []
+                    )
+                    local_ids = (
+                        result.boxes.id.cpu().numpy().astype(int).tolist()
+                        if result.boxes is not None and result.boxes.id is not None
+                        else [None] * len(boxes)
+                    )
+                    public_ids = [
+                        epoch.public_id(track_id) if track_id is not None else None
+                        for track_id in local_ids
+                    ]
+                    staff_flags = self.staff_candidates(boxes, zones, store_id)
+                    positions = self.person_positions(
+                        boxes,
+                        zones,
+                        empty_pose,
+                        public_ids,
+                        confidences,
+                        staff_flags,
+                    )
+                    customers = sum(
+                        1 for position in positions if position.get("type") != "staff"
+                    )
+                    staff = sum(
+                        1 for position in positions if position.get("type") == "staff"
+                    )
+                    waiting = sum(
+                        1
+                        for position in positions
+                        if position.get("state") == "queue"
+                        or position.get("zone") == "waiting"
+                    )
+
+                    now = datetime.now(timezone.utc)
+                    frame_id = f"upload-c{cycle_index}-f{index:04d}"
+                    state = self.build_store_state(
+                        {"staff": staff, "waiting": waiting},
+                        customers,
+                        waiting,
+                        camera_id=camera_id,
+                        store_id=store_id,
+                        quality="normal",
+                        captured_at=now,
+                    )
+                    state.update(
+                        {
+                            "frame_id": frame_id,
+                            "processed_at": now.isoformat(),
+                            "roi_version": roi_version,
+                            "source": "upload_worker_track",
+                            "model_version": self.MODEL_VERSION,
+                            "tracking_epoch": epoch.value,
+                            "tracking_reset": index == 0,
+                            "positions": positions,
+                        }
+                    )
+                    occupancy = self.prepare_occupancy(
+                        state,
+                        preserve_timestamp=True,
+                        frame_width=width,
+                        frame_height=height,
+                    )
+                    occupancy["source"] = "upload_worker_track"
+                    occupancy["model_version"] = self.MODEL_VERSION
+                    occupancy["published_at"] = now.isoformat()
+
+                    try:
+                        post_snapshot(api, api_key, store_id, frame_path.read_bytes())
+                    except Exception as exc:  # noqa: BLE001
+                        print(f"[tracker] snapshot warn@{index}: {exc}")
+
+                    post_json(api, api_key, "/internal/store-states", state)
+                    post_json(
+                        api,
+                        api_key,
+                        f"/internal/stores/{store_id}/occupancy",
+                        occupancy,
+                    )
+
+                    if index % 10 == 0 or index + 1 == len(frames):
+                        print(
+                            f"[tracker] c{cycle_index} {index + 1}/{len(frames)} "
+                            f"people={customers} staff={staff} "
+                            f"agents={len(occupancy.get('agents', []))}"
+                        )
+                    time.sleep(max(play_interval, 0.0))
+
+            if not loop_forever:
+                return
+            cycle_index += 1
+
+
+def cache_frames(store_id: str, frames: list[Path]) -> Path:
+    target_dir = REPLAY_CACHE_DIR / store_id
+    target_dir.mkdir(parents=True, exist_ok=True)
+    for old in target_dir.glob("*"):
+        if old.is_file():
+            old.unlink()
+    cached: list[Path] = []
+    for index, frame_path in enumerate(frames):
+        dest = target_dir / f"{index:04d}{frame_path.suffix.lower()}"
+        dest.write_bytes(frame_path.read_bytes())
+        cached.append(dest)
+    meta = target_dir / "meta.json"
+    meta.write_text(
+        json.dumps({"store_id": store_id, "frames": len(cached)}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    print(f"[replay-cache] saved {len(cached)} frames → {target_dir}")
+    return target_dir
+
+
+def load_cached_frames(store_id: str) -> list[Path]:
+    target_dir = REPLAY_CACHE_DIR / store_id
+    frames = sorted(
+        [
+            path
+            for path in target_dir.iterdir()
+            if path.suffix.lower() in {".jpg", ".jpeg", ".png"}
+        ]
+    )
+    if not frames:
+        raise FileNotFoundError(
+            f"재생 캐시 없음: {target_dir}. 먼저 analysis job을 한 번 처리하세요."
+        )
+    return frames
 
 
 def process_claim(
@@ -388,7 +459,10 @@ def process_claim(
     api_key: str | None,
     claim: dict,
     tracker: CafeUploadTracker | None,
-) -> None:
+    *,
+    play_interval: float = 0.02,
+) -> str:
+    """Process one job. Returns store_id for optional auto-replay."""
     job = claim["job"]
     media = claim["media"]
     job_id = job["id"]
@@ -398,8 +472,17 @@ def process_claim(
     media_bytes = http_bytes(download_url, api_key)
     with tempfile.TemporaryDirectory(prefix="aiseeye-job-") as tmp:
         frames = extract_frames(media_bytes, media["media_type"], Path(tmp))
+        cache_frames(store_id, frames)
         if tracker is not None:
-            tracker.analyze_frames(api, api_key, store_id, frames)
+            # One pass to seed state/occupancy quickly, then auto-replay thread loops.
+            tracker.analyze_frames(
+                api,
+                api_key,
+                store_id,
+                frames,
+                play_interval=min(play_interval, 0.05),
+                loop_forever=False,
+            )
         else:
             print("[job] AISEYE_CAFE_MODEL 없음 → empty ingest")
             try:
@@ -416,6 +499,94 @@ def process_claim(
                 time.sleep(0.05)
     patch_job(api, api_key, job_id, "completed")
     print(f"[job {job_id}] completed frames={len(frames)}")
+    return store_id
+
+
+class AutoReplayManager:
+    """매장별 재생 스레드. 온보딩 job 완료 후/워커 기동 시 캐시를 루프한다."""
+
+    def __init__(
+        self,
+        *,
+        api: str,
+        api_key: str | None,
+        tracker: CafeUploadTracker,
+        play_interval: float,
+    ) -> None:
+        self.api = api
+        self.api_key = api_key
+        self.tracker = tracker
+        self.play_interval = play_interval
+        self._stops: dict[str, threading.Event] = {}
+        self._threads: dict[str, threading.Thread] = {}
+        self._lock = threading.Lock()
+
+    def stop_store(self, store_id: str) -> None:
+        thread: threading.Thread | None = None
+        with self._lock:
+            previous = self._stops.get(store_id)
+            thread = self._threads.get(store_id)
+            if previous is not None:
+                previous.set()
+        if thread is not None and thread.is_alive():
+            thread.join(timeout=max(self.play_interval * 3, 5.0))
+
+    def start_store(self, store_id: str) -> None:
+        self.stop_store(store_id)
+        with self._lock:
+            stop = threading.Event()
+            self._stops[store_id] = stop
+            thread = threading.Thread(
+                target=self._run_store,
+                args=(store_id, stop),
+                name=f"replay-{store_id}",
+                daemon=True,
+            )
+            self._threads[store_id] = thread
+            thread.start()
+            print(f"[auto-replay] started {store_id}")
+
+    def resume_cached_stores(self) -> None:
+        if not REPLAY_CACHE_DIR.is_dir():
+            return
+        for path in sorted(REPLAY_CACHE_DIR.iterdir()):
+            if not path.is_dir():
+                continue
+            try:
+                load_cached_frames(path.name)
+            except FileNotFoundError:
+                continue
+            self.start_store(path.name)
+
+    def _run_store(self, store_id: str, stop: threading.Event) -> None:
+        try:
+            frames = load_cached_frames(store_id)
+        except FileNotFoundError as exc:
+            print(f"[auto-replay] {exc}")
+            return
+        cycle = 0
+        while not stop.is_set():
+            try:
+                self.tracker.analyze_frames(
+                    self.api,
+                    self.api_key,
+                    store_id,
+                    frames,
+                    play_interval=self.play_interval,
+                    loop_forever=False,
+                    cycle=cycle,
+                )
+            except Exception as exc:  # noqa: BLE001
+                print(f"[auto-replay] {store_id} error: {exc}")
+                time.sleep(2)
+            cycle += 1
+
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def main() -> int:
@@ -423,8 +594,30 @@ def main() -> int:
     parser.add_argument("--api", default=os.getenv("AISEYE_API", "http://127.0.0.1:8000"))
     parser.add_argument("--api-key", default=os.getenv("INTERNAL_API_KEY"))
     parser.add_argument("--worker-id", default=os.getenv("HOSTNAME", "gpu-worker"))
-    parser.add_argument("--loop", action="store_true")
-    parser.add_argument("--interval", type=float, default=5.0)
+    parser.add_argument("--loop", action="store_true", help="Keep polling for new jobs")
+    parser.add_argument(
+        "--interval",
+        type=float,
+        default=5.0,
+        help="Job poll interval when --loop (seconds)",
+    )
+    parser.add_argument(
+        "--play-interval",
+        type=float,
+        default=float(os.getenv("AISEYE_UPLOAD_PLAY_INTERVAL", "1.0")),
+        help="Delay between posted frames during track/replay (seconds)",
+    )
+    parser.add_argument(
+        "--replay-store",
+        default=os.getenv("AISEYE_UPLOAD_REPLAY_STORE", ""),
+        help="Loop cached frames for this store_id (demo playback)",
+    )
+    parser.add_argument(
+        "--auto-replay",
+        action=argparse.BooleanOptionalAction,
+        default=_env_flag("AISEYE_UPLOAD_AUTO_REPLAY", True),
+        help="After jobs (and on startup) loop cached stores in background",
+    )
     parser.add_argument(
         "--model",
         default=os.getenv("AISEYE_CAFE_MODEL", ""),
@@ -449,6 +642,34 @@ def main() -> int:
     else:
         print("[tracker] no CAFE model → empty ingest mode")
 
+    if args.replay_store:
+        if tracker is None:
+            print("--replay-store 에는 AISEYE_CAFE_MODEL 이 필요합니다", file=sys.stderr)
+            return 1
+        frames = load_cached_frames(args.replay_store)
+        try:
+            tracker.analyze_frames(
+                args.api,
+                args.api_key,
+                args.replay_store,
+                frames,
+                play_interval=args.play_interval,
+                loop_forever=True,
+            )
+        except KeyboardInterrupt:
+            return 0
+        return 0
+
+    replay_manager: AutoReplayManager | None = None
+    if args.auto_replay and tracker is not None:
+        replay_manager = AutoReplayManager(
+            api=args.api,
+            api_key=args.api_key,
+            tracker=tracker,
+            play_interval=args.play_interval,
+        )
+        replay_manager.resume_cached_stores()
+
     while True:
         try:
             claim = claim_job(args.api, args.api_key, args.worker_id)
@@ -459,7 +680,18 @@ def main() -> int:
                 time.sleep(args.interval)
                 continue
             try:
-                process_claim(args.api, args.api_key, claim, tracker)
+                store_id = claim["job"]["store_id"]
+                if replay_manager is not None:
+                    replay_manager.stop_store(store_id)
+                store_id = process_claim(
+                    args.api,
+                    args.api_key,
+                    claim,
+                    tracker,
+                    play_interval=args.play_interval,
+                )
+                if replay_manager is not None:
+                    replay_manager.start_store(store_id)
             except Exception as exc:  # noqa: BLE001
                 print(f"job failed: {exc}")
                 patch_job(args.api, args.api_key, claim["job"]["id"], "failed", str(exc))

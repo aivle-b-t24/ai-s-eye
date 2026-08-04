@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   browserLocalPersistence,
   browserSessionPersistence,
@@ -16,7 +17,8 @@ import {
   LOCAL_SESSION_KEY,
 } from '../auth/localAuth'
 import { API_BASE_URL } from '../constants/env'
-import { ROLES, STORES, ENDPOINTS } from '../constants/auth'
+import { ROLES, ENDPOINTS } from '../constants/auth'
+import { homeForUser, ROUTES } from '../constants/routes'
 import { firebaseAuth } from '../firebase'
 
 function loginErrorMessage(error) {
@@ -76,6 +78,7 @@ function clearLocalSession() {
 }
 
 export function useAuth() {
+  const navigate = useNavigate()
   const [authMode, setAuthMode] = useState('main')
   const [authRole, setAuthRole] = useState(ROLES.STORE_MANAGER)
   const [currentUser, setCurrentUser] = useState(null)
@@ -123,52 +126,46 @@ export function useAuth() {
 
   const handleLoginRoleChange = (newRole) => {
     setAuthRole(newRole)
-    const newEndpoint =
-      newRole === ROLES.STORE_MANAGER ? ENDPOINTS.STORE_LOGIN : ENDPOINTS.HQ_LOGIN
-    window.history.pushState({}, '', newEndpoint)
+    navigate(
+      newRole === ROLES.STORE_MANAGER ? ENDPOINTS.STORE_LOGIN : ENDPOINTS.HQ_LOGIN,
+    )
   }
 
   const handleSignupRoleChange = (newRole) => {
     setAuthRole(newRole)
-    const newEndpoint =
-      newRole === ROLES.STORE_MANAGER ? ENDPOINTS.STORE_SIGNUP : ENDPOINTS.HQ_SIGNUP
-    window.history.pushState({}, '', newEndpoint)
+    navigate(
+      newRole === ROLES.STORE_MANAGER ? ENDPOINTS.STORE_SIGNUP : ENDPOINTS.HQ_SIGNUP,
+    )
   }
 
   const handleGoToSignup = () => {
     setAuthMode('signup')
-    const targetEndpoint =
-      authRole === ROLES.STORE_MANAGER ? ENDPOINTS.STORE_SIGNUP : ENDPOINTS.HQ_SIGNUP
-    window.history.pushState({}, '', targetEndpoint)
+    navigate(
+      authRole === ROLES.STORE_MANAGER ? ENDPOINTS.STORE_SIGNUP : ENDPOINTS.HQ_SIGNUP,
+    )
   }
 
   const handleGoToLogin = () => {
     setAuthMode('login')
-    const targetEndpoint =
-      authRole === ROLES.STORE_MANAGER ? ENDPOINTS.STORE_LOGIN : ENDPOINTS.HQ_LOGIN
-    window.history.pushState({}, '', targetEndpoint)
+    navigate(
+      authRole === ROLES.STORE_MANAGER ? ENDPOINTS.STORE_LOGIN : ENDPOINTS.HQ_LOGIN,
+    )
   }
 
-  const handleLoginSuccess = (userData, setPage) => {
-    const nextPage = userData.storeId ?? STORES.DONGMYEONG
+  const handleLoginSuccess = (userData) => {
     setCurrentUser(userData)
-    setPage(nextPage)
     setAuthMode('dashboard')
-
-    const targetEndpoint =
-      nextPage === STORES.HEAD_OFFICE ? ENDPOINTS.HQ_DASHBOARD : `/${nextPage}.aicafe`
-
-    window.history.pushState({}, '', targetEndpoint)
+    navigate(homeForUser(userData), { replace: true })
   }
 
-  const handleLogin = async ({ email, password, remember, role }, setPage) => {
+  const handleLogin = async ({ email, password, remember, role }) => {
     setAuthError('')
     try {
       const requestedRole = role ?? authRole
       if (IS_LOCAL_AUTH_MODE) {
         const profile = authenticateLocalAccount(email, password, requestedRole)
         saveLocalSession(profile, remember)
-        handleLoginSuccess(profile, setPage)
+        handleLoginSuccess(profile)
         return profile
       }
 
@@ -186,7 +183,7 @@ export function useAuth() {
             : '점주 권한이 없는 계정입니다.',
         )
       }
-      handleLoginSuccess(profile, setPage)
+      handleLoginSuccess(profile)
       return profile
     } catch (error) {
       const message = loginErrorMessage(error)
@@ -203,7 +200,7 @@ export function useAuth() {
     }
     setCurrentUser(null)
     setAuthMode('main')
-    window.history.pushState({}, '', '/')
+    navigate(ROUTES.HOME, { replace: true })
   }
 
   const handlePasswordReset = async (email) => {

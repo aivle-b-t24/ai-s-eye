@@ -8,7 +8,7 @@ import CapacitySetting from './CapacitySetting';
 export default function SettingsView({
   apiBaseUrl,
   aiccBaseUrl,
-  setPage,
+  onBack,
   storeId,
   storeName,
   isChatbotEnabled = true,
@@ -22,7 +22,7 @@ export default function SettingsView({
     <section className="setting-view">
       <div className="setting-header">
         <h2>⚙️ 대시보드 환경설정</h2>
-        <button className="back-btn" onClick={() => setPage(storeId)}>
+        <button className="back-btn" onClick={onBack}>
           ← [점주] 담당 매장 대시보드로 돌아가기
         </button>
       </div>
@@ -74,7 +74,7 @@ export default function SettingsView({
             apiBaseUrl={apiBaseUrl}
             aiccBaseUrl={aiccBaseUrl}
             storeId={storeId}
-            onComplete={() => setPage(storeId)}
+            onComplete={onBack}
           />
         </div>
       )}

@@ -8,7 +8,14 @@ import {
   fetchStoreSettings,
 } from '../api/storeApi'
 
-export function useStorePolling(authMode, page, isDedicatedHeadOffice) {
+function isStoreId(value) {
+  return typeof value === 'string' && value.startsWith('store-')
+}
+
+/**
+ * @param {{ enabled: boolean, storeId?: string | null, isHeadOffice?: boolean }} options
+ */
+export function useStorePolling({ enabled, storeId, isHeadOffice = false }) {
   const [storesData, setStoresData] = useState(DEFAULT_STORE_DATA)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -61,18 +68,17 @@ export function useStorePolling(authMode, page, isDedicatedHeadOffice) {
     }
   }, [])
 
-  // ⏱ Smart Polling: Pauses automatically when tab is hidden (document.hidden) to save battery/network
+  // ⏱ Smart Polling: Pauses automatically when tab is hidden (document.hidden)
   useEffect(() => {
     let timerId = null
+    const targetStoreId = storeId
 
     const startTimer = () => {
       if (timerId) clearInterval(timerId)
-      if (!document.hidden && authMode === 'dashboard') {
-        if (page === STORES.DONGMYEONG || page === STORES.SUWAN) {
-          timerId = setInterval(() => {
-            loadStateOnly(page, false)
-          }, 2000)
-        }
+      if (!document.hidden && enabled && isStoreId(targetStoreId)) {
+        timerId = setInterval(() => {
+          loadStateOnly(targetStoreId, false)
+        }, 2000)
       }
     }
 
@@ -82,23 +88,18 @@ export function useStorePolling(authMode, page, isDedicatedHeadOffice) {
           clearInterval(timerId)
           timerId = null
         }
-      } else {
-        if (
-          authMode === 'dashboard' &&
-          (page === STORES.DONGMYEONG || page === STORES.SUWAN)
-        ) {
-          loadStateOnly(page, false)
-          startTimer()
-        }
+      } else if (enabled && isStoreId(targetStoreId)) {
+        loadStateOnly(targetStoreId, false)
+        startTimer()
       }
     }
 
-    if (authMode === 'dashboard') {
-      if (page === STORES.DONGMYEONG || page === STORES.SUWAN) {
-        loadStaticData(page)
-        loadStateOnly(page, true)
+    if (enabled) {
+      if (isStoreId(targetStoreId)) {
+        loadStaticData(targetStoreId)
+        loadStateOnly(targetStoreId, true)
         startTimer()
-      } else if (page === STORES.HEAD_OFFICE && !isDedicatedHeadOffice) {
+      } else if (isHeadOffice) {
         loadStateOnly(STORES.DONGMYEONG, false)
         loadStateOnly(STORES.SUWAN, false)
       }
@@ -111,17 +112,18 @@ export function useStorePolling(authMode, page, isDedicatedHeadOffice) {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [
-    authMode,
-    page,
-    isDedicatedHeadOffice,
+    enabled,
+    storeId,
+    isHeadOffice,
     loadStateOnly,
     loadStaticData,
   ])
 
+  const resolvedStoreId = isStoreId(storeId) ? storeId : STORES.DONGMYEONG
   const activeDashboard =
-    storesData[page] ??
-    DEFAULT_STORE_DATA[page] ??
-    DEFAULT_STORE_DATA[STORES.DONGMYEONG]
+    storesData[resolvedStoreId]
+    ?? DEFAULT_STORE_DATA[resolvedStoreId]
+    ?? DEFAULT_STORE_DATA[STORES.DONGMYEONG]
 
   const soldOutCount =
     activeDashboard?.menus?.filter((menu) => !menu.available).length ?? 0

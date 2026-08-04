@@ -13,6 +13,8 @@ class Settings(BaseModel):
     sample_data_dir: Path
     vision_snapshot_dir: Path
     vision_snapshot_max_bytes: int
+    store_media_dir: Path
+    store_media_max_bytes: int
     vision_store_ids: set[str]
     auth_required: bool
     firebase_project_id: str | None
@@ -36,6 +38,10 @@ def _default_vision_snapshot_dir() -> Path:
     return Path(__file__).resolve().parents[1] / "data" / "vision"
 
 
+def _default_store_media_dir() -> Path:
+    return Path(__file__).resolve().parents[1] / "data" / "store-media"
+
+
 @lru_cache
 def get_settings() -> Settings:
     origins = os.getenv("CORS_ORIGINS", "http://localhost:5173")
@@ -47,11 +53,17 @@ def get_settings() -> Settings:
         else _default_sample_data_dir()
     )
     configured_snapshot_dir = os.getenv("VISION_SNAPSHOT_DIR")
+    configured_media_dir = os.getenv("STORE_MEDIA_DIR")
     configured_firebase_credentials = os.getenv("FIREBASE_CREDENTIALS")
     vision_snapshot_dir = (
         Path(configured_snapshot_dir)
         if configured_snapshot_dir
         else _default_vision_snapshot_dir()
+    )
+    store_media_dir = (
+        Path(configured_media_dir)
+        if configured_media_dir
+        else _default_store_media_dir()
     )
     return Settings(
         app_name=os.getenv("APP_NAME", "AI's Eye API"),
@@ -62,6 +74,10 @@ def get_settings() -> Settings:
         vision_snapshot_dir=vision_snapshot_dir,
         vision_snapshot_max_bytes=int(
             os.getenv("VISION_SNAPSHOT_MAX_BYTES", str(5 * 1024 * 1024))
+        ),
+        store_media_dir=store_media_dir,
+        store_media_max_bytes=int(
+            os.getenv("STORE_MEDIA_MAX_BYTES", str(200 * 1024 * 1024))
         ),
         vision_store_ids={
             store_id.strip()

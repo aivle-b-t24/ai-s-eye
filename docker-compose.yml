@@ -33,6 +33,8 @@ services:
       SAMPLE_DATA_DIR: /workspace/samples
       VISION_SNAPSHOT_DIR: /workspace/vision-snapshots
       VISION_SNAPSHOT_MAX_BYTES: ${VISION_SNAPSHOT_MAX_BYTES:-5242880}
+      STORE_MEDIA_DIR: /workspace/store-media
+      STORE_MEDIA_MAX_BYTES: ${STORE_MEDIA_MAX_BYTES:-209715200}
       VISION_STORE_IDS: ${VISION_STORE_IDS:-store-001,store-002}
       AUTH_REQUIRED: ${AUTH_REQUIRED:-true}
       FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
@@ -44,6 +46,7 @@ services:
     volumes:
       - ./samples:/workspace/samples:ro
       - vision_snapshot_data:/workspace/vision-snapshots
+      - store_media_data:/workspace/store-media
       - type: bind
         source: ${FIREBASE_ADC_HOST_PATH:-/dev/null}
         target: /run/secrets/firebase-adc.json
@@ -76,6 +79,8 @@ services:
       SAMPLE_DATA_DIR: /workspace/samples
       VISION_SNAPSHOT_DIR: /workspace/vision-snapshots
       VISION_SNAPSHOT_MAX_BYTES: ${VISION_SNAPSHOT_MAX_BYTES:-5242880}
+      STORE_MEDIA_DIR: /workspace/store-media
+      STORE_MEDIA_MAX_BYTES: ${STORE_MEDIA_MAX_BYTES:-209715200}
       VISION_STORE_IDS: ${VISION_STORE_IDS:-store-001,store-002}
       AUTH_REQUIRED: "false"
     ports:
@@ -83,6 +88,7 @@ services:
     volumes:
       - ./samples:/workspace/samples:ro
       - vision_snapshot_data:/workspace/vision-snapshots
+      - store_media_data:/workspace/store-media
     depends_on:
       db:
         condition: service_healthy
@@ -176,6 +182,7 @@ services:
       AUTH_REQUIRED: ${AUTH_REQUIRED:-true}
       FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
+      # 장면 초안은 GPU 서버 :8200 권장. 예: http://100.x.x.x:8200/internal/scene-suggestions
       AICC_VISION_SCENE_URL: ${AICC_VISION_SCENE_URL:-http://host.docker.internal:8200/internal/scene-suggestions}
       AICC_SCENE_REQUEST_TIMEOUT_SECONDS: ${AICC_SCENE_REQUEST_TIMEOUT_SECONDS:-120}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
@@ -223,6 +230,7 @@ services:
       AICC_GEMINI_MODEL: ${AICC_GEMINI_MODEL:-gemini-2.5-flash}
       AUTH_REQUIRED: "false"
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
+      # 장면 초안은 GPU 서버 :8200 권장. 예: http://100.x.x.x:8200/internal/scene-suggestions
       AICC_VISION_SCENE_URL: ${AICC_VISION_SCENE_URL:-http://host.docker.internal:8200/internal/scene-suggestions}
       AICC_SCENE_REQUEST_TIMEOUT_SECONDS: ${AICC_SCENE_REQUEST_TIMEOUT_SECONDS:-120}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
@@ -289,3 +297,4 @@ volumes:
   postgres_data:
   dashboard_node_modules:
   vision_snapshot_data:
+  store_media_data:

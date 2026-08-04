@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { authenticatedFetch } from '../../api/authenticatedFetch'
+import { createAnalysisJob, uploadStoreMedia } from '../../api/storeMediaApi'
 import { imageSourceToPayload } from '../settings/sceneSuggestion'
 import './StoreOnboardingView.css'
+import { extractVideoPoster } from './extractVideoPoster'
 import {
   buildOnboardingPayloads,
   ONBOARDING_ZONE_TYPES,
@@ -11,11 +13,12 @@ import {
 } from './storeOnboarding'
 
 const STEPS = [
+  { title: '분석 소스', description: '영상 또는 프레임 ZIP을 등록합니다.' },
   { title: '대표 사진', description: '현재 카메라 구도를 확인합니다.' },
   { title: 'AI 테이블 검수', description: '탐지 결과를 확인하고 잘못된 항목을 제거합니다.' },
   { title: '바닥 영역', description: '사람이 이동할 매장 바닥을 지정합니다.' },
   { title: '운영 구역', description: '필요한 분석 구역만 선택해서 지정합니다.' },
-  { title: '저장 및 적용', description: '운영 Scene과 ROI 설정으로 반영합니다.' },
+  { title: '저장 및 적용', description: 'Scene/ROI 저장 후 분석을 시작합니다.' },
 ]
 
 const OVERLAY_COLORS = {
@@ -88,7 +91,10 @@ export default function StoreOnboardingView({
   const [status, setStatus] = useState({ kind: 'idle', message: '' })
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false)
   const [savedVersions, setSavedVersions] = useState(null)
+  const [uploadedMedia, setUploadedMedia] = useState(null)
+  const [analysisJob, setAnalysisJob] = useState(null)
 
   useEffect(() => () => {
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
@@ -103,6 +109,60 @@ export default function StoreOnboardingView({
     [floorPoints, imageSize, sceneObjects, zones],
   )
 
+  const applyImageFile = (file, label) => {
+    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
+    const nextUrl = URL.createObjectURL(file)
+    objectUrlRef.current = nextUrl
+    setImageSrc(nextUrl)
+    setImageName(label || file.name)
+    setImageSize(null)
+    setSceneObjects([])
+    setAnalysis(null)
+    setIsDrawingTable(false)
+    setTableDraftPoints([])
+    setFloorPoints([])
+    setZones([])
+    setDraftZonePoints([])
+    setSavedVersions(null)
+    setAnalysisJob(null)
+  }
+
+  const selectMediaSource = async (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    const name = file.name.toLowerCase()
+    const isVideo = file.type.startsWith('video/') || /\.(mp4|webm|mov)$/.test(name)
+    const isZip = file.type.includes('zip') || name.endsWith('.zip')
+    if (!isVideo && !isZip) {
+      setStatus({ kind: 'error', message: 'mp4/webm/mov 영상 또는 프레임 ZIP만 업로드할 수 있습니다.' })
+      return
+    }
+    setIsUploadingMedia(true)
+    setStatus({ kind: 'loading', message: '분석 소스를 업로드하고 있습니다.' })
+    try {
+      const media = await uploadStoreMedia(storeId, file)
+      setUploadedMedia(media)
+      if (isVideo) {
+        const poster = await extractVideoPoster(file)
+        applyImageFile(poster, `${file.name}-poster.jpg`)
+        setStatus({
+          kind: 'success',
+          message: '영상 업로드 완료. 대표 프레임을 뽑았습니다. 다음 단계에서 구도를 확인하세요.',
+        })
+      } else {
+        setStatus({
+          kind: 'success',
+          message: 'ZIP 업로드 완료. 다음 단계에서 대표 사진(JPEG/PNG)을 선택해 주세요.',
+        })
+      }
+    } catch (error) {
+      setStatus({ kind: 'error', message: error.message })
+    } finally {
+      setIsUploadingMedia(false)
+      event.target.value = ''
+    }
+  }
+
   const selectImage = (event) => {
     const file = event.target.files?.[0]
     if (!file) return
@@ -114,20 +174,7 @@ export default function StoreOnboardingView({
       setStatus({ kind: 'error', message: '사진 크기는 5MB 이하여야 합니다.' })
       return
     }
-    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
-    const nextUrl = URL.createObjectURL(file)
-    objectUrlRef.current = nextUrl
-    setImageSrc(nextUrl)
-    setImageName(file.name)
-    setImageSize(null)
-    setSceneObjects([])
-    setAnalysis(null)
-    setIsDrawingTable(false)
-    setTableDraftPoints([])
-    setFloorPoints([])
-    setZones([])
-    setDraftZonePoints([])
-    setSavedVersions(null)
+    applyImageFile(file)
     setStatus({ kind: 'idle', message: '사진을 확인한 뒤 다음 단계로 이동하세요.' })
   }
 
@@ -183,14 +230,14 @@ export default function StoreOnboardingView({
   const handleCanvasClick = (event) => {
     if (dragging || !svgRef.current) return
     const point = pointFromEvent(event, svgRef.current)
-    if (step === 1 && isDrawingTable) {
+    if (step === 2 && isDrawingTable) {
       setTableDraftPoints((current) => [...current, point])
       return
     }
-    if (step === 2) {
+    if (step === 3) {
       setFloorPoints((current) => [...current, point])
     }
-    if (step === 3) {
+    if (step === 4) {
       if (activeZoneType === 'entrance') {
         setZones((current) => [
           ...current.filter((zone) => zone.type !== 'entrance'),
@@ -319,11 +366,17 @@ export default function StoreOnboardingView({
         JSON.stringify(completion),
       )
       setSavedVersions(completion)
+      if (!uploadedMedia?.id) {
+        throw new Error('분석 소스가 없습니다. 처음부터 영상/ZIP을 업로드해 주세요.')
+      }
+      setStatus({ kind: 'loading', message: 'GPU 분석 job을 등록하고 있습니다.' })
+      const job = await createAnalysisJob(storeId, uploadedMedia.id)
+      setAnalysisJob(job)
       setStatus({
         kind: 'success',
         message: savedRoi
-          ? `온보딩 완료 · Scene v${savedScene.version}, ROI v${savedRoi.version} 적용`
-          : `온보딩 완료 · Scene v${savedScene.version} 적용 (운영 ROI 없음)`,
+          ? `온보딩 완료 · Scene v${savedScene.version}, ROI v${savedRoi.version} · 분석 job ${job.status}`
+          : `온보딩 완료 · Scene v${savedScene.version} · 분석 job ${job.status}`,
       })
     } catch (error) {
       setStatus({ kind: 'error', message: error.message })
@@ -333,10 +386,11 @@ export default function StoreOnboardingView({
   }
 
   const canGoNext = () => {
-    if (step === 0) return Boolean(imageSrc && imageSize)
-    if (step === 1) return tableObjects.length > 0
-    if (step === 2) return floorPoints.length >= 3
-    if (step === 3) return true
+    if (step === 0) return Boolean(uploadedMedia?.id)
+    if (step === 1) return Boolean(imageSrc && imageSize)
+    if (step === 2) return tableObjects.length > 0
+    if (step === 3) return floorPoints.length >= 3
+    if (step === 4) return true
     return false
   }
 
@@ -346,9 +400,9 @@ export default function StoreOnboardingView({
         <div>
           <p className="eyebrow">STORE ONBOARDING MVP</p>
           <h3 id="store-onboarding-title">매장 카메라 온보딩</h3>
-          <p>{storeId} · {cameraId} · 대표 사진 한 장으로 운영 설정을 만듭니다.</p>
+          <p>{storeId} · {cameraId} · 업로드 소스 + Scene/ROI로 분석을 시작합니다.</p>
         </div>
-        <span className="onboarding-scope-badge">사진 기반 MVP</span>
+        <span className="onboarding-scope-badge">업로드형 온보딩</span>
       </header>
 
       <ol className="onboarding-steps">
@@ -391,7 +445,7 @@ export default function StoreOnboardingView({
                   onPointerUp={() => setDragging(null)}
                   onPointerLeave={() => setDragging(null)}
                 >
-                  {step >= 1 && sceneObjects.map((object) => (
+                  {step >= 2 && sceneObjects.map((object) => (
                     <g key={object.id}>
                       <polygon
                         points={polygonPoints(object.polygon)}
@@ -399,7 +453,7 @@ export default function StoreOnboardingView({
                         stroke={OVERLAY_COLORS[object.type] ?? '#38bdf8'}
                         strokeWidth="5"
                       />
-                      {step === 1 && object.polygon.map((point, index) => (
+                      {step === 2 && object.polygon.map((point, index) => (
                         <circle
                           key={`${object.id}-${point.x}-${point.y}-${index}`}
                           cx={point.x}
@@ -417,7 +471,7 @@ export default function StoreOnboardingView({
                       ))}
                     </g>
                   ))}
-                  {step === 1 && isDrawingTable && tableDraftPoints.length > 0 && (
+                  {step === 2 && isDrawingTable && tableDraftPoints.length > 0 && (
                     <g>
                       <polyline
                         points={polygonPoints(tableDraftPoints)}
@@ -437,7 +491,7 @@ export default function StoreOnboardingView({
                       ))}
                     </g>
                   )}
-                  {step >= 2 && floorPoints.length > 0 && (
+                  {step >= 3 && floorPoints.length > 0 && (
                     <g>
                       <polygon
                         points={polygonPoints(floorPoints)}
@@ -446,7 +500,7 @@ export default function StoreOnboardingView({
                         strokeWidth="5"
                         strokeDasharray="14 10"
                       />
-                      {step === 2 && floorPoints.map((point, index) => (
+                      {step === 3 && floorPoints.map((point, index) => (
                         <circle
                           key={`floor-${point.x}-${point.y}-${index}`}
                           cx={point.x}
@@ -457,7 +511,7 @@ export default function StoreOnboardingView({
                       ))}
                     </g>
                   )}
-                  {step >= 3 && zones.map((zone) => (
+                  {step >= 4 && zones.map((zone) => (
                     <polygon
                       key={zone.id}
                       points={polygonPoints(zone.polygon)}
@@ -466,7 +520,7 @@ export default function StoreOnboardingView({
                       strokeWidth="6"
                     />
                   ))}
-                  {step === 3 && draftZonePoints.length > 0 && (
+                  {step === 4 && draftZonePoints.length > 0 && (
                     <g>
                       <polyline
                         points={polygonPoints(draftZonePoints)}
@@ -508,18 +562,45 @@ export default function StoreOnboardingView({
           {step === 0 && (
             <div className="onboarding-control-group">
               <label className="onboarding-upload">
-                JPEG/PNG 사진 선택
-                <input type="file" accept="image/jpeg,image/png" onChange={selectImage} />
+                영상(mp4/webm/mov) 또는 프레임 ZIP
+                <input
+                  type="file"
+                  accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,application/zip,.zip"
+                  onChange={selectMediaSource}
+                  disabled={isUploadingMedia}
+                />
               </label>
+              {uploadedMedia && (
+                <p>
+                  등록됨: {uploadedMedia.filename}
+                  {' '}
+                  ({Math.round(uploadedMedia.size_bytes / 1024)} KB)
+                </p>
+              )}
               <ul className="onboarding-help">
-                <li>최대 5MB</li>
-                <li>실제 운영 카메라와 같은 위치의 사진 권장</li>
-                <li>RTSP 자격증명 저장은 이 MVP에 포함되지 않음</li>
+                <li>최대 약 200MB</li>
+                <li>영상은 업로드 후 대표 프레임을 자동으로 뽑습니다</li>
+                <li>ZIP은 다음 단계에서 대표 JPEG/PNG를 직접 선택합니다</li>
+                <li>실카메라(RTSP) 연결은 이번 범위에 없습니다</li>
               </ul>
             </div>
           )}
 
           {step === 1 && (
+            <div className="onboarding-control-group">
+              <label className="onboarding-upload">
+                JPEG/PNG 대표 사진 선택/변경
+                <input type="file" accept="image/jpeg,image/png" onChange={selectImage} />
+              </label>
+              <ul className="onboarding-help">
+                <li>최대 5MB</li>
+                <li>실제 운영 카메라와 같은 구도의 사진 권장</li>
+                <li>영상 업로드 시 자동으로 뽑힌 프레임을 써도 됩니다</li>
+              </ul>
+            </div>
+          )}
+
+          {step === 2 && (
             <div className="onboarding-control-group">
               {!isDrawingTable ? (
                 <div className="onboarding-inline-actions">
@@ -588,7 +669,7 @@ export default function StoreOnboardingView({
             </div>
           )}
 
-          {step === 2 && (
+          {step === 3 && (
             <div className="onboarding-control-group">
               <p>사진에서 사람이 이동할 수 있는 바닥 외곽을 순서대로 클릭하세요.</p>
               <strong>현재 꼭짓점 {floorPoints.length}개</strong>
@@ -602,7 +683,7 @@ export default function StoreOnboardingView({
             </div>
           )}
 
-          {step === 3 && (
+          {step === 4 && (
             <div className="onboarding-control-group">
               <div className="onboarding-zone-tabs">
                 {ONBOARDING_ZONE_TYPES.map((zone) => (
@@ -658,13 +739,17 @@ export default function StoreOnboardingView({
             </div>
           )}
 
-          {step === 4 && (
+          {step === 5 && (
             <div className="onboarding-control-group">
               <dl className="onboarding-summary">
                 <div><dt>카메라</dt><dd>{cameraId}</dd></div>
+                <div><dt>분석 소스</dt><dd>{uploadedMedia?.filename ?? '-'}</dd></div>
                 <div><dt>테이블</dt><dd>{tableObjects.length}개</dd></div>
                 <div><dt>바닥 꼭짓점</dt><dd>{floorPoints.length}개</dd></div>
                 <div><dt>운영 구역</dt><dd>{zones.length}개</dd></div>
+                {analysisJob && (
+                  <div><dt>분석 job</dt><dd>{analysisJob.status}</dd></div>
+                )}
               </dl>
               {validationErrors.length > 0 && (
                 <ul className="onboarding-errors">
@@ -675,10 +760,10 @@ export default function StoreOnboardingView({
                 <button
                   type="button"
                   className="onboarding-primary"
-                  disabled={isSaving || validationErrors.length > 0}
+                  disabled={isSaving || validationErrors.length > 0 || !uploadedMedia}
                   onClick={saveOnboarding}
                 >
-                  {isSaving ? '운영 설정 저장 중…' : 'Scene·ROI 저장 및 적용'}
+                  {isSaving ? '저장·분석 등록 중…' : 'Scene·ROI 저장 및 분석 시작'}
                 </button>
               ) : (
                 <button

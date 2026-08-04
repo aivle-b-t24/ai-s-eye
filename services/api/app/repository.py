@@ -4,6 +4,8 @@ import re
 
 from .db_repository import StoreNameAlreadyExistsError
 from .models import (
+    AnalysisJobInfo,
+    AnalysisJobStatus,
     CameraRoiConfig,
     CameraRoiConfigInput,
     CameraSceneConfig,
@@ -12,9 +14,12 @@ from .models import (
     RoiConfigStatus,
     SceneConfigStatus,
     StoreInfo,
+    StoreMediaInfo,
+    StoreMediaType,
     StoreSettings,
     StoreState,
 )
+from .store_media_storage import new_media_id
 from .order_queue import build_waiting_intervals, concurrency_at
 
 WAITING_LOOKUP_WINDOW = timedelta(hours=1)
@@ -44,6 +49,10 @@ class InMemoryRepository:
         self._order_events: dict[str, OrderEvent] = {}
         self._roi_configs: dict[tuple[str, str], list[CameraRoiConfig]] = {}
         self._scene_configs: dict[tuple[str, str], list[CameraSceneConfig]] = {}
+        self._media: dict[str, StoreMediaInfo] = {}
+        self._media_bytes: dict[str, bytes] = {}
+        self._media_paths: dict[str, str] = {}
+        self._jobs: dict[str, AnalysisJobInfo] = {}
         self._lock = RLock()
 
     def save_store_state(self, state: StoreState) -> StoreState:
@@ -90,6 +99,22 @@ class InMemoryRepository:
     def delete_store(self, store_id: str) -> None:
         with self._lock:
             self._stores.pop(store_id, None)
+            media_ids = [
+                media_id
+                for media_id, media in self._media.items()
+                if media.store_id == store_id
+            ]
+            for media_id in media_ids:
+                self._media.pop(media_id, None)
+                self._media_bytes.pop(media_id, None)
+                self._media_paths.pop(media_id, None)
+            job_ids = [
+                job_id
+                for job_id, job in self._jobs.items()
+                if job.store_id == store_id
+            ]
+            for job_id in job_ids:
+                self._jobs.pop(job_id, None)
 
     def get_store_settings(self, store_id: str) -> StoreSettings | None:
         with self._lock:
@@ -330,3 +355,118 @@ class InMemoryRepository:
                 updated.append(item)
             self._scene_configs[(store_id, camera_id)] = updated
             return approved
+
+    def save_store_media(
+        self,
+        *,
+        store_id: str,
+        media_type: StoreMediaType,
+        filename: str,
+        content_type: str,
+        content: bytes,
+        storage_path: str,
+        media_id: str | None = None,
+    ) -> StoreMediaInfo:
+        media = StoreMediaInfo(
+            id=media_id or new_media_id(),
+            store_id=store_id,
+            media_type=media_type,
+            filename=filename,
+            content_type=content_type,
+            size_bytes=len(content),
+            created_at=datetime.now(timezone.utc),
+        )
+        with self._lock:
+            self._media[media.id] = media
+            self._media_bytes[media.id] = content
+            self._media_paths[media.id] = storage_path
+        return media
+
+    def list_store_media(self, store_id: str) -> list[StoreMediaInfo]:
+        with self._lock:
+            items = [m for m in self._media.values() if m.store_id == store_id]
+            return sorted(items, key=lambda item: item.created_at, reverse=True)
+
+    def get_store_media(self, media_id: str) -> StoreMediaInfo | None:
+        with self._lock:
+            return self._media.get(media_id)
+
+    def get_store_media_bytes(self, media_id: str) -> bytes | None:
+        with self._lock:
+            return self._media_bytes.get(media_id)
+
+    def get_store_media_storage_path(self, media_id: str) -> str | None:
+        with self._lock:
+            return self._media_paths.get(media_id)
+
+    def create_analysis_job(
+        self,
+        store_id: str,
+        media_id: str,
+    ) -> AnalysisJobInfo:
+        with self._lock:
+            media = self._media.get(media_id)
+            if media is None or media.store_id != store_id:
+                raise KeyError(media_id)
+            job = AnalysisJobInfo(
+                id=new_media_id(),
+                store_id=store_id,
+                media_id=media_id,
+                status=AnalysisJobStatus.QUEUED,
+                created_at=datetime.now(timezone.utc),
+            )
+            self._jobs[job.id] = job
+            return job
+
+    def list_analysis_jobs(self, store_id: str) -> list[AnalysisJobInfo]:
+        with self._lock:
+            items = [j for j in self._jobs.values() if j.store_id == store_id]
+            return sorted(items, key=lambda item: item.created_at, reverse=True)
+
+    def claim_next_analysis_job(self, worker_id: str) -> AnalysisJobInfo | None:
+        with self._lock:
+            queued = sorted(
+                (
+                    job
+                    for job in self._jobs.values()
+                    if job.status == AnalysisJobStatus.QUEUED
+                ),
+                key=lambda job: job.created_at,
+            )
+            if not queued:
+                return None
+            job = queued[0]
+            updated = job.model_copy(
+                update={
+                    "status": AnalysisJobStatus.RUNNING,
+                    "worker_id": worker_id,
+                    "claimed_at": datetime.now(timezone.utc),
+                }
+            )
+            self._jobs[job.id] = updated
+            return updated
+
+    def update_analysis_job(
+        self,
+        job_id: str,
+        *,
+        status: AnalysisJobStatus,
+        error_message: str | None = None,
+        worker_id: str | None = None,
+    ) -> AnalysisJobInfo | None:
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None:
+                return None
+            updates: dict = {"status": status, "error_message": error_message}
+            if worker_id is not None:
+                updates["worker_id"] = worker_id
+            if status in {AnalysisJobStatus.COMPLETED, AnalysisJobStatus.FAILED}:
+                updates["completed_at"] = datetime.now(timezone.utc)
+            updated = job.model_copy(update=updates)
+            self._jobs[job_id] = updated
+            return updated
+
+    def get_analysis_job(self, job_id: str) -> AnalysisJobInfo | None:
+        with self._lock:
+            return self._jobs.get(job_id)

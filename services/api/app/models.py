@@ -567,4 +567,54 @@ class OperationsSimulationResult(BaseModel):
     scenario: OperationsSimulationScenario
     metrics: OperationsSimulationMetrics
     frames: list[OperationsSimulationFrame]
-    assumptions: list[str]
+    assumptions: list[str] = Field(default_factory=list)
+
+
+class StoreMediaType(StrEnum):
+    VIDEO = "video"
+    FRAMES_ZIP = "frames_zip"
+
+
+class AnalysisJobStatus(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class StoreMediaInfo(BaseModel):
+    id: str
+    store_id: str
+    media_type: StoreMediaType
+    filename: str
+    content_type: str
+    size_bytes: int = Field(ge=0)
+    created_at: datetime
+
+
+class AnalysisJobCreate(BaseModel):
+    media_id: str | None = None
+
+
+class AnalysisJobInfo(BaseModel):
+    id: str
+    store_id: str
+    media_id: str
+    status: AnalysisJobStatus
+    error_message: str | None = None
+    worker_id: str | None = None
+    claimed_at: datetime | None = None
+    completed_at: datetime | None = None
+    created_at: datetime
+
+
+class AnalysisJobClaim(BaseModel):
+    job: AnalysisJobInfo
+    media: StoreMediaInfo
+    download_path: str
+
+
+class AnalysisJobStatusUpdate(BaseModel):
+    status: AnalysisJobStatus
+    error_message: str | None = None
+    worker_id: str | None = None

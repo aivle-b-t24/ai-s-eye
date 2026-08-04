@@ -3696,15 +3696,13 @@ font-size: 16px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  background: rgba(3, 11, 9, 0.55) !important;
-  backdrop-filter: blur(6px) saturate(110%) !important;
-  -webkit-backdrop-filter: blur(6px) saturate(110%) !important;
+  background: rgba(0, 0, 0, 0.2) !important;
+  backdrop-filter: blur(5px) !important;
+  -webkit-backdrop-filter: blur(5px) !important;
   padding: 40px 20px !important;
   box-sizing: border-box !important;
   overflow-y: auto !important;
 }
-
-
 
 .auth-modal-overlay .auth-wrapper {
   min-height: auto !important;
@@ -3720,14 +3718,10 @@ font-size: 16px !important;
   overflow-y: auto !important;
 }
 
-
-/* Lighten background image & gradient mask on login screen */
+/* Hide dark center box gradient on login screen */
 .hero-section.is-auth-page .hero-gradient {
-  background:
-    radial-gradient(circle at 25% 40%, rgba(52, 211, 153, 0.12), transparent 52%),
-    radial-gradient(circle at 74% 44%, rgba(38, 160, 111, 0.10), transparent 45%),
-    linear-gradient(90deg, rgba(5, 22, 18, 0.35) 0%, rgba(7, 26, 21, 0.28) 35%, rgba(4, 15, 12, 0.20) 68%, rgba(3, 11, 10, 0.32) 100%),
-    linear-gradient(180deg, rgba(2, 8, 8, 0.1), rgba(2, 8, 8, 0.05) 52%, rgba(2, 8, 8, 0.2)) !important;
+  display: none !important;
+  background: transparent !important;
 }
 
 .dashboard-content .gnb-header .logout-btn {
@@ -3933,7 +3927,7 @@ font-size: 16px !important;
    ========================================================================== */
 
 .top-global-nav {
-  position: absolute;
+  /*position: absolute;*/
   inset: 0 0 auto;
   z-index: 80;
   padding: 20px 32px 0;
@@ -6269,3 +6263,572 @@ font-size: 16px !important;
     min-height: 0;
   }
 }
+
+/* =========================================================
+   네이버(Naver) 스타일 단일 정중앙 래퍼 통일 아키텍처 (Option 1)
+   ========================================================= */
+html, body {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* 1. 최상위 뷰포트 및 무조건 1440px 정중앙 고정 래퍼 */
+.page-shell,
+.page-shell.has-hero {
+  width: 100% !important;
+  max-width: 1440px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding: 0 20px !important;
+  box-sizing: border-box !important;
+}
+
+/* =========================================================
+   카페 배경 이미지를 전체 웹페이지 바탕에 완전 고정 (Full Page Fixed Wallpaper)
+   ========================================================= */
+body {
+  position: relative;
+  background-image: url("https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=2200&q=90") !important;
+  background-attachment: fixed !important;
+  background-position: center !important;
+  background-size: cover !important;
+  background-repeat: no-repeat !important;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: rgba(0, 0, 0, 0.2) !important;
+  backdrop-filter: blur(5px) !important;
+  -webkit-backdrop-filter: blur(5px) !important;
+  pointer-events: none;
+}
+
+/* 2. [추천 방향 A] 상단 카페 배경 고정 & 콘텐츠 유연 높이(640px 잘림 방지) */
+.hero-section {
+  width: 100% !important;
+  max-width: 1440px !important;
+  min-height: 640px !important;
+  height: auto !important;
+  margin: 0 auto !important;
+  border-radius: 20px !important;
+  overflow: hidden !important;
+  background: transparent !important;
+}
+
+.hero-background {
+  display: none !important;
+  opacity: 0 !important;
+}
+
+.hero-layout {
+  height: auto !important;
+  min-height: 520px !important;
+  max-width: 1440px !important;
+  margin: 0 auto !important;
+  padding-top: 75px !important;
+  padding-bottom: 40px !important;
+}
+
+/* 3. 대시보드 및 모든 하위 블록 동일한 1440px 래퍼 결합 */
+.top-global-nav,
+.gnb-header,
+.role-banner-container,
+.dashboard-content,
+.store-dashboard-view,
+.store-dashboard-view > section,
+.store-dashboard-view > article,
+.kpi-summary-bar,
+.zone-breakdown-table {
+  width: 100% !important;
+  max-width: 1440px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  box-sizing: border-box !important;
+}
+
+/* =========================================================
+   상단 검은색 헤더 100% 가로 확장 & 하단 흰색 패널 "매장 운영 인사이트" 부근 제한
+   (본사 및 점주 매장 화면 공통 적용)
+   ========================================================= */
+
+/* 1. 상단 헤더 검은색 100% 가로 꽉 차게 확장 (양옆 흰색 갭 제거) */
+.head-office-header {
+  position: sticky !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  background: #161616 !important;
+  color: #ffffff !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  z-index: 999 !important;
+}
+
+/* 2. 뒤로가기(←) 버튼 Al's Eye 로고 좌측 정밀 정렬 (겹침 100% 제거) */
+.head-office-header-inner {
+  position: relative !important;
+  padding-left: 68px !important;
+}
+
+.head-office-header .header-back-btn,
+.head-office-header .hq-back-btn {
+  position: absolute !important;
+  left: 12px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  z-index: 1000 !important;
+}
+
+/* 3. 2번 회색 띠 상자를 제거하고, 1번 메인 패널 상자를 상단바까지 2번 길이만큼 위로 확장 */
+.supervisor-shell,
+.head-office-container,
+.dashboard-content {
+  background: transparent !important;
+  min-height: auto !important;
+}
+
+.supervisor-dashboard,
+.store-dashboard-view {
+  width: 100% !important;
+  max-width: 1440px !important;
+  margin: 0 auto 0 !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-left-radius: 24px !important;
+  border-bottom-right-radius: 24px !important;
+  padding: 32px !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15) !important;
+  box-sizing: border-box !important;
+}
+
+/* 하단 외곽 바깥 띠 상자 제거 및 바닥 밀착 */
+.dashboard-content,
+.supervisor-shell {
+  padding-bottom: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+/* =========================================================
+   신규 메인 페이지 (첨부 캡처 시안 100% 반영) 스타일
+   ========================================================= */
+.hero-header.main-landing-header {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: min(1360px, calc(100% - 48px)) !important;
+  margin: 20px auto 0 !important;
+  padding: 14px 28px !important;
+  background: rgba(8, 28, 23, 0.75) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(52, 211, 153, 0.25) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35) !important;
+  z-index: 100 !important;
+}
+
+.main-landing-header .hero-brand span small {
+  color: #34d399 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 1.2px !important;
+  display: block !important;
+}
+
+.main-landing-header .hero-brand span strong {
+  color: #ffffff !important;
+  font-size: 22px !important;
+  font-weight: 800 !important;
+}
+
+.landing-auth-buttons {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+.landing-login-btn {
+  padding: 10px 22px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  border-radius: 12px !important;
+  color: #ffffff !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.landing-login-btn:hover {
+  background: rgba(255, 255, 255, 0.18) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+.landing-signup-btn {
+  padding: 10px 24px !important;
+  background: #ffffff !important;
+  border: none !important;
+  border-radius: 12px !important;
+  color: #071914 !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2) !important;
+}
+
+.landing-signup-btn:hover {
+  background: #e2e8f0 !important;
+  transform: translateY(-1px) !important;
+}
+
+.landing-main-title {
+  font-size: clamp(54px, 7vw, 84px) !important;
+  font-weight: 900 !important;
+  letter-spacing: -1.5px !important;
+  color: #ffffff !important;
+  margin: 12px 0 16px !important;
+  line-height: 1.05 !important;
+}
+
+.hero-korean-subtitle {
+  font-size: 18px !important;
+  color: #a7f3d0 !important;
+  font-weight: 600 !important;
+  margin-bottom: 28px !important;
+  letter-spacing: -0.3px !important;
+}
+
+/* =========================================================
+   매장 바탕 카페 배경 이미지 복원 (Warm Cafe Wallpaper)
+   ========================================================= */
+body {
+  position: relative !important;
+  background-image: url("https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=2200&q=90") !important;
+  background-attachment: fixed !important;
+  background-position: center !important;
+  background-size: cover !important;
+  background-repeat: no-repeat !important;
+}
+
+body::before {
+  content: "" !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: -1 !important;
+  background: rgba(0, 0, 0, 0.2) !important;
+  backdrop-filter: blur(5px) !important;
+  -webkit-backdrop-filter: blur(5px) !important;
+  pointer-events: none !important;
+}
+
+/* =========================================================
+   상단 GNB 헤더 시인성 강화
+   ========================================================= */
+.top-global-nav .gnb-header {
+  background: rgba(10, 30, 24, 0.85) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(52, 211, 153, 0.3) !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3) !important;
+  color: #ffffff !important;
+}
+
+/* =========================================================
+   KOS 매장 관리 전용 페이지 스타일
+   ========================================================= */
+.kos-management-view {
+  padding-top: 24px !important;
+}
+
+.kos-page-header {
+  margin-bottom: 24px !important;
+  padding: 24px 28px !important;
+  background: rgba(8, 28, 23, 0.85) !important;
+  border: 1px solid rgba(52, 211, 153, 0.25) !important;
+  border-radius: 18px !important;
+  color: #ffffff !important;
+}
+
+.kos-page-header h2 {
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  margin: 6px 0 !important;
+  color: #ffffff !important;
+}
+
+.kos-page-subtitle {
+  font-size: 13px !important;
+  color: #a7f3d0 !important;
+  margin: 0 !important;
+}
+
+/* =========================================================
+   로그인/회원가입 모달 우측 상단 ✕ 취소 버튼 스타일
+   ========================================================= */
+.auth-card {
+  position: relative !important;
+}
+
+.auth-modal-close-btn {
+  position: absolute !important;
+  top: 18px !important;
+  right: 20px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: #94a3b8 !important;
+  padding: 6px 14px !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  z-index: 10 !important;
+}
+
+.auth-modal-close-btn:hover {
+  background: rgba(239, 68, 68, 0.2) !important;
+  border-color: rgba(239, 68, 68, 0.5) !important;
+  color: #f87171 !important;
+}
+
+/* =========================================================
+   메인 랜딩 페이지 원클릭 체험 로그인 박스 및 하단 푸터 스타일
+   ========================================================= */
+
+.hero-copy.main-landing-copy {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important; 
+  text-align: center !important;
+  min-height: 440px !important;              
+}
+   
+.landing-demo-login-box {
+  margin-top: auto !important;
+  padding: 16px 20px !important;
+  background: rgba(8, 28, 23, 0.65) !important;
+  border: 1px solid rgba(52, 211, 153, 0.25) !important;
+  border-radius: 16px !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+}
+
+.landing-demo-login-box .demo-hint {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  color: #34d399 !important;
+  margin: 0 0 10px 0 !important;
+}
+
+.main-landing-footer {
+  width: 100% !important;
+  max-width: 1360px !important;
+  margin: 32px auto 20px !important;
+  padding: 16px 0 !important;
+  text-align: center !important;
+  font-size: 13px !important;
+  color: #94a3b8 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.main-landing-footer span {
+  margin: 0 8px !important;
+  cursor: pointer !important;
+  transition: color 0.2s ease !important;
+}
+
+.main-landing-footer span:hover {
+  color: #34d399 !important;
+}
+
+/* =========================================================
+   메인 랜딩 히어로 캡처 시안 정밀 맞춤 스타일
+   ========================================================= */
+.hero-section.main-landing-hero {
+  background: transparentr !important;
+  border-radius: 24px !important;
+  padding: 16px 24px 32px !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.landing-camera-card {
+  position: relative !important;
+  width: 100% !important;
+  min-height: 440px !important;
+  border-radius: 24px !important;
+  border: 1px solid rgba(52, 211, 153, 0.35) !important;
+  background-image: url("https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=1400&q=90") !important;
+  background-size: cover !important;
+  background-position: center !important;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.55) !important;
+  overflow: hidden !important;
+}
+
+.landing-camera-card .detection-box-waiting {
+  position: absolute !important;
+  top: 38% !important;
+  left: 45% !important;
+  width: 110px !important;
+  height: 160px !important;
+  border: 2.5px solid #34d399 !important;
+  border-radius: 8px !important;
+  box-shadow: inset 0 0 12px rgba(52, 211, 153, 0.3) !important;
+}
+
+.landing-camera-card .detection-box-person1 {
+  position: absolute !important;
+  top: 48% !important;
+  left: 68% !important;
+  width: 115px !important;
+  height: 140px !important;
+  border: 2.5px solid #38bdf8 !important;
+  border-radius: 8px !important;
+}
+
+.landing-camera-card .detection-box-person2 {
+  position: absolute !important;
+  top: 42% !important;
+  left: 80% !important;
+  width: 110px !important;
+  height: 170px !important;
+  border: 2.5px solid #38bdf8 !important;
+  border-radius: 8px !important;
+}
+
+.landing-camera-card .box-tag {
+  position: absolute !important;
+  top: -24px !important;
+  left: -2px !important;
+  padding: 3px 8px !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  border-radius: 4px !important;
+}
+
+.landing-camera-card .tag-waiting {
+  background: #34d399 !important;
+  color: #04140f !important;
+}
+
+.landing-camera-card .tag-person {
+  background: #38bdf8 !important;
+  color: #04141f !important;
+}
+
+/* =========================================================
+   메인 랜딩 전용 배경 및 고대비 헤더 보정
+   ========================================================= */
+.is-main-landing {
+  background: #051510 !important;
+  background-image: none !important;
+  min-height: 100vh !important;
+  height: 100vh !important;       
+  max-height: 100vh !important;   
+  overflow: hidden !important;     
+  box-sizing: border-box !important;
+}
+
+.is-main-landing::before {
+  display: none !important;
+}
+
+.is-main-landing .hero-section {
+  background: radial-gradient(circle at 75% 35%, rgba(14, 45, 36, 0.98), #051510 85%) !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  padding: 20px 40px 40px !important;
+  box-sizing: border-box !important;
+}
+
+.is-main-landing .hero-header {
+  max-width: 1360px !important;
+  margin: 0 auto 36px auto !important;
+  background: rgba(12, 36, 29, 0.85) !important;
+  border: 1px solid rgba(52, 211, 153, 0.3) !important;
+  border-radius: 16px !important;
+  padding: 14px 28px !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35) !important;
+}
+
+.is-main-landing .hero-brand small {
+  color: #34d399 !important;
+  font-weight: 800 !important;
+  letter-spacing: 1px !important;
+}
+
+.is-main-landing .hero-brand strong {
+  color: #ffffff !important;
+  font-size: 22px !important;
+  font-weight: 900 !important;
+}
+
+.is-main-landing .landing-login-btn {
+  background: transparent !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.3) !important;
+  color: #ffffff !important;
+  padding: 10px 24px !important;
+  border-radius: 12px !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.is-main-landing .landing-login-btn:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.is-main-landing .landing-signup-btn {
+  background: #ffffff !important;
+  border: none !important;
+  color: #051510 !important;
+  padding: 10px 24px !important;
+  border-radius: 12px !important;
+  font-size: 14px !important;
+  font-weight: 900 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 4px 14px rgba(255, 255, 255, 0.2) !important;
+}
+
+.is-main-landing .landing-signup-btn:hover {
+  background: #f1f5f9 !important;
+  transform: translateY(-1px) !important;
+}
+
+
+/* 녹색 실시간 모니터링 알약 버튼 스타일 */
+.green-pill-btn {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #071714 !important;
+  border-radius: 9999px !important;
+  padding: 10px 24px !important;
+  font-weight: 800 !important;
+  border: none !important;
+}
+/* 다크 전체 메뉴 알약 버튼 스타일 */
+.dark-pill-btn {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #071714 !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.25) !important;
+  border-radius: 9999px !important;
+  padding: 10px 24px !important;
+  font-weight: 700 !important;
+}
+
+
+

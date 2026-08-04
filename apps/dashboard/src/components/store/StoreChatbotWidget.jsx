@@ -42,7 +42,7 @@ export default function StoreChatbotWidget({ page }) {
     const query = textToSend || inputValue
     if (!query.trim() || isLoading) return
 
-    const activeStoreId = page || 'store-001'
+    const activeStoreId = (page === 'store-002' || page === 'suwan' || page === 'sangmu') ? 'store-002' : 'store-001'
 
     const userMsg = {
       id: Date.now(),

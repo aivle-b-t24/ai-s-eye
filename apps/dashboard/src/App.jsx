@@ -20,6 +20,8 @@ import { useRouting } from './hooks/useRouting'
 import { useStorePolling } from './hooks/useStorePolling'
 import { useChatbotSettings } from './hooks/useChatbotSettings'
 
+import KosStoreManagementView from './components/store/KosStoreManagementView'
+
 function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
@@ -38,6 +40,7 @@ function App() {
     handleSignupRoleChange,
     handleGoToSignup,
     handleGoToLogin,
+    handleLoginSuccess,
     handleLogout,
   } = useAuth()
 
@@ -65,6 +68,7 @@ function App() {
     <main
       className={[
         'page-shell',
+        authMode === 'main' ? 'is-main-landing' : '',
         !isDedicatedHeadOffice ? 'has-hero' : '',
         isDedicatedHeadOffice ? 'supervisor-shell no-hero' : '',
       ]
@@ -72,7 +76,7 @@ function App() {
         .join(' ')}
     >
       {authMode === 'dashboard' && !isDedicatedHeadOffice && (
-        <div className="top-global-nav is-overlay">
+        
           <GnbHeader
             page={page}
             setPage={setPage}
@@ -82,7 +86,7 @@ function App() {
             onLogout={handleLogout}
             onOpenProfile={() => setIsProfileOpen(true)}
           />
-        </div>
+        
       )}
 
       {authMode === 'dashboard' && isDedicatedHeadOffice && (
@@ -103,12 +107,21 @@ function App() {
 
       {(authMode === 'login' ||
         authMode === 'signup' ||
-        !isDedicatedHeadOffice) && (
+        authMode === 'main') && (
         <HeroSection
           page={page}
           authMode={authMode}
           dashboard={activeDashboard}
           onMenuOpen={() => setIsSidebarOpen(true)}
+          onLogin={() => {
+            setAuthRole(ROLES.STORE_MANAGER)
+            setAuthMode('login')
+          }}
+          onSignup={() => {
+            setAuthRole(ROLES.STORE_MANAGER)
+            setAuthMode('signup')
+          }}
+          onLoginSuccess={(userData) => handleLoginSuccess(userData, setPage)}
         />
       )}
 
@@ -131,7 +144,7 @@ function App() {
               onLogin={(credentials) => handleLogin(credentials, setPage)}
               onPasswordReset={handlePasswordReset}
               onGoToSignup={handleGoToSignup}
-              onClose={() => setAuthMode('dashboard')}
+              onClose={() => setAuthMode('main')}
             />
           )}
           {authMode === 'signup' && (
@@ -140,7 +153,7 @@ function App() {
               onRoleChange={handleSignupRoleChange}
               onGoToLogin={handleGoToLogin}
               onCompleteSignup={handleGoToLogin}
-              onClose={() => setAuthMode('dashboard')}
+              onClose={() => setAuthMode('main')}
             />
           )}
         </div>
@@ -164,6 +177,18 @@ function App() {
             <SupervisorHeadOfficeView
               apiBaseUrl={API_BASE_URL}
               aiccBaseUrl={CHATBOT_BASE_URL}
+            />
+          )}
+
+          {page === 'kos' && (
+            <KosStoreManagementView
+              page={page}
+              dashboard={activeDashboard}
+              soldOutCount={soldOutCount}
+              apiBaseUrl={API_BASE_URL}
+              error={error}
+              loading={loading}
+              isChatbotEnabled={chatbotSettingsMap[page] !== false}
             />
           )}
 

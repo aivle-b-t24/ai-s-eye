@@ -95,28 +95,28 @@ export function useRouting(currentUser, authReady, setAuthMode, setAuthRole) {
 
       if (
         pathname === '/login.aicafe' ||
-        pathname === '/aicafe/login' ||
-        pathname === '/' ||
-        pathname === ''
+        pathname === '/aicafe/login'
       ) {
         if (redirectAuthenticatedUser()) return
         setAuthMode('login')
         setAuthRole(ROLES.STORE_MANAGER)
-        if (pathname !== ENDPOINTS.STORE_LOGIN) {
-          window.history.replaceState({}, '', ENDPOINTS.STORE_LOGIN)
-        }
+        window.history.replaceState({}, '', ENDPOINTS.STORE_LOGIN)
+        return
+      }
+
+      if (
+        pathname === '/' ||
+        pathname === '' ||
+        pathname === '/main' ||
+        pathname === '/main.aicafe'
+      ) {
+        setAuthMode('main')
         return
       }
 
       // 3. Strict Auth Guard: If not logged in during this active React session
       if (!currentUser) {
-        setAuthMode('login')
-        const isHeadOfficePath = (
-          pathname === ENDPOINTS.HQ_DASHBOARD
-          || pathname === '/aicafe/hq'
-          || pathname === '/hq'
-        )
-        setAuthRole(isHeadOfficePath ? ROLES.ADMIN : ROLES.STORE_MANAGER)
+        setAuthMode('main')
         return
       }
 
@@ -180,9 +180,7 @@ export function useRouting(currentUser, authReady, setAuthMode, setAuthRole) {
         setAuthMode('dashboard')
         window.history.replaceState({}, '', `/${storeId || STORES.DONGMYEONG}.aicafe`)
       } else {
-        setAuthMode('login')
-        setAuthRole(ROLES.STORE_MANAGER)
-        window.history.replaceState({}, '', ENDPOINTS.STORE_LOGIN)
+        setAuthMode('main')
       }
     }
 

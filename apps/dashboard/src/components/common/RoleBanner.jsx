@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function RoleBanner({ page, apiBaseUrl, error, loading }) {
+export default function RoleBanner({ page, _apiBaseUrl, error, loading }) {
   return (
     <>
       <div className="role-banner-container">

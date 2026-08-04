@@ -76,7 +76,7 @@ function clearLocalSession() {
 }
 
 export function useAuth() {
-  const [authMode, setAuthMode] = useState('loading')
+  const [authMode, setAuthMode] = useState('main')
   const [authRole, setAuthRole] = useState(ROLES.STORE_MANAGER)
   const [currentUser, setCurrentUser] = useState(null)
   const [authReady, setAuthReady] = useState(false)
@@ -99,7 +99,7 @@ export function useAuth() {
     return onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
       if (!firebaseUser) {
         setCurrentUser(null)
-        setAuthMode((mode) => (mode === 'signup' ? mode : 'login'))
+        setAuthMode((mode) => (mode === 'signup' ? mode : 'main'))
         setAuthReady(true)
         return
       }
@@ -202,8 +202,8 @@ export function useAuth() {
       await signOut(firebaseAuth)
     }
     setCurrentUser(null)
-    setAuthMode('login')
-    window.history.pushState({}, '', ENDPOINTS.STORE_LOGIN)
+    setAuthMode('main')
+    window.history.pushState({}, '', '/')
   }
 
   const handlePasswordReset = async (email) => {

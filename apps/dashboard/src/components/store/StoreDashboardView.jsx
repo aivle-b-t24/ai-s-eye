@@ -3,8 +3,6 @@ import React, { useState, useEffect } from 'react'
 import RoleBanner from '../common/RoleBanner'
 import KpiSummaryBar from './KpiSummaryBar'
 import ZoneBreakdownTable from './ZoneBreakdownTable'
-import MenuListPanel from './MenuListPanel'
-import PolicyListPanel from './PolicyListPanel'
 import StoreChatbotWidget from './StoreChatbotWidget'
 
 export default function StoreDashboardView({
@@ -16,8 +14,8 @@ export default function StoreDashboardView({
   loading,
   isChatbotEnabled,
 }) {
-  const [isPolicyExpanded, setIsPolicyExpanded] = useState(false)
-  const [isMenuExpanded, setIsMenuExpanded] = useState(false)
+  const [isPolicyExpanded, _setIsPolicyExpanded] = useState(false)
+  const [isMenuExpanded, _setIsMenuExpanded] = useState(false)
 
   const isAnyExpanded = isPolicyExpanded || isMenuExpanded
 
@@ -80,25 +78,6 @@ export default function StoreDashboardView({
           <ZoneBreakdownTable
             storeId={page}
             zoneCounts={dashboard?.state?.zone_counts}
-          />
-        </div>
-      </section>
-
-      <section className="dashboard-bottom-grid">
-        <div className="dashboard-feature">
-          <PolicyListPanel
-            policies={dashboard?.policies}
-            isExpanded={isPolicyExpanded}
-            onToggleExpand={() => setIsPolicyExpanded((prev) => !prev)}
-          />
-        </div>
-
-        <div className="dashboard-feature">
-          <MenuListPanel
-            menus={dashboard?.menus}
-            soldOutCount={soldOutCount}
-            isExpanded={isMenuExpanded}
-            onToggleExpand={() => setIsMenuExpanded((prev) => !prev)}
           />
         </div>
       </section>

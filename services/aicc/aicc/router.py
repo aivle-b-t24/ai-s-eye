@@ -174,10 +174,6 @@ PRIORITY: tuple[QuestionType, ...] = (
     QuestionType.MENU,
 )
 
-POLICY_PENDING_MESSAGE = (
-    "정책 질문은 RAG 연결 후 답변할 수 있습니다. 지금은 정책 원문을 그대로 전달합니다."
-)
-
 UNKNOWN_MESSAGE = "매장 상태, 대기시간, 메뉴, 정책 외의 질문은 아직 답변할 수 없습니다."
 
 
@@ -215,7 +211,7 @@ def classify(question: str) -> QuestionType:
 class QuestionRouter:
     """질문 유형을 보고 알맞은 Tool을 호출한다.
 
-    정책 질문은 추후 RAG가 맡을 자리다. 그전까지는 정책 Tool의 원문을 그대로 돌려준다.
+    정책 질문은 고객 질문을 그대로 넘겨, 관련된 정책만 검색(RAG)해 돌려준다.
     """
 
     def __init__(self, tools: StoreTools | None = None) -> None:
@@ -260,11 +256,10 @@ class QuestionRouter:
                 }
             return {"tool": "order", "result": self._tools.get_order_status(order_id)}
         if question_type is QuestionType.POLICY:
+            # 고객 질문을 넘겨 관련 정책만 검색(RAG)한다. 임베딩을 못 쓰면 전체가 온다.
             return {
                 "tool": "policy",
-                "pending": "rag",
-                "note": POLICY_PENDING_MESSAGE,
-                "result": self._tools.get_policies(store_id),
+                "result": self._tools.get_policies(store_id, question),
             }
         return {
             "tool": None,

@@ -9,6 +9,7 @@ from .models import (
     OrderEvent,
     RoiConfigStatus,
     SceneConfigStatus,
+    StoreSettings,
     StoreState,
 )
 from .order_queue import build_waiting_intervals, concurrency_at
@@ -21,6 +22,7 @@ class InMemoryRepository:
 
     def __init__(self) -> None:
         self._store_states: dict[str, StoreState] = {}
+        self._store_settings: dict[str, StoreSettings] = {}
         self._order_events: dict[str, OrderEvent] = {}
         self._roi_configs: dict[tuple[str, str], list[CameraRoiConfig]] = {}
         self._scene_configs: dict[tuple[str, str], list[CameraSceneConfig]] = {}
@@ -34,6 +36,20 @@ class InMemoryRepository:
     def get_store_state(self, store_id: str) -> StoreState | None:
         with self._lock:
             return self._store_states.get(store_id)
+
+    def get_store_settings(self, store_id: str) -> StoreSettings | None:
+        with self._lock:
+            return self._store_settings.get(store_id)
+
+    def save_store_settings(self, store_id: str, max_capacity: int) -> StoreSettings:
+        settings = StoreSettings(
+            store_id=store_id,
+            max_capacity=max_capacity,
+            updated_at=datetime.now(timezone.utc),
+        )
+        with self._lock:
+            self._store_settings[store_id] = settings
+        return settings
 
     def save_order_event(self, event: OrderEvent) -> OrderEvent:
         with self._lock:

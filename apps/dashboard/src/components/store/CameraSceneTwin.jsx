@@ -671,7 +671,6 @@ export default function CameraSceneTwin({
         <div>
           <div className="camera-scene-legend">
             <span><i className="customer" />고객 {counts.customer}명</span>
-            <span><i className="queue" />대기 {counts.queue}명</span>
             <span><i className="staff" />직원 {counts.staff}명</span>
           </div>
           <div className="camera-scene-identity">

@@ -5,16 +5,17 @@
 
   export AISEYE_API=http://100.x.x.x:8000
   export INTERNAL_API_KEY=...
+  export AISEYE_CAFE_MODEL=/path/to/best.pt   # 있으면 YOLO 추적 활성화
   python upload_job_worker.py --loop
 
-모델 가중치가 없어도 프레임 추출 + 빈(ingest) state를 올려 파이프라인을 검증할 수 있다.
-YOLO 추적은 AISEYE_CAFE_MODEL 이 있을 때 확장하면 된다.
+AISEYE_CAFE_MODEL 이 없으면 프레임 추출 + 빈 ingest state만 올린다.
 """
 
 from __future__ import annotations
 
 import argparse
 import io
+import json
 import os
 import tempfile
 import time
@@ -24,6 +25,9 @@ from pathlib import Path
 
 import urllib.error
 import urllib.request
+
+DEFAULT_CAFE_MODEL = "/home/kokdo/datasets/ai-s-eye/models/best.pt"
+WORKER_DIR = Path(__file__).resolve().parent
 
 
 def _headers(api_key: str | None) -> dict[str, str]:
@@ -47,8 +51,6 @@ def http_json(method: str, url: str, api_key: str | None, data: bytes | None = N
         body = response.read()
         if not body:
             return None
-        import json
-
         return json.loads(body.decode("utf-8"))
 
 
@@ -72,8 +74,6 @@ def claim_job(api: str, api_key: str | None, worker_id: str) -> dict | None:
 
 
 def patch_job(api: str, api_key: str | None, job_id: str, status: str, error: str | None = None):
-    import json
-
     payload = {"status": status, "worker_id": os.getenv("HOSTNAME", "gpu-worker")}
     if error:
         payload["error_message"] = error
@@ -85,26 +85,10 @@ def patch_job(api: str, api_key: str | None, job_id: str, status: str, error: st
     )
 
 
-def post_state(api: str, api_key: str | None, store_id: str, frame_index: int) -> None:
-    import json
-
-    now = datetime.now(timezone.utc).isoformat()
-    payload = {
-        "schema_version": "1.0",
-        "store_id": store_id,
-        "camera_id": f"{store_id}-cam1",
-        "frame_id": f"upload-{frame_index:04d}",
-        "captured_at": now,
-        "visible_person_count": 0,
-        "queue_count_estimate": 0,
-        "zone_counts": {},
-        "quality_status": "unknown",
-        "source": "upload_ingest",
-        "model_version": "upload-worker-v1",
-    }
+def post_json(api: str, api_key: str | None, path: str, payload: dict) -> None:
     http_json(
         "POST",
-        f"{api.rstrip('/')}/internal/store-states",
+        f"{api.rstrip('/')}{path}",
         api_key,
         json.dumps(payload).encode("utf-8"),
     )
@@ -130,38 +114,51 @@ def post_snapshot(api: str, api_key: str | None, store_id: str, image_bytes: byt
         response.read()
 
 
-def post_occupancy(
-    api: str,
-    api_key: str | None,
-    store_id: str,
-    frame_index: int,
-) -> None:
-    import json
-
+def post_empty_ingest(api: str, api_key: str | None, store_id: str, frame_index: int) -> None:
     now = datetime.now(timezone.utc).isoformat()
-    payload = {
-        "schema_version": "1.0",
-        "store_id": store_id,
-        "camera_id": f"{store_id}-cam1",
-        "frame_id": f"upload-{frame_index:04d}",
-        "mode": "live",
-        "captured_at": now,
-        "source": "upload_ingest",
-        "model_version": "upload-worker-v1",
-        "coordinate_space": "normalized_image",
-        "agents": [],
-    }
-    http_json(
-        "POST",
-        f"{api.rstrip('/')}/internal/stores/{store_id}/occupancy",
+    camera_id = f"{store_id}-cam1"
+    frame_id = f"upload-{frame_index:04d}"
+    post_json(
+        api,
         api_key,
-        json.dumps(payload).encode("utf-8"),
+        "/internal/store-states",
+        {
+            "schema_version": "1.0",
+            "store_id": store_id,
+            "camera_id": camera_id,
+            "frame_id": frame_id,
+            "captured_at": now,
+            "visible_person_count": 0,
+            "queue_count_estimate": 0,
+            "zone_counts": {},
+            "quality_status": "unknown",
+            "source": "upload_ingest",
+            "model_version": "upload-worker-v1",
+        },
+    )
+    post_json(
+        api,
+        api_key,
+        f"/internal/stores/{store_id}/occupancy",
+        {
+            "schema_version": "1.0",
+            "store_id": store_id,
+            "camera_id": camera_id,
+            "frame_id": frame_id,
+            "mode": "live",
+            "captured_at": now,
+            "source": "upload_ingest",
+            "model_version": "upload-worker-v1",
+            "coordinate_space": "normalized_image",
+            "agents": [],
+        },
     )
 
 
 def extract_frames(media_bytes: bytes, media_type: str, workdir: Path) -> list[Path]:
     frames_dir = workdir / "frames"
     frames_dir.mkdir(parents=True, exist_ok=True)
+    max_frames = int(os.getenv("AISEYE_UPLOAD_MAX_FRAMES", "120"))
     if media_type == "frames_zip":
         with zipfile.ZipFile(io.BytesIO(media_bytes)) as archive:
             names = sorted(
@@ -173,13 +170,12 @@ def extract_frames(media_bytes: bytes, media_type: str, workdir: Path) -> list[P
             if not names:
                 raise ValueError("ZIP에 JPEG/PNG 프레임이 없습니다.")
             paths = []
-            for index, name in enumerate(names[:120]):
+            for index, name in enumerate(names[:max_frames]):
                 target = frames_dir / f"{index:04d}{Path(name).suffix.lower()}"
                 target.write_bytes(archive.read(name))
                 paths.append(target)
             return paths
 
-    # video — OpenCV 사용 (없으면 실패로 보고 수동 ZIP 권장)
     try:
         import cv2  # type: ignore
     except ImportError as exc:
@@ -194,11 +190,11 @@ def extract_frames(media_bytes: bytes, media_type: str, workdir: Path) -> list[P
     if not capture.isOpened():
         raise ValueError("영상을 열 수 없습니다.")
     total = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
-    step = max(1, total // 60) if total > 0 else 15
+    step = max(1, total // max_frames) if total > 0 else 15
     paths: list[Path] = []
     index = 0
     saved = 0
-    while saved < 60:
+    while saved < max_frames:
         ok, frame = capture.read()
         if not ok:
             break
@@ -214,7 +210,185 @@ def extract_frames(media_bytes: bytes, media_type: str, workdir: Path) -> list[P
     return paths
 
 
-def process_claim(api: str, api_key: str | None, claim: dict) -> None:
+def resolve_cafe_model() -> Path | None:
+    configured = os.getenv("AISEYE_CAFE_MODEL", "").strip()
+    candidates = [
+        Path(configured) if configured else None,
+        Path(DEFAULT_CAFE_MODEL),
+        WORKER_DIR.parents[1] / "best.pt",
+    ]
+    for path in candidates:
+        if path is not None and path.is_file():
+            return path
+    return None
+
+
+class CafeUploadTracker:
+    """best.pt + ByteTrack으로 업로드 프레임을 추적하고 occupancy를 만든다."""
+
+    def __init__(self, api: str, model_path: Path) -> None:
+        os.environ.setdefault("AISEYE_API_BASE_URL", api)
+        os.environ.setdefault("AISEYE_CAFE_MODEL", str(model_path))
+
+        import cv2
+        import numpy as np
+        from ultralytics import YOLO
+
+        from cafe_stores import (
+            DETECTION_CONFIDENCE,
+            MODEL_VERSION,
+            TRACKER_CONFIG,
+            person_positions,
+            runtime_roi_identity,
+            runtime_zones,
+            staff_candidates,
+        )
+        from cafe_tracking import TrackingEpoch, reset_ultralytics_tracker
+        from replay_states import prepare_occupancy
+        from roi_zone_counter import build_store_state
+
+        self.cv2 = cv2
+        self.np = np
+        self.DETECTION_CONFIDENCE = DETECTION_CONFIDENCE
+        self.TRACKER_CONFIG = TRACKER_CONFIG
+        self.MODEL_VERSION = MODEL_VERSION
+        self.person_positions = person_positions
+        self.runtime_zones = runtime_zones
+        self.runtime_roi_identity = runtime_roi_identity
+        self.staff_candidates = staff_candidates
+        self.TrackingEpoch = TrackingEpoch
+        self.reset_ultralytics_tracker = reset_ultralytics_tracker
+        self.prepare_occupancy = prepare_occupancy
+        self.build_store_state = build_store_state
+        self.ft_model = YOLO(str(model_path))
+        self.model_path = model_path
+        print(f"[tracker] loaded {model_path} conf={DETECTION_CONFIDENCE} tracker={TRACKER_CONFIG}")
+
+    def analyze_frames(
+        self,
+        api: str,
+        api_key: str | None,
+        store_id: str,
+        frames: list[Path],
+    ) -> None:
+        camera_id = f"{store_id}-cam1"
+        epoch = self.TrackingEpoch(camera_id)
+        epoch.reset()
+        self.reset_ultralytics_tracker(self.ft_model)
+
+        empty_pose = {"waiting": [], "seated": []}
+        for index, frame_path in enumerate(frames):
+            frame = self.cv2.imread(str(frame_path))
+            if frame is None:
+                print(f"[tracker] skip unreadable frame {frame_path.name}")
+                continue
+            height, width = frame.shape[:2]
+            zones = self.runtime_zones(store_id, camera_id, width, height)
+            roi_version, _roi_source = self.runtime_roi_identity(
+                store_id, camera_id, width, height
+            )
+
+            result = self.ft_model.track(
+                frame,
+                persist=True,
+                tracker=self.TRACKER_CONFIG,
+                classes=[0],
+                conf=self.DETECTION_CONFIDENCE,
+                iou=0.5,
+                agnostic_nms=True,
+                verbose=False,
+            )[0]
+            boxes = (
+                result.boxes.xyxy.cpu().numpy()
+                if result.boxes is not None
+                else self.np.empty((0, 4))
+            )
+            confidences = (
+                result.boxes.conf.cpu().numpy().tolist()
+                if result.boxes is not None
+                else []
+            )
+            local_ids = (
+                result.boxes.id.cpu().numpy().astype(int).tolist()
+                if result.boxes is not None and result.boxes.id is not None
+                else [None] * len(boxes)
+            )
+            public_ids = [
+                epoch.public_id(track_id) if track_id is not None else None
+                for track_id in local_ids
+            ]
+            staff_flags = self.staff_candidates(boxes, zones, store_id)
+            positions = self.person_positions(
+                boxes,
+                zones,
+                empty_pose,
+                public_ids,
+                confidences,
+                staff_flags,
+            )
+            customers = sum(1 for position in positions if position.get("type") != "staff")
+            staff = sum(1 for position in positions if position.get("type") == "staff")
+            waiting = sum(
+                1
+                for position in positions
+                if position.get("state") == "queue" or position.get("zone") == "waiting"
+            )
+
+            now = datetime.now(timezone.utc)
+            frame_id = f"upload-{index:04d}"
+            state = self.build_store_state(
+                {"staff": staff, "waiting": waiting},
+                customers,
+                waiting,
+                camera_id=camera_id,
+                store_id=store_id,
+                quality="normal",
+                captured_at=now,
+            )
+            state.update(
+                {
+                    "frame_id": frame_id,
+                    "processed_at": now.isoformat(),
+                    "roi_version": roi_version,
+                    "source": "upload_worker_track",
+                    "model_version": self.MODEL_VERSION,
+                    "tracking_epoch": epoch.value,
+                    "tracking_reset": index == 0,
+                    "positions": positions,
+                }
+            )
+            occupancy = self.prepare_occupancy(
+                state,
+                preserve_timestamp=True,
+                frame_width=width,
+                frame_height=height,
+            )
+            occupancy["source"] = "upload_worker_track"
+            occupancy["model_version"] = self.MODEL_VERSION
+
+            if index == 0 or index % 5 == 0:
+                try:
+                    post_snapshot(api, api_key, store_id, frame_path.read_bytes())
+                except Exception as exc:  # noqa: BLE001
+                    print(f"[tracker] snapshot warn@{index}: {exc}")
+
+            post_json(api, api_key, "/internal/store-states", state)
+            post_json(api, api_key, f"/internal/stores/{store_id}/occupancy", occupancy)
+
+            if index % 10 == 0 or index + 1 == len(frames):
+                print(
+                    f"[tracker] {index + 1}/{len(frames)} "
+                    f"people={customers} staff={staff} agents={len(occupancy.get('agents', []))}"
+                )
+            time.sleep(0.02)
+
+
+def process_claim(
+    api: str,
+    api_key: str | None,
+    claim: dict,
+    tracker: CafeUploadTracker | None,
+) -> None:
     job = claim["job"]
     media = claim["media"]
     job_id = job["id"]
@@ -224,24 +398,22 @@ def process_claim(api: str, api_key: str | None, claim: dict) -> None:
     media_bytes = http_bytes(download_url, api_key)
     with tempfile.TemporaryDirectory(prefix="aiseeye-job-") as tmp:
         frames = extract_frames(media_bytes, media["media_type"], Path(tmp))
-        first = frames[0].read_bytes()
-        # Prefer a JPEG for vision-raw; convert PNG first frame if needed later.
-        try:
-            post_snapshot(api, api_key, store_id, first)
-        except Exception as exc:  # noqa: BLE001 — 스냅샷 실패해도 state는 시도
-            print(f"[job {job_id}] snapshot warn: {exc}")
-        for index, frame_path in enumerate(frames):
-            if index > 0 and index % 10 == 0:
-                try:
-                    post_snapshot(api, api_key, store_id, frame_path.read_bytes())
-                except Exception as exc:  # noqa: BLE001
-                    print(f"[job {job_id}] snapshot warn@{index}: {exc}")
-            post_state(api, api_key, store_id, index)
+        if tracker is not None:
+            tracker.analyze_frames(api, api_key, store_id, frames)
+        else:
+            print("[job] AISEYE_CAFE_MODEL 없음 → empty ingest")
             try:
-                post_occupancy(api, api_key, store_id, index)
+                post_snapshot(api, api_key, store_id, frames[0].read_bytes())
             except Exception as exc:  # noqa: BLE001
-                print(f"[job {job_id}] occupancy warn@{index}: {exc}")
-            time.sleep(0.05)
+                print(f"[job {job_id}] snapshot warn: {exc}")
+            for index, frame_path in enumerate(frames):
+                if index > 0 and index % 10 == 0:
+                    try:
+                        post_snapshot(api, api_key, store_id, frame_path.read_bytes())
+                    except Exception as exc:  # noqa: BLE001
+                        print(f"[job {job_id}] snapshot warn@{index}: {exc}")
+                post_empty_ingest(api, api_key, store_id, index)
+                time.sleep(0.05)
     patch_job(api, api_key, job_id, "completed")
     print(f"[job {job_id}] completed frames={len(frames)}")
 
@@ -253,7 +425,29 @@ def main() -> int:
     parser.add_argument("--worker-id", default=os.getenv("HOSTNAME", "gpu-worker"))
     parser.add_argument("--loop", action="store_true")
     parser.add_argument("--interval", type=float, default=5.0)
+    parser.add_argument(
+        "--model",
+        default=os.getenv("AISEYE_CAFE_MODEL", ""),
+        help="CAFE fine-tuned YOLO weights (enables tracking)",
+    )
     args = parser.parse_args()
+
+    if args.model:
+        os.environ["AISEYE_CAFE_MODEL"] = args.model
+    os.environ.setdefault("AISEYE_API_BASE_URL", args.api)
+    if args.api_key:
+        os.environ.setdefault("INTERNAL_API_KEY", args.api_key)
+
+    model_path = Path(args.model) if args.model else resolve_cafe_model()
+    tracker: CafeUploadTracker | None = None
+    if model_path is not None:
+        try:
+            tracker = CafeUploadTracker(args.api, model_path)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[tracker] init failed, falling back to empty ingest: {exc}")
+            tracker = None
+    else:
+        print("[tracker] no CAFE model → empty ingest mode")
 
     while True:
         try:
@@ -265,7 +459,7 @@ def main() -> int:
                 time.sleep(args.interval)
                 continue
             try:
-                process_claim(args.api, args.api_key, claim)
+                process_claim(args.api, args.api_key, claim, tracker)
             except Exception as exc:  # noqa: BLE001
                 print(f"job failed: {exc}")
                 patch_job(args.api, args.api_key, claim["job"]["id"], "failed", str(exc))

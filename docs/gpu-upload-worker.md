@@ -50,9 +50,11 @@ docker compose exec api alembic upgrade head
 cd services/vision-worker
 export AISEYE_API=http://MINIPC_TAILSCALE:8000
 export INTERNAL_API_KEY=...   # 미니PC와 동일
+export AISEYE_CAFE_MODEL=/path/to/best.pt   # 사람 추적(없으면 empty ingest)
+export AISEYE_API_BASE_URL=$AISEYE_API      # ROI 조회
 # 영상 추출 시
-pip install opencv-python-headless
-python upload_job_worker.py --loop --interval 5
+pip install opencv-python-headless ultralytics
+python upload_job_worker.py --loop --interval 5 --model "$AISEYE_CAFE_MODEL"
 ```
 
 워커는

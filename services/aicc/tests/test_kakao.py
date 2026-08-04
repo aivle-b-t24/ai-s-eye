@@ -341,6 +341,20 @@ def test_multistore_asks_to_pick_when_no_store() -> None:
     assert labels == {"동명점", "수완점"}
 
 
+def test_multistore_welcome_on_first_entry() -> None:
+    """채널 첫 진입(빈 발화) → 인삿말 + 매장 선택지를 한 번에."""
+    agent = FakeAgent()
+    tc = client_with(agent, directory=two_store_directory())
+    r = tc.post("/kakao/skill", json=skill_request("", user_id="newbie"))
+    assert r.status_code == 200
+    body = r.json()
+    text = body["template"]["outputs"][0]["simpleText"]["text"]
+    assert "안녕하세요" in text  # 인삿말
+    labels = {q["label"] for q in body["template"]["quickReplies"]}
+    assert labels == {"동명점", "수완점"}  # 매장 선택지
+    assert not agent.called
+
+
 def test_multistore_select_then_ask_uses_selected_store() -> None:
     """매장 이름으로 선택 → 확인, 그 뒤 질문은 선택한 매장으로 조회."""
     agent = FakeAgent("현재 7명 있습니다.")

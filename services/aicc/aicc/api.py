@@ -49,6 +49,7 @@ from .kakao import (
     store_id_override,
     store_quick_replies,
     store_selected_text,
+    WELCOME_TEXT,
 )
 from .session import SessionStore
 from .store_directory import (
@@ -361,9 +362,12 @@ async def kakao_skill(
 
     store_id = override or session.get(user_id)
 
-    # 2·3) 아직 매장 미정 + 매장이 여러 개 → 발화로 선택 인식, 아니면 선택 버튼
+    # 2·3) 아직 매장 미정 + 매장이 여러 개
     if not store_id and directory.has_multiple():
-        selected = directory.resolve(utterance) if utterance else None
+        # 채널 첫 진입(빈 발화) → 인삿말 + 매장 선택지를 한 번에
+        if not utterance:
+            return build_skill_response(WELCOME_TEXT, store_quick_replies(directory.list()))
+        selected = directory.resolve(utterance)
         if selected:
             session.set(user_id, selected)
             return build_skill_response(

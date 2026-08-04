@@ -361,6 +361,21 @@ class CameraSceneConfigRecord(Base):
     )
 
 
+class CurrentStoreOccupancyRecord(Base):
+    """매장별 최신 디지털 트윈 occupancy(agents) 한 건."""
+
+    __tablename__ = "current_store_occupancy"
+
+    store_id: Mapped[str] = mapped_column(sa.String(100), primary_key=True)
+    payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True),
+        nullable=False,
+        server_default=sa.text("CURRENT_TIMESTAMP"),
+        onupdate=sa.text("CURRENT_TIMESTAMP"),
+    )
+
+
 class StoreMediaRecord(Base):
     """온보딩/분석용으로 업로드한 매장 영상·프레임 묶음."""
 

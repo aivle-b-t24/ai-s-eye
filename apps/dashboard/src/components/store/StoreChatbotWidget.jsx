@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { authenticatedFetch, currentIdToken } from '../../api/authenticatedFetch'
+import { storeDisplayName } from '../../api/storeDirectory'
 import { CHATBOT_BASE_URL } from '../../constants/env'
 
-export default function StoreChatbotWidget({ page }) {
+export default function StoreChatbotWidget({ page, storeName }) {
+  const resolvedStoreName = storeName || storeDisplayName(page)
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [messages, setMessages] = useState([
@@ -265,7 +267,7 @@ export default function StoreChatbotWidget({ page }) {
               </button>
               <div className="chatbot-header-title">
                 <span className="header-icon">☕</span>
-                <span>AI Cafe 매니저 ({page === 'store-002' ? '상무점' : '동명점'})</span>
+                <span>AI Cafe 매니저 ({resolvedStoreName})</span>
               </div>
             </div>
             <div className="chatbot-header-right">

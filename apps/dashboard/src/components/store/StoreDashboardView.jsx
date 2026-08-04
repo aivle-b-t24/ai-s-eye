@@ -7,6 +7,7 @@ import StoreChatbotWidget from './StoreChatbotWidget'
 
 export default function StoreDashboardView({
   page,
+  storeName,
   dashboard,
   soldOutCount,
   apiBaseUrl,
@@ -35,6 +36,7 @@ export default function StoreDashboardView({
     <section className="store-dashboard-view">
       <RoleBanner
         page={page}
+        storeName={storeName}
         apiBaseUrl={apiBaseUrl}
         error={error}
         loading={loading}
@@ -83,7 +85,9 @@ export default function StoreDashboardView({
       </section>
 
       {/* JBNU Inspired Store Chatbot Widget */}
-      {isChatbotEnabled !== false && <StoreChatbotWidget page={page} />}
+      {isChatbotEnabled !== false && (
+        <StoreChatbotWidget page={page} storeName={storeName} />
+      )}
 
     </section>
   )

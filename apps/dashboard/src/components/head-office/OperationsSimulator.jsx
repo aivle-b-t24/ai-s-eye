@@ -56,8 +56,26 @@ function recommendation(results) {
   return '행사 조건에서 직원 1명과 2명의 차이가 크지 않습니다. 방문객 수나 제조시간을 높여 임계점을 추가 확인하세요.'
 }
 
-export default function OperationsSimulator({ apiBaseUrl }) {
-  const [conditions, setConditions] = useState(DEFAULT_CONDITIONS)
+export default function OperationsSimulator({ apiBaseUrl, stores = [] }) {
+  const storeOptions = useMemo(
+    () => (stores.length > 0
+      ? stores.map((store) => ({ id: store.id, name: store.name || store.id }))
+      : [{ id: DEFAULT_CONDITIONS.store_id, name: DEFAULT_CONDITIONS.store_id }]),
+    [stores],
+  )
+  const [conditions, setConditions] = useState(() => ({
+    ...DEFAULT_CONDITIONS,
+    store_id: storeOptions[0]?.id ?? DEFAULT_CONDITIONS.store_id,
+  }))
+
+  useEffect(() => {
+    if (storeOptions.length === 0) return
+    setConditions((current) => (
+      storeOptions.some((store) => store.id === current.store_id)
+        ? current
+        : { ...current, store_id: storeOptions[0].id }
+    ))
+  }, [storeOptions])
   const [results, setResults] = useState(null)
   const [status, setStatus] = useState({ kind: 'idle', message: '' })
   const [selectedScenario, setSelectedScenario] = useState('normalOne')
@@ -153,8 +171,11 @@ export default function OperationsSimulator({ apiBaseUrl }) {
                   value={conditions.store_id}
                   onChange={(event) => updateCondition('store_id', event.target.value)}
                 >
-                  <option value="store-001">강남점</option>
-                  <option value="store-002">홍대점</option>
+                  {storeOptions.map((store) => (
+                    <option key={store.id} value={store.id}>
+                      {store.name}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label>

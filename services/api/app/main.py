@@ -222,8 +222,13 @@ def health() -> dict[str, str]:
 @app.get("/api/auth/me", tags=["auth"])
 def get_authenticated_user(
     user: CurrentUser = Depends(get_current_user),
-) -> dict[str, str]:
-    return user.response()
+) -> dict[str, str | None]:
+    payload: dict[str, str | None] = dict(user.response())
+    if user.store_id and user.store_id != "head-office":
+        store = repository.get_store(user.store_id)
+        if store is not None:
+            payload["storeName"] = store.name
+    return payload
 
 
 @app.get(

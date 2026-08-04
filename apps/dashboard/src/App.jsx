@@ -162,9 +162,10 @@ function App() {
 
       {authMode === 'dashboard' && (
         <section id="dashboard" className="dashboard-content">
-          {(page === 'store-001' || page === 'store-002') && (
+          {String(page).startsWith('store') && (
             <StoreDashboardView
               page={page}
+              storeName={currentUser?.storeName}
               dashboard={activeDashboard}
               soldOutCount={soldOutCount}
               apiBaseUrl={API_BASE_URL}
@@ -183,13 +184,16 @@ function App() {
 
           {page === 'kos' && (
             <KosStoreManagementView
-              page={page}
+              page={currentUser?.storeId || page}
+              storeName={currentUser?.storeName}
               dashboard={activeDashboard}
               soldOutCount={soldOutCount}
               apiBaseUrl={API_BASE_URL}
               error={error}
               loading={loading}
-              isChatbotEnabled={chatbotSettingsMap[page] !== false}
+              isChatbotEnabled={
+                chatbotSettingsMap[currentUser?.storeId || page] !== false
+              }
             />
           )}
 
@@ -202,6 +206,11 @@ function App() {
                 currentUser?.role === ROLES.STORE_MANAGER
                   ? currentUser.storeId
                   : STORES.DONGMYEONG
+              }
+              storeName={
+                currentUser?.role === ROLES.STORE_MANAGER
+                  ? currentUser.storeName
+                  : undefined
               }
               isChatbotEnabled={
                 chatbotSettingsMap[

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { storeDisplayName } from '../../api/storeDirectory';
 import StoreOnboardingView from '../onboarding/StoreOnboardingView';
 import RoiEditor from './RoiEditor';
 import SceneEditor from './SceneEditor';
@@ -9,9 +10,11 @@ export default function SettingsView({
   aiccBaseUrl,
   setPage,
   storeId,
+  storeName,
   isChatbotEnabled = true,
   onToggleChatbot,
 }) {
+  const resolvedStoreName = storeName || storeDisplayName(storeId)
   const [activeTab, setActiveTab] = useState('space');
   const [activeSpaceTab, setActiveSpaceTab] = useState('roi');
 
@@ -157,7 +160,7 @@ export default function SettingsView({
             {/* AI Chatbot Assistant ON/OFF Setting Toggle */}
             <div className="setting-group chatbot-setting-group">
               <label>
-                AI 챗봇 어시스턴트 기능 ({storeId === 'store-001' ? '매장 1 (동명점)' : storeId === 'store-002' ? '매장 2 (상무점)' : storeId})
+                AI 챗봇 어시스턴트 기능 ({resolvedStoreName})
               </label>
               <div className="chatbot-toggle-wrapper">
                 <div className="toggle-info-text">
@@ -165,7 +168,7 @@ export default function SettingsView({
                     {isChatbotEnabled ? '🟢 ON (사용 중)' : '🔴 OFF (비활성화)'}
                   </span>
                   <span className="toggle-desc">
-                    {storeId === 'store-001' ? '매장 1 (동명점)' : storeId === 'store-002' ? '매장 2 (상무점)' : storeId} 화면 전용 AI Cafe 챗봇 버튼 및 팝업 표시 설정
+                    {resolvedStoreName} 화면 전용 AI Cafe 챗봇 버튼 및 팝업 표시 설정
                   </span>
                 </div>
                 <button

@@ -144,7 +144,7 @@ function HeroSection({
                         handleDemoLogin(ROLES.STORE_MANAGER, STORES.DONGMYEONG)
                       }}
                     >
-                      매장 1 (동명점)
+                      데모 점주 ({STORES.DONGMYEONG})
                     </button>
                     <button
                       type="button"
@@ -154,7 +154,7 @@ function HeroSection({
                         handleDemoLogin(ROLES.STORE_MANAGER, STORES.SUWAN)
                       }}
                     >
-                      매장 2 (수완점)
+                      데모 점주 ({STORES.SUWAN})
                     </button>
                   </div>
                 )}

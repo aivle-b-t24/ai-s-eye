@@ -1,16 +1,14 @@
 import React from 'react'
-import { ROLES, STORES } from '../../constants/auth'
+import { ROLES } from '../../constants/auth'
+import { storeDisplayName } from '../../api/storeDirectory'
 
 export default function ProfileModal({ user, onClose, onLogout }) {
   if (!user) return null
 
   const isStoreManager = user.role === ROLES.STORE_MANAGER
-  const storeLabel =
-    user.storeId === STORES.DONGMYEONG
-      ? '매장 1 (동명점)'
-      : user.storeId === STORES.SUWAN
-      ? '매장 2 (수완점)'
-      : '본사 직속 관제'
+  const storeLabel = isStoreManager
+    ? (user.storeName || storeDisplayName(user.storeId))
+    : '본사 직속 관제'
 
   return (
     <div className="profile-modal-overlay" onClick={onClose} role="dialog" aria-modal="true">

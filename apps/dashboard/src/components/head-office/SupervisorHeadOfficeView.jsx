@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import './SupervisorHeadOfficeView.css'
 import { authenticatedFetch } from '../../api/authenticatedFetch'
+import {
+  fetchAdminStores,
+  storeDisplayName,
+  toStoreNameMap,
+} from '../../api/storeDirectory'
 import OperationsSimulator from './OperationsSimulator'
 import AccountManagementPanel from './AccountManagementPanel'
 import OrderTrendChart from './OrderTrendChart'
@@ -10,11 +15,6 @@ import {
   orderDataMode,
   timelineIntervalForPeriod,
 } from './supervisorPresentation'
-
-const DEFAULT_STORE_NAMES = {
-  'store-001': '동명점',
-  'store-002': '수완점',
-}
 
 const PERIOD_OPTIONS = [
   { key: '24h', label: '최근 24시간', hours: 24 },
@@ -113,8 +113,8 @@ function formatMetric(value, digits = 1) {
   })
 }
 
-function getStoreName(storeId, storeNames = DEFAULT_STORE_NAMES) {
-  return storeNames[storeId] ?? storeId
+function getStoreName(storeId, storeNames = {}) {
+  return storeDisplayName(storeId, storeNames)
 }
 
 async function getErrorMessage(response, fallback) {
@@ -242,26 +242,24 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
   const [insights, setInsights] = useState(null)
   const [insightsLoading, setInsightsLoading] = useState(false)
   const [insightsError, setInsightsError] = useState('')
-  const [storeNames, setStoreNames] = useState(DEFAULT_STORE_NAMES)
+  const [storeNames, setStoreNames] = useState({})
   const [storeIds, setStoreIds] = useState(SUPERVISOR_STORE_IDS)
+  const [storeDirectory, setStoreDirectory] = useState([])
 
   useEffect(() => {
     const controller = new AbortController()
     ;(async () => {
       try {
-        const response = await authenticatedFetch(`${apiBaseUrl}/api/admin/stores`, {
+        const stores = await fetchAdminStores(apiBaseUrl, {
           signal: controller.signal,
         })
-        if (!response.ok) return
-        const stores = await response.json()
-        if (!Array.isArray(stores) || stores.length === 0) return
+        if (stores.length === 0) return
+        setStoreDirectory(stores)
         setStoreIds(stores.map((store) => store.id))
-        setStoreNames(
-          Object.fromEntries(stores.map((store) => [store.id, store.name])),
-        )
+        setStoreNames(toStoreNameMap(stores))
       } catch (error) {
         if (error.name !== 'AbortError') {
-          // 매장 마스터 조회 실패 시 기본 매장 목록을 유지한다.
+          // 매장 마스터 조회 실패 시 store_id 표시로 폴백한다.
         }
       }
     })()
@@ -594,6 +592,7 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
 
       <OrderTrendChart
         timelines={timelines}
+        storeNames={storeNames}
         interval={activeRange.interval}
         dataLabel={orderDataLabel(orderMode)}
         loading={timelinesLoading}
@@ -694,7 +693,10 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
         </div>
       </section>
 
-      <OperationsSimulator apiBaseUrl={apiBaseUrl} />
+      <OperationsSimulator
+        apiBaseUrl={apiBaseUrl}
+        stores={storeDirectory}
+      />
 
       <section
         id="hq-ai"

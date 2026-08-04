@@ -15,6 +15,7 @@
 
 - `VITE_API_BASE_URL`: 매장 상태와 기간별 집계 API
 - `VITE_AICC_BASE_URL`: 슈퍼바이저 AI 운영 인사이트 API
-- 브라우저 호스트가 `aiseye.ldhcloud.com`이면 `VITE_CLOUD_API_BASE_URL` / `VITE_CLOUD_AICC_BASE_URL`(기본값: `https://aiseye-api.ldhcloud.com`, `https://aiseye-aicc.ldhcloud.com`)을 사용합니다. 로컬·미니PC는 기존 `VITE_API_BASE_URL` / `VITE_AICC_BASE_URL`을 유지합니다.
+- 브라우저 호스트가 `aiseye.ldhcloud.com`이면 `VITE_CLOUD_API_BASE_URL` / `VITE_CLOUD_AICC_BASE_URL`(기본값: `https://aiseye-api.ldhcloud.com`, `https://aiseye-ai.ldhcloud.com`)을 사용합니다. 로컬·미니PC는 기존 `VITE_API_BASE_URL` / `VITE_AICC_BASE_URL`을 유지합니다.
+- 같은 클라우드 호스트에서 **미디어 업로드 / analysis-jobs** 는 `VITE_UPLOAD_API_BASE_URL`(기본: `https://docker-test.tail0c814d.ts.net`, Tailscale Serve)로 보냅니다. Tailscale에 연결되지 않으면 업로드 UI를 막습니다.
 - `VITE_ENABLE_CAMERA_TWIN_V2`: `true`이면 점주 화면의 구역 현황 지도 대신
   카메라 시점 디지털 트윈을 표시합니다. `false`이면 기존 지도로 즉시 돌아갑니다.

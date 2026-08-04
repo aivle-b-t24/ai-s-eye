@@ -1,11 +1,29 @@
-import { API_BASE_URL } from '../constants/env'
+import { UPLOAD_API_BASE_URL } from '../constants/env'
 import { authenticatedFetch } from './authenticatedFetch'
+
+export async function probeUploadApi(timeoutMs = 2500) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const response = await fetch(`${UPLOAD_API_BASE_URL}/health`, {
+      method: 'GET',
+      mode: 'cors',
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+    return response.ok
+  } catch {
+    return false
+  } finally {
+    clearTimeout(timer)
+  }
+}
 
 export async function uploadStoreMedia(storeId, file) {
   const body = new FormData()
   body.append('file', file)
   const response = await authenticatedFetch(
-    `${API_BASE_URL}/api/stores/${storeId}/media`,
+    `${UPLOAD_API_BASE_URL}/api/stores/${storeId}/media`,
     { method: 'POST', body },
   )
   if (!response.ok) {
@@ -18,7 +36,7 @@ export async function uploadStoreMedia(storeId, file) {
 
 export async function listStoreMedia(storeId) {
   const response = await authenticatedFetch(
-    `${API_BASE_URL}/api/stores/${storeId}/media`,
+    `${UPLOAD_API_BASE_URL}/api/stores/${storeId}/media`,
   )
   if (!response.ok) return []
   return response.json()
@@ -26,7 +44,7 @@ export async function listStoreMedia(storeId) {
 
 export async function createAnalysisJob(storeId, mediaId) {
   const response = await authenticatedFetch(
-    `${API_BASE_URL}/api/stores/${storeId}/analysis-jobs`,
+    `${UPLOAD_API_BASE_URL}/api/stores/${storeId}/analysis-jobs`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

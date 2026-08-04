@@ -50,6 +50,7 @@ from .scene_detection import (
     SceneSuggestionUnavailableError,
     generate_scene_suggestion,
 )
+from .store_context import StoreContextProvider, build_sgis_client
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +114,8 @@ class ChatResponse(BaseModel):
 async def lifespan(app: FastAPI):
     app.state.client = StoreApiClient()
     app.state.agent = StoreAgent()
+    # 상권 프로필(SGIS)은 앱 하나당 한 번만 만들어 매장별로 캐시한다(요청마다 재조회 방지).
+    app.state.store_context = StoreContextProvider(build_sgis_client(get_settings()))
     try:
         yield
     finally:
@@ -152,9 +155,11 @@ def create_insights(req: InsightsRequest) -> Any:
             detail={"error": "store_api_error", "message": exc.message},
         ) from exc
 
-    # 2) Gemini로 분석
+    # 2) Gemini로 분석 (상권 프로필 포함). store_context가 없으면(예: 테스트) None → 내부 기본값.
     try:
-        result = generate_insights(summary)
+        result = generate_insights(
+            summary, context_provider=getattr(app.state, "store_context", None)
+        )
     except InsightsUnavailableError as exc:
         raise HTTPException(
             status_code=503,

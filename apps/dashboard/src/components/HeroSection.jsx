@@ -1,4 +1,6 @@
 import React, { useState } from 'react'
+import { useAuthContext } from '../auth/AuthContext'
+import { IS_LOCAL_AUTH_MODE } from '../auth/runtimeAuth'
 import { getDemoAccount, usesCredentialDemoLogin } from '../auth/demoAccounts'
 import { ROLES, STORES, DEMO_CREDENTIALS } from '../constants/auth'
 
@@ -12,6 +14,7 @@ function HeroSection({
   onLoginSuccess,
   onCredentialLogin,
 }) {
+  const { currentUser } = useAuthContext()
   const [isStoreSubmenuOpen, setIsStoreSubmenuOpen] = useState(false)
   const [demoError, setDemoError] = useState('')
   const [demoSubmitting, setDemoSubmitting] = useState(false)
@@ -97,6 +100,21 @@ function HeroSection({
             >
               로그인
             </button>
+
+            {!IS_LOCAL_AUTH_MODE && currentUser && (
+              <button
+                type="button"
+                className="landing-go-dashboard-btn"
+                onClick={() => {
+                  const targetPath = currentUser.role === 'admin' ? '/hq' : '/dashboard';
+                  window.history.pushState({}, '', targetPath);
+                  onGoToDashboard?.(targetPath);
+                }}
+              >
+                {currentUser.role === 'admin' ? '본사 관제 이동 ↗' : '점주 관제 이동 ↗'}
+              </button>
+            )}
+
             <button
               type="button"
               className="landing-signup-btn"

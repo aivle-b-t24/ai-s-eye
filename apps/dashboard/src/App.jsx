@@ -83,7 +83,7 @@ function PublicShell() {
     }
   }, [pathname, setAuthRole])
 
-  if (authReady && currentUser) {
+  if (authReady && currentUser && IS_LOCAL_AUTH_MODE) {
     return <Navigate to={homeForUser(currentUser)} replace />
   }
 

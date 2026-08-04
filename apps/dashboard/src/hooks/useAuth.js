@@ -154,8 +154,12 @@ export function useAuth() {
 
   const handleLoginSuccess = (userData) => {
     setCurrentUser(userData)
-    setAuthMode('dashboard')
-    navigate(homeForUser(userData), { replace: true })
+    if (IS_LOCAL_AUTH_MODE) {
+      setAuthMode('dashboard')
+      navigate(homeForUser(userData), { replace: true })
+    } else {
+      setAuthMode('main')
+    }
   }
 
   const handleLogin = async ({ email, password, remember, role }) => {

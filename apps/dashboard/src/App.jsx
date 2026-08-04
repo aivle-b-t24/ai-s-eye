@@ -21,6 +21,7 @@ import HeroSection from './components/HeroSection'
 import Sidebar from './components/Sidebar'
 import ProfileModal from './components/user/ProfileModal'
 import KosStoreManagementView from './components/store/KosStoreManagementView'
+import StoreOnboardingView from './components/onboarding/StoreOnboardingView'
 
 import { useAuthContext } from './auth/AuthContext'
 import { ROLES, STORES } from './constants/auth'
@@ -32,8 +33,10 @@ import {
   pageFromPathname,
 } from './constants/routes'
 import { useStorePolling } from './hooks/useStorePolling'
+import { useStoreSetup } from './hooks/useStoreSetup'
 import { useChatbotSettings } from './hooks/useChatbotSettings'
 import RequireAuth from './routes/RequireAuth'
+import RequireStoreSetup from './routes/RequireStoreSetup'
 import LegacyStoreRedirect from './routes/LegacyStoreRedirect'
 
 function PublicShell() {
@@ -156,6 +159,8 @@ function StoreShell() {
     storeId,
   })
 
+  const { setupReady, needsOnboarding, refreshSetup } = useStoreSetup(storeId)
+
   const { chatbotSettingsMap, handleToggleChatbotForStore } =
     useChatbotSettings()
 
@@ -166,6 +171,7 @@ function StoreShell() {
         loadStateOnly={loadStateOnly}
         loading={loading}
         user={currentUser}
+        needsOnboarding={needsOnboarding}
         onLogout={handleLogout}
         onOpenProfile={() => setIsProfileOpen(true)}
       />
@@ -189,6 +195,9 @@ function StoreShell() {
             loading,
             chatbotSettingsMap,
             handleToggleChatbotForStore,
+            setupReady,
+            needsOnboarding,
+            refreshSetup,
           }}
         />
       </section>
@@ -289,14 +298,19 @@ function SettingsRoute() {
     currentUser?.role === ROLES.STORE_MANAGER
       ? currentUser.storeId
       : STORES.DONGMYEONG
-  const { chatbotSettingsMap, handleToggleChatbotForStore } =
-    useStoreShellContext()
+  const {
+    chatbotSettingsMap,
+    handleToggleChatbotForStore,
+    needsOnboarding,
+  } = useStoreShellContext()
 
   return (
     <SettingsView
       apiBaseUrl={API_BASE_URL}
       aiccBaseUrl={CHATBOT_BASE_URL}
-      onBack={() => navigate(ROUTES.DASHBOARD)}
+      onBack={() => navigate(
+        needsOnboarding ? ROUTES.ONBOARDING : ROUTES.DASHBOARD,
+      )}
       storeId={storeId}
       storeName={
         currentUser?.role === ROLES.STORE_MANAGER
@@ -307,6 +321,25 @@ function SettingsRoute() {
       onToggleChatbot={(enabled) =>
         handleToggleChatbotForStore(storeId, enabled)
       }
+    />
+  )
+}
+
+function OnboardingRoute() {
+  const navigate = useNavigate()
+  const { currentUser } = useAuthContext()
+  const storeId = currentUser?.storeId
+  const { refreshSetup } = useStoreShellContext()
+
+  return (
+    <StoreOnboardingView
+      apiBaseUrl={API_BASE_URL}
+      aiccBaseUrl={CHATBOT_BASE_URL}
+      storeId={storeId}
+      onComplete={async () => {
+        await refreshSetup?.()
+        navigate(ROUTES.DASHBOARD, { replace: true })
+      }}
     />
   )
 }
@@ -362,10 +395,13 @@ function App() {
             </RequireAuth>
           )}
         >
-          <Route path={ROUTES.DASHBOARD} element={<StoreDashboardRoute />} />
-          <Route path={ROUTES.MENUS} element={<MenusRoute />} />
+          <Route element={<RequireStoreSetup />}>
+            <Route path={ROUTES.DASHBOARD} element={<StoreDashboardRoute />} />
+            <Route path={ROUTES.MENUS} element={<MenusRoute />} />
+            <Route path={LEGACY_ROUTES.KOS} element={<Navigate to={ROUTES.MENUS} replace />} />
+          </Route>
+          <Route path={ROUTES.ONBOARDING} element={<OnboardingRoute />} />
           <Route path={ROUTES.SETTINGS} element={<SettingsRoute />} />
-          <Route path={LEGACY_ROUTES.KOS} element={<Navigate to={ROUTES.MENUS} replace />} />
         </Route>
 
         <Route

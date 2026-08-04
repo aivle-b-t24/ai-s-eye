@@ -52,18 +52,21 @@ def test_registered_store_without_state_returns_empty_snapshot(
 ) -> None:
     created = repository.create_store("빈상태점")
     store_id = created.id
+    try:
+        state_response = client.get(f"/api/stores/{store_id}/state")
+        eta_response = client.get(f"/api/stores/{store_id}/eta")
 
-    state_response = client.get(f"/api/stores/{store_id}/state")
-    eta_response = client.get(f"/api/stores/{store_id}/eta")
-
-    assert state_response.status_code == 200
-    body = state_response.json()
-    assert body["store_id"] == store_id
-    assert body["visible_person_count"] == 0
-    assert body["source"] == "empty"
-    assert eta_response.status_code == 200
-    assert eta_response.json()["estimated_wait_minutes"] == 0
-    assert eta_response.json()["data_source"] == "empty"
+        assert state_response.status_code == 200
+        body = state_response.json()
+        assert body["store_id"] == store_id
+        assert body["visible_person_count"] == 0
+        assert body["source"] == "empty"
+        assert eta_response.status_code == 200
+        assert eta_response.json()["estimated_wait_minutes"] == 0
+        assert eta_response.json()["data_source"] == "empty"
+    finally:
+        # 다른 테스트의 다음 store_id 발급을 오염시키지 않도록 정리한다.
+        repository.delete_store(store_id)
 
 
 def test_internal_stores_returns_master_with_names(client: TestClient) -> None:

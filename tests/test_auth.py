@@ -120,10 +120,10 @@ def test_admin_can_create_store_manager_account(
     assert body["email"] == "owner02@aicafe.com"
     assert body["name"] == "상무점 점주"
     assert body["role"] == "store_manager"
-    assert body["store_id"] == "store-003"
+    assert body["store_id"].startswith("store-")
     assert body["store_name"] == "상무점"
     assert body["disabled"] is False
-    assert captured["kwargs"]["store_id"] == "store-003"
+    assert captured["kwargs"]["store_id"] == body["store_id"]
     assert captured["kwargs"]["store_name"] == "상무점"
     assert captured["kwargs"]["password"] == "temporary-password-2026"
 

@@ -4,6 +4,7 @@ import { ROUTES, pageFromPathname } from '../constants/routes'
 
 const MENU_ITEMS = [
   { id: 'dashboard', label: '대시보드', to: ROUTES.DASHBOARD },
+  { id: 'onboarding', label: '매장 온보딩', to: ROUTES.ONBOARDING },
   { id: 'kos', label: 'KOS 매장 관리', to: ROUTES.MENUS },
   { id: 'monitoring', label: '실시간 모니터링' },
   { id: 'camera', label: 'AI 카메라' },
@@ -52,6 +53,7 @@ function Sidebar({ isOpen, onClose }) {
               type="button"
               className={
                 (item.id === 'dashboard' && page === 'dashboard')
+                || (item.id === 'onboarding' && page === 'onboarding')
                 || (item.id === 'kos' && page === 'kos')
                 || (item.id === 'setting' && page === 'setting')
                   ? 'active'

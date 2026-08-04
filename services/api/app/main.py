@@ -6,7 +6,8 @@ from typing import Any, Literal
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, StreamingResponse
+import io
 import psycopg
 from pydantic import ValidationError
 
@@ -20,6 +21,11 @@ from .auth import (
 )
 from .db_repository import DatabaseRepository, StoreNameAlreadyExistsError
 from .models import (
+    AnalysisJobClaim,
+    AnalysisJobCreate,
+    AnalysisJobInfo,
+    AnalysisJobStatus,
+    AnalysisJobStatusUpdate,
     CameraRoiConfig,
     CameraRoiConfigInput,
     CameraSceneConfig,
@@ -33,6 +39,8 @@ from .models import (
     StoreInfo,
     StoreListItem,
     StoreListResponse,
+    StoreMediaInfo,
+    StoreMediaType,
     StoreSettings,
     StoreSettingsInput,
     StoreState,
@@ -42,6 +50,11 @@ from .models import (
     StoreTimelineResponse,
     TwinFrame,
     VisionSnapshotMetadata,
+)
+from .store_media_storage import (
+    media_absolute_path,
+    new_media_id,
+    save_media_bytes,
 )
 from .firebase_users import (
     FirebaseUserAlreadyExistsError,
@@ -980,6 +993,181 @@ def get_store_eta(store_id: str) -> EtaResponse:
         calculation="waiting_order_count * 3",
         data_source="order_lifecycle",
     )
+
+
+def _detect_media_type(filename: str, content_type: str) -> StoreMediaType:
+    lowered = filename.lower()
+    ctype = (content_type or "").lower()
+    if lowered.endswith((".mp4", ".webm", ".mov")) or ctype.startswith("video/"):
+        return StoreMediaType.VIDEO
+    if lowered.endswith(".zip") or ctype in {
+        "application/zip",
+        "application/x-zip-compressed",
+    }:
+        return StoreMediaType.FRAMES_ZIP
+    raise HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail="mp4/webm/mov 영상 또는 프레임 ZIP만 업로드할 수 있습니다.",
+    )
+
+
+@app.post(
+    "/api/stores/{store_id}/media",
+    response_model=StoreMediaInfo,
+    status_code=status.HTTP_201_CREATED,
+    tags=["stores"],
+    dependencies=[Depends(require_store_access)],
+)
+async def upload_store_media(
+    store_id: str,
+    file: UploadFile = File(...),
+) -> StoreMediaInfo:
+    """온보딩·분석용 영상/프레임 ZIP을 등록한다."""
+    if not repository.store_exists(store_id):
+        raise HTTPException(status_code=404, detail="Store not found")
+    filename = file.filename or "upload.bin"
+    content_type = file.content_type or "application/octet-stream"
+    media_type = _detect_media_type(filename, content_type)
+    content = await file.read(settings.store_media_max_bytes + 1)
+    await file.close()
+    if len(content) > settings.store_media_max_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"파일은 {settings.store_media_max_bytes} bytes 이하여야 합니다.",
+        )
+    if not content:
+        raise HTTPException(status_code=422, detail="빈 파일은 업로드할 수 없습니다.")
+
+    media_id = new_media_id()
+    abs_path = media_absolute_path(
+        settings.store_media_dir,
+        store_id,
+        media_id,
+        filename,
+    )
+    if settings.database_url:
+        save_media_bytes(abs_path, content)
+    return repository.save_store_media(
+        store_id=store_id,
+        media_type=media_type,
+        filename=filename,
+        content_type=content_type,
+        content=content,
+        storage_path=str(abs_path),
+        media_id=media_id,
+    )
+
+
+@app.get(
+    "/api/stores/{store_id}/media",
+    response_model=list[StoreMediaInfo],
+    tags=["stores"],
+    dependencies=[Depends(require_store_access)],
+)
+def list_store_media(store_id: str) -> list[StoreMediaInfo]:
+    return repository.list_store_media(store_id)
+
+
+@app.post(
+    "/api/stores/{store_id}/analysis-jobs",
+    response_model=AnalysisJobInfo,
+    status_code=status.HTTP_201_CREATED,
+    tags=["stores"],
+    dependencies=[Depends(require_store_access)],
+)
+def create_analysis_job(
+    store_id: str,
+    payload: AnalysisJobCreate | None = None,
+) -> AnalysisJobInfo:
+    """온보딩 완료 후 GPU 워커가 가져갈 분석 job을 큐에 넣는다."""
+    media_id = payload.media_id if payload else None
+    media_list = repository.list_store_media(store_id)
+    if not media_list:
+        raise HTTPException(
+            status_code=422,
+            detail="분석할 업로드 미디어가 없습니다. 먼저 영상/ZIP을 등록해 주세요.",
+        )
+    if media_id is None:
+        media_id = media_list[0].id
+    try:
+        return repository.create_analysis_job(store_id, media_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Media not found") from exc
+
+
+@app.get(
+    "/api/stores/{store_id}/analysis-jobs",
+    response_model=list[AnalysisJobInfo],
+    tags=["stores"],
+    dependencies=[Depends(require_store_access)],
+)
+def list_analysis_jobs(store_id: str) -> list[AnalysisJobInfo]:
+    return repository.list_analysis_jobs(store_id)
+
+
+@app.get(
+    "/internal/analysis-jobs/next",
+    response_model=AnalysisJobClaim,
+    tags=["internal"],
+    dependencies=[Depends(require_internal_service)],
+)
+def claim_next_analysis_job(worker_id: str = "gpu-worker") -> AnalysisJobClaim:
+    job = repository.claim_next_analysis_job(worker_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="No queued analysis jobs")
+    media = repository.get_store_media(job.media_id)
+    if media is None:
+        raise HTTPException(status_code=404, detail="Media not found for job")
+    return AnalysisJobClaim(
+        job=job,
+        media=media,
+        download_path=f"/internal/analysis-jobs/{job.id}/media",
+    )
+
+
+@app.get(
+    "/internal/analysis-jobs/{job_id}/media",
+    tags=["internal"],
+    dependencies=[Depends(require_internal_service)],
+)
+def download_analysis_job_media(job_id: str) -> Response:
+    job = repository.get_analysis_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    media = repository.get_store_media(job.media_id)
+    content = repository.get_store_media_bytes(job.media_id)
+    if media is None or content is None:
+        raise HTTPException(status_code=404, detail="Media bytes not found")
+    return StreamingResponse(
+        io.BytesIO(content),
+        media_type=media.content_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{media.filename}"',
+        },
+    )
+
+
+@app.patch(
+    "/internal/analysis-jobs/{job_id}",
+    response_model=AnalysisJobInfo,
+    tags=["internal"],
+    dependencies=[Depends(require_internal_service)],
+)
+def patch_analysis_job(
+    job_id: str,
+    payload: AnalysisJobStatusUpdate,
+) -> AnalysisJobInfo:
+    if payload.status == AnalysisJobStatus.QUEUED:
+        raise HTTPException(status_code=422, detail="Cannot revert job to queued")
+    updated = repository.update_analysis_job(
+        job_id,
+        status=payload.status,
+        error_message=payload.error_message,
+        worker_id=payload.worker_id,
+    )
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return updated
 
 
 @app.get(

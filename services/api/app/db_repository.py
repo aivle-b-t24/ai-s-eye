@@ -2,6 +2,7 @@
 
 from collections.abc import Callable, Collection
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 import re
 
 from sqlalchemy import delete, func, select, update
@@ -10,18 +11,22 @@ from sqlalchemy.orm import Session, selectinload
 
 from .database import get_session_factory
 from .db_models import (
+    AnalysisJobRecord,
     CameraRoiConfigRecord,
     CameraSceneConfigRecord,
     CurrentStoreStateRecord,
     HourlyStoreMetricRecord,
     OrderEventRecord,
     OrderItemRecord,
+    StoreMediaRecord,
     StoreRecord,
     StoreSettingsRecord,
     StoreStateHistoryRecord,
     StoreStateRecord,
 )
 from .models import (
+    AnalysisJobInfo,
+    AnalysisJobStatus,
     CameraRoiConfig,
     CameraRoiConfigInput,
     CameraSceneConfig,
@@ -31,11 +36,14 @@ from .models import (
     RoiConfigStatus,
     SceneConfigStatus,
     StoreInfo,
+    StoreMediaInfo,
+    StoreMediaType,
     StoreSettings,
     StoreState,
     StoreSummaryResponse,
     StoreTimelineResponse,
 )
+from .store_media_storage import new_media_id, read_media_bytes
 from .order_queue import build_waiting_intervals, concurrency_at
 from .summary import build_store_summary
 from .timeline import build_store_timeline
@@ -129,8 +137,145 @@ class DatabaseRepository:
             record = session.get(StoreRecord, store_id)
             if record is None:
                 return
+            session.execute(
+                delete(AnalysisJobRecord).where(AnalysisJobRecord.store_id == store_id)
+            )
+            session.execute(
+                delete(StoreMediaRecord).where(StoreMediaRecord.store_id == store_id)
+            )
             session.delete(record)
             session.commit()
+
+    def save_store_media(
+        self,
+        *,
+        store_id: str,
+        media_type: StoreMediaType,
+        filename: str,
+        content_type: str,
+        content: bytes,
+        storage_path: str,
+        media_id: str | None = None,
+    ) -> StoreMediaInfo:
+        media_id = media_id or new_media_id()
+        record = StoreMediaRecord(
+            id=media_id,
+            store_id=store_id,
+            media_type=media_type.value,
+            filename=filename,
+            content_type=content_type,
+            size_bytes=len(content),
+            storage_path=storage_path,
+        )
+        with self._session_factory() as session:
+            session.add(record)
+            session.commit()
+            session.refresh(record)
+            return _media_from_record(record)
+
+    def list_store_media(self, store_id: str) -> list[StoreMediaInfo]:
+        statement = (
+            select(StoreMediaRecord)
+            .where(StoreMediaRecord.store_id == store_id)
+            .order_by(StoreMediaRecord.created_at.desc())
+        )
+        with self._session_factory() as session:
+            return [_media_from_record(row) for row in session.scalars(statement)]
+
+    def get_store_media(self, media_id: str) -> StoreMediaInfo | None:
+        with self._session_factory() as session:
+            record = session.get(StoreMediaRecord, media_id)
+            return None if record is None else _media_from_record(record)
+
+    def get_store_media_bytes(self, media_id: str) -> bytes | None:
+        with self._session_factory() as session:
+            record = session.get(StoreMediaRecord, media_id)
+            if record is None:
+                return None
+            try:
+                return read_media_bytes(Path(record.storage_path))
+            except OSError:
+                return None
+
+    def get_store_media_storage_path(self, media_id: str) -> str | None:
+        with self._session_factory() as session:
+            record = session.get(StoreMediaRecord, media_id)
+            return None if record is None else record.storage_path
+
+    def create_analysis_job(
+        self,
+        store_id: str,
+        media_id: str,
+    ) -> AnalysisJobInfo:
+        with self._session_factory() as session:
+            media = session.get(StoreMediaRecord, media_id)
+            if media is None or media.store_id != store_id:
+                raise KeyError(media_id)
+            record = AnalysisJobRecord(
+                id=new_media_id(),
+                store_id=store_id,
+                media_id=media_id,
+                status=AnalysisJobStatus.QUEUED.value,
+            )
+            session.add(record)
+            session.commit()
+            session.refresh(record)
+            return _job_from_record(record)
+
+    def list_analysis_jobs(self, store_id: str) -> list[AnalysisJobInfo]:
+        statement = (
+            select(AnalysisJobRecord)
+            .where(AnalysisJobRecord.store_id == store_id)
+            .order_by(AnalysisJobRecord.created_at.desc())
+        )
+        with self._session_factory() as session:
+            return [_job_from_record(row) for row in session.scalars(statement)]
+
+    def claim_next_analysis_job(self, worker_id: str) -> AnalysisJobInfo | None:
+        with self._session_factory() as session:
+            statement = (
+                select(AnalysisJobRecord)
+                .where(AnalysisJobRecord.status == AnalysisJobStatus.QUEUED.value)
+                .order_by(AnalysisJobRecord.created_at.asc())
+                .limit(1)
+                .with_for_update(skip_locked=True)
+            )
+            record = session.scalars(statement).first()
+            if record is None:
+                return None
+            record.status = AnalysisJobStatus.RUNNING.value
+            record.worker_id = worker_id
+            record.claimed_at = datetime.now(timezone.utc)
+            session.commit()
+            session.refresh(record)
+            return _job_from_record(record)
+
+    def update_analysis_job(
+        self,
+        job_id: str,
+        *,
+        status: AnalysisJobStatus,
+        error_message: str | None = None,
+        worker_id: str | None = None,
+    ) -> AnalysisJobInfo | None:
+        with self._session_factory() as session:
+            record = session.get(AnalysisJobRecord, job_id)
+            if record is None:
+                return None
+            record.status = status.value
+            record.error_message = error_message
+            if worker_id is not None:
+                record.worker_id = worker_id
+            if status in {AnalysisJobStatus.COMPLETED, AnalysisJobStatus.FAILED}:
+                record.completed_at = datetime.now(timezone.utc)
+            session.commit()
+            session.refresh(record)
+            return _job_from_record(record)
+
+    def get_analysis_job(self, job_id: str) -> AnalysisJobInfo | None:
+        with self._session_factory() as session:
+            record = session.get(AnalysisJobRecord, job_id)
+            return None if record is None else _job_from_record(record)
 
     def get_store_settings(self, store_id: str) -> StoreSettings | None:
         """매장 운영 설정(수용 인원 등). 없으면 None."""
@@ -916,6 +1061,32 @@ def _store_info_from_record(record: StoreRecord) -> StoreInfo:
         name=record.name,
         created_at=record.created_at,
         updated_at=record.updated_at,
+    )
+
+
+def _media_from_record(record: StoreMediaRecord) -> StoreMediaInfo:
+    return StoreMediaInfo(
+        id=record.id,
+        store_id=record.store_id,
+        media_type=StoreMediaType(record.media_type),
+        filename=record.filename,
+        content_type=record.content_type,
+        size_bytes=record.size_bytes,
+        created_at=record.created_at,
+    )
+
+
+def _job_from_record(record: AnalysisJobRecord) -> AnalysisJobInfo:
+    return AnalysisJobInfo(
+        id=record.id,
+        store_id=record.store_id,
+        media_id=record.media_id,
+        status=AnalysisJobStatus(record.status),
+        error_message=record.error_message,
+        worker_id=record.worker_id,
+        claimed_at=record.claimed_at,
+        completed_at=record.completed_at,
+        created_at=record.created_at,
     )
 
 

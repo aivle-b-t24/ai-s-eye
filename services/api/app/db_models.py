@@ -359,3 +359,59 @@ class CameraSceneConfigRecord(Base):
         sa.DateTime(timezone=True),
         nullable=True,
     )
+
+
+class StoreMediaRecord(Base):
+    """온보딩/분석용으로 업로드한 매장 영상·프레임 묶음."""
+
+    __tablename__ = "store_media"
+    __table_args__ = (
+        sa.Index("ix_store_media_store_id_created_at", "store_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(sa.String(36), primary_key=True)
+    store_id: Mapped[str] = mapped_column(sa.String(100), nullable=False)
+    media_type: Mapped[str] = mapped_column(sa.String(30), nullable=False)
+    filename: Mapped[str] = mapped_column(sa.String(255), nullable=False)
+    content_type: Mapped[str] = mapped_column(sa.String(120), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(sa.BigInteger, nullable=False)
+    storage_path: Mapped[str] = mapped_column(sa.String(500), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True),
+        nullable=False,
+        server_default=sa.text("CURRENT_TIMESTAMP"),
+    )
+
+
+class AnalysisJobRecord(Base):
+    """GPU 워커가 가져갈 업로드 분석 job."""
+
+    __tablename__ = "analysis_jobs"
+    __table_args__ = (
+        sa.Index("ix_analysis_jobs_status_created_at", "status", "created_at"),
+        sa.Index("ix_analysis_jobs_store_id_created_at", "store_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(sa.String(36), primary_key=True)
+    store_id: Mapped[str] = mapped_column(sa.String(100), nullable=False)
+    media_id: Mapped[str] = mapped_column(
+        sa.String(36),
+        sa.ForeignKey("store_media.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(sa.String(30), nullable=False)
+    error_message: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    worker_id: Mapped[str | None] = mapped_column(sa.String(120), nullable=True)
+    claimed_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True),
+        nullable=True,
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True),
+        nullable=False,
+        server_default=sa.text("CURRENT_TIMESTAMP"),
+    )

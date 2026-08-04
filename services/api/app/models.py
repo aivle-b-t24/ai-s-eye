@@ -104,6 +104,22 @@ class StoreState(BaseModel):
         return self
 
 
+# 매장 수용 인원 기본값(설정이 없을 때). 혼잡도 = 현재 인원 / 수용 인원.
+DEFAULT_STORE_MAX_CAPACITY = 30
+
+
+class StoreSettingsInput(BaseModel):
+    """설정 페이지에서 저장하는 매장 운영 설정."""
+
+    max_capacity: int = Field(ge=1, le=1000)
+
+
+class StoreSettings(StoreSettingsInput):
+    store_id: str = Field(min_length=1)
+    max_capacity: int = Field(default=DEFAULT_STORE_MAX_CAPACITY, ge=1, le=1000)
+    updated_at: datetime | None = None
+
+
 class OrderItem(BaseModel):
     menu_id: str = Field(min_length=1)
     name: str | None = None

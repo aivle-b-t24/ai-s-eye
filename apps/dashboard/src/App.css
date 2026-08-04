@@ -4794,6 +4794,16 @@ font-size: 16px !important;
   background: #edf5ff;
 }
 
+.capacity-settings .capacity-desc {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.capacity-settings .capacity-input {
+  max-width: 240px;
+}
+
 .roi-editor-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 280px;

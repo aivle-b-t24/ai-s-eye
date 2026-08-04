@@ -103,4 +103,22 @@ curl -fsS https://docker-test.tail0c814d.ts.net/health
 - 오버라이드: `VITE_UPLOAD_API_BASE_URL`
 - CORS에 `https://aiseye.ldhcloud.com` 포함 필요 (이미 `.env` 권장값)
 
-데모 PC에서 Tailscale이 없으면 `http://100.86.5.67:5173` 온보딩으로 같은 HTTP API에 올리면 된다. 
+데모 PC에서 Tailscale이 없으면 `http://100.86.5.67:5173` 온보딩으로 같은 HTTP API에 올리면 된다.
+
+### store-003+ 데모 재생 (자동)
+
+권장: job 폴링 + 온보딩 완료 후 자동 루프 + 기동 시 캐시 resume
+
+```bash
+python upload_job_worker.py --loop --auto-replay --play-interval 1.0 --model "$AISEYE_CAFE_MODEL"
+```
+
+- 온보딩 analysis job 완료 후 해당 매장 재생 스레드 시작
+- 워커 재시작 시 `outputs/upload-replay/<store_id>/` 캐시로 재생 resume
+- occupancy는 API `current_store_occupancy`에 영속화 (API recreate 후에도 agents 복구)
+
+단일 매장만 수동 재생:
+
+```bash
+python upload_job_worker.py --replay-store store-003 --play-interval 1.0 --model "$AISEYE_CAFE_MODEL"
+```

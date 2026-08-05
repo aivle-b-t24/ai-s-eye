@@ -7,7 +7,7 @@ import { ROUTES } from '../constants/routes'
 export default function RequireAuth({
   children,
   roles,
-  loginPath = ROUTES.STORE_LOGIN,
+  loginPath = ROUTES.HOME,
 }) {
   const { authReady, currentUser } = useAuthContext()
   const location = useLocation()

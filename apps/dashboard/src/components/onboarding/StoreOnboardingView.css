@@ -383,6 +383,61 @@
   border-top: 1px solid #e0e0e0;
 }
 
+.onboarding-progress-container {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background: #f8f9fa;
+}
+
+.onboarding-progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.onboarding-progress-title {
+  color: #161616;
+}
+
+.onboarding-progress-pct {
+  color: #0f62fe;
+  font-size: 14px;
+}
+
+.onboarding-progress-track {
+  width: 100%;
+  height: 10px;
+  border-radius: 5px;
+  background: #e0e0e0;
+  overflow: hidden;
+}
+
+.onboarding-progress-bar {
+  height: 100%;
+  border-radius: 5px;
+  background: linear-gradient(90deg, #0f62fe 0%, #4589ff 100%);
+  transition: width 0.4s ease-in-out;
+}
+
+.onboarding-progress-bar.status-completed {
+  background: linear-gradient(90deg, #24a148 0%, #42be65 100%);
+}
+
+.onboarding-progress-bar.status-failed {
+  background: linear-gradient(90deg, #da1e28 0%, #ff8389 100%);
+}
+
+.onboarding-progress-message {
+  margin: 0;
+  color: #525252;
+  font-size: 12px;
+}
+
 @media (max-width: 1100px) {
   .onboarding-steps {
     grid-template-columns: 1fr;

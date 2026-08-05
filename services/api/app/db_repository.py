@@ -255,6 +255,10 @@ class DatabaseRepository:
         job_id: str,
         *,
         status: AnalysisJobStatus,
+        progress_percent: float | None = None,
+        processed_frames: int | None = None,
+        total_frames: int | None = None,
+        stage_message: str | None = None,
         error_message: str | None = None,
         worker_id: str | None = None,
     ) -> AnalysisJobInfo | None:
@@ -264,10 +268,20 @@ class DatabaseRepository:
                 return None
             record.status = status.value
             record.error_message = error_message
+            if progress_percent is not None:
+                record.progress_percent = progress_percent
+            if processed_frames is not None:
+                record.processed_frames = processed_frames
+            if total_frames is not None:
+                record.total_frames = total_frames
+            if stage_message is not None:
+                record.stage_message = stage_message
             if worker_id is not None:
                 record.worker_id = worker_id
             if status in {AnalysisJobStatus.COMPLETED, AnalysisJobStatus.FAILED}:
                 record.completed_at = datetime.now(timezone.utc)
+                if status == AnalysisJobStatus.COMPLETED and progress_percent is None:
+                    record.progress_percent = 100.0
             session.commit()
             session.refresh(record)
             return _job_from_record(record)
@@ -1082,6 +1096,10 @@ def _job_from_record(record: AnalysisJobRecord) -> AnalysisJobInfo:
         store_id=record.store_id,
         media_id=record.media_id,
         status=AnalysisJobStatus(record.status),
+        progress_percent=getattr(record, "progress_percent", 0.0) or 0.0,
+        processed_frames=getattr(record, "processed_frames", None),
+        total_frames=getattr(record, "total_frames", None),
+        stage_message=getattr(record, "stage_message", None),
         error_message=record.error_message,
         worker_id=record.worker_id,
         claimed_at=record.claimed_at,

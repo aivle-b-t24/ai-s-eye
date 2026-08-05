@@ -198,16 +198,16 @@ export default function MenuListPanel({ storeId = 'store-001', menus = [], setMe
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                gap: '8px',
-                padding: '12px 14px',
+                gap: '12px',
+                padding: '14px 16px',
                 marginBottom: '8px',
-                borderRadius: '10px',
-                background: menu.available ? 'rgba(255, 255, 255, 0.03)' : 'rgba(239, 68, 68, 0.08)',
-                border: menu.available ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(239, 68, 68, 0.25)',
+                borderRadius: '12px',
+                background: menu.available ? 'rgba(255, 255, 255, 0.03)' : 'rgba(239, 68, 68, 0.07)',
+                border: menu.available ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(239, 68, 68, 0.2)',
                 transition: 'all 0.2s ease',
               }}
             >
-              <div className="menu-info" style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, minWidth: 0, overflow: 'hidden' }}>
+              <div className="menu-info" style={{ display: 'flex', flexDirection: 'column', gap: '5px', flex: 1, minWidth: 0, overflow: 'hidden' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span
                     style={{
@@ -236,7 +236,7 @@ export default function MenuListPanel({ storeId = 'store-001', menus = [], setMe
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                 {/* 1-Click 품절 토글 버튼 */}
                 <button
                   type="button"
@@ -274,7 +274,7 @@ export default function MenuListPanel({ storeId = 'store-001', menus = [], setMe
                   {menu.available ? '판매 중' : '품절'}
                 </button>
 
-                <div style={{ display: 'flex', gap: '4px' }}>
+                <div style={{ display: 'flex', gap: '6px' }}>
                   <button
                     type="button"
                     onClick={() => handleOpenEdit(menu)}

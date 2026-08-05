@@ -121,6 +121,9 @@ class ChatResponse(BaseModel):
     question: str
     answer: str | None = None
     source: str  # "gemini" 또는 "keyword_fallback"
+    suggestions: list[str] = Field(
+        default_factory=list, description="이어서 물어볼 추천 질문(화면에서 버튼으로 표시)"
+    )
 
 
 @asynccontextmanager

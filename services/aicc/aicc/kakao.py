@@ -248,3 +248,35 @@ def answer_quick_replies(directory: StoreDirectory | None) -> list[dict[str, str
 
 def store_selected_text(store_name: str) -> str:
     return f"‘{store_name}’으로 안내해 드릴게요. 무엇이 궁금하세요?"
+
+
+# 리스트카드는 최대 5개 항목. 그 이상이면 선택 버튼(퀵리플라이)으로 물러난다.
+MAX_LIST_CARD_ITEMS = 5
+STORE_PICK_HEADER = "어느 매장이 궁금하세요? 🏪"
+WELCOME_INTRO = "안녕하세요! 😊 매장 혼잡도·대기·메뉴·영업시간을 안내해 드려요."
+
+
+def build_store_picker(entries: list[StoreEntry], *, greeting: bool = False) -> dict[str, Any]:
+    """매장 선택을 보기 좋게 만든다. 5개 이하면 리스트카드, 초과면 텍스트+선택버튼으로 물러난다.
+
+    greeting=True(첫 진입)면 인삿말 말풍선을 카드 앞에 붙인다.
+    """
+    if entries and len(entries) <= MAX_LIST_CARD_ITEMS:
+        outputs: list[dict[str, Any]] = []
+        if greeting:
+            outputs.append({"simpleText": {"text": WELCOME_INTRO}})
+        outputs.append(
+            {
+                "listCard": {
+                    "header": {"title": STORE_PICK_HEADER},
+                    "items": [
+                        {"title": entry.name, "action": "message", "messageText": entry.name}
+                        for entry in entries
+                    ],
+                }
+            }
+        )
+        return {"version": "2.0", "template": {"outputs": outputs}}
+    # 6개 이상(또는 비어있음): 리스트카드 한도 초과 → 텍스트 + 선택 버튼
+    text = f"{WELCOME_INTRO}\n{PICK_STORE_TEXT}" if greeting else PICK_STORE_TEXT
+    return build_skill_response(text, store_quick_replies(entries))

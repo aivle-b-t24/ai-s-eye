@@ -6061,20 +6061,27 @@ font-size: 16px !important;
    STORE 1 JBNU INSPIRED CHATBOT WIDGET STYLES
    ========================================================================== */
 
-/* Floating Trigger Container on Bottom Left (Follows Scroll) */
+/* 📍 좌측 하단 챗봇 호출 버튼 컨테이너 (최종 보완본) */
 .store-chatbot-trigger-container {
-  position: fixed;
-  /*bottom: 30px;*/
-  /*left: 30px;*/
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
+  position: fixed ;
+  bottom: 30px ;
+  left: 30px ;
+  top: auto !important;        /* 혹시 인라인/상위 스타일에 남아있을 상단 좌표 제거 */
+  right: auto !important;      /* 혹시 남아있을 우측 좌표 제거 */
+  
+  z-index: 999999 !important;  /* 대시보드 카드/이미지보다 상위에 띄움 */
+  
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 8px !important;
+  
+  user-select: none;           /* 마우스 드래그 시 텍스트 드래그 선택 방지 */
+  touch-action: none;          /* 모바일 터치 드래그 간섭 방지 */
   animation: chatbotPop 0.4s ease-out;
-  user-select: none;
-  touch-action: none;
 }
+
+
 
 @keyframes chatbotPop {
   0% { transform: scale(0.6); opacity: 0; }
@@ -6137,23 +6144,25 @@ font-size: 16px !important;
   letter-spacing: -0.02em;
 }
 
-/* Floating Chatbot Widget Panel on Bottom Right */
+
+
+/* 2. 우측 하단 대화창 패널 (스크롤 따라 내려오도록 fixed 고정) */
 .store-chatbot-panel {
-  position: fixed;
-  bottom: 30px;
-  right: 30px;
-  width: 410px;
-  max-width: calc(100vw - 40px);
-  height: 620px;
-  max-height: calc(100vh - 60px);
-  background: #ffffff;
-  border-radius: 22px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  z-index: 99999;
-  animation: chatbotSlideUp 0.3s ease-out;
+  position: fixed !important;
+  bottom: 30px !important;
+  right: 30px !important;
+  width: 410px !important;
+  max-width: calc(100vw - 40px) !important;
+  height: 620px !important;
+  max-height: calc(100vh - 60px) !important;
+  z-index: 99999 !important;
+  
+  background: #ffffff !important;
+  border-radius: 22px !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35) !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
 }
 
 @keyframes chatbotSlideUp {
@@ -7289,32 +7298,7 @@ body::before {
   color: #fff;
 }
 
-/* 📍 1. 좌측 하단 챗봇 호출 버튼 컨테이너 */
-.store-chatbot-trigger-container {
-  position: fixed !important;
-  bottom: 30px !important;
-  left: 30px !important;
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  animation: chatbotPop 0.4s ease-out;
-}
 
-/* 📍 2. 우측 하단 대화 패널 */
-.store-chatbot-panel {
-  position: fixed !important;
-  bottom: 30px !important;
-  right: 30px !important;
-  width: 410px;
-  height: 620px;
-  max-height: calc(100vh - 60px);
-  background: #ffffff;
-  border-radius: 20px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
+
+
+

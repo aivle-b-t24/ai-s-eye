@@ -243,17 +243,7 @@ export default function StoreChatbotWidget({ page, storeName }) {
       <div
         className="store-chatbot-trigger-container"
         onMouseDown={handleMouseDown}
-        style={{
-          position: 'fixed',
-          left: `${position.x}px`,
-          top: `${position.y}px`,
-          bottom: 'auto',
-          right: 'auto',
-          cursor: isDragging.current ? 'grabbing' : 'grab',
-          zIndex: 99999,
-          userSelect: 'none',
-          touchAction: 'none',
-        }}
+        
       >
         <div className="store-chatbot-speech-bubble">
           <span>카페 운영 질문 언제든 가능!</span>

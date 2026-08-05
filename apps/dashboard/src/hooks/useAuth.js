@@ -56,7 +56,15 @@ function loadLocalSession() {
   )
   if (!serialized) return null
   try {
-    return JSON.parse(serialized)
+    const profile = JSON.parse(serialized)
+    if (profile && !profile.storeName) {
+      profile.storeName = profile.storeId === 'store-001'
+        ? '동명점'
+        : profile.storeId === 'store-002'
+          ? '수완점'
+          : profile.storeId
+    }
+    return profile
   } catch {
     window.sessionStorage.removeItem(LOCAL_SESSION_KEY)
     window.localStorage.removeItem(LOCAL_SESSION_KEY)

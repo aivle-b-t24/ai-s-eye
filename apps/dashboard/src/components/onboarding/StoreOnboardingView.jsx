@@ -549,13 +549,23 @@ export default function StoreOnboardingView({
                   ))}
                   {step === 2 && isDrawingTable && tableDraftPoints.length > 0 && (
                     <g>
-                      <polyline
-                        points={polygonPoints(tableDraftPoints)}
-                        fill="none"
-                        stroke={OVERLAY_COLORS.table}
-                        strokeWidth="6"
-                        strokeDasharray="12 10"
-                      />
+                      {tableDraftPoints.length >= 3 ? (
+                        <polygon
+                          points={polygonPoints(tableDraftPoints)}
+                          fill={`${OVERLAY_COLORS.table}33`}
+                          stroke={OVERLAY_COLORS.table}
+                          strokeWidth="6"
+                          strokeDasharray="12 10"
+                        />
+                      ) : (
+                        <polyline
+                          points={polygonPoints(tableDraftPoints)}
+                          fill="none"
+                          stroke={OVERLAY_COLORS.table}
+                          strokeWidth="6"
+                          strokeDasharray="12 10"
+                        />
+                      )}
                       {tableDraftPoints.map((point, index) => (
                         <circle
                           key={`table-draft-${point.x}-${point.y}-${index}`}

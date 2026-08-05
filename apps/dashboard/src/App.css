@@ -56,6 +56,9 @@ h1, h2, h3, h4, h5, h6, p, span, label, button, input, select, textarea, div {
   padding: 32px 24px 60px;
   box-sizing: border-box;
 }
+
+
+
 .gnb-header {
 display: flex;
 align-items: center;
@@ -643,6 +646,17 @@ flex-direction: column;
 gap: 20px;
 width: 100%;
 box-sizing: border-box;
+
+background: rgba(255, 255, 255, 0.96) !important;
+border-radius: 0px !important;
+padding: 32px 40px !important;
+box-shadow: 0 20px 48px rgba(2, 2, 2, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.6) !important;
+backdrop-filter: blur(10px) !important;
+-webkit-backdrop-filter: blur(10px) !important;
+
+width: 100% !important;
+max-width: 100% !important;
+box-sizing: border-box !important;
 }
 .setting-header {
 display: flex;
@@ -4339,6 +4353,8 @@ font-size: 16px !important;
   font-size: 17.4px;
   font-weight: 700;
 }
+
+
 
 .top-global-nav .tab-btn:hover,
 .top-global-nav .tab-btn.active,

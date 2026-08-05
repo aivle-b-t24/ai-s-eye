@@ -115,7 +115,7 @@ export function useAuth() {
         setAuthError('')
       } catch (error) {
         setCurrentUser(null)
-        setAuthMode('login')
+        setAuthMode('main')
         setAuthError(error.message)
         await signOut(firebaseAuth)
       } finally {
@@ -146,7 +146,7 @@ export function useAuth() {
   }
 
   const handleGoToLogin = () => {
-    setAuthMode('login')
+    setAuthMode('main')
     navigate(
       authRole === ROLES.STORE_MANAGER ? ENDPOINTS.STORE_LOGIN : ENDPOINTS.HQ_LOGIN,
     )

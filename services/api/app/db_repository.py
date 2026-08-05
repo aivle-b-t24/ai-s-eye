@@ -19,6 +19,7 @@ from .db_models import (
     OrderEventRecord,
     OrderItemRecord,
     StoreMediaRecord,
+    StorePolicyRecord,
     StoreRecord,
     StoreSettingsRecord,
     StoreStateHistoryRecord,
@@ -38,6 +39,8 @@ from .models import (
     StoreInfo,
     StoreMediaInfo,
     StoreMediaType,
+    StorePolicyInput,
+    StorePolicyItem,
     StoreSettings,
     StoreState,
     StoreSummaryResponse,
@@ -290,6 +293,57 @@ class DatabaseRepository:
         with self._session_factory() as session:
             record = session.get(AnalysisJobRecord, job_id)
             return None if record is None else _job_from_record(record)
+
+    def get_store_policies(self, store_id: str) -> list[StorePolicyItem]:
+        with self._session_factory() as session:
+            records = session.scalars(
+                select(StorePolicyRecord)
+                .where(StorePolicyRecord.store_id == store_id)
+                .order_by(StorePolicyRecord.created_at.asc())
+            ).all()
+            return [_policy_from_record(r) for r in records]
+
+    def save_store_policy(
+        self,
+        store_id: str,
+        policy_input: StorePolicyInput,
+        policy_id: str | None = None,
+    ) -> StorePolicyItem:
+        from uuid import uuid4
+        target_id = policy_id or f"policy-{uuid4().hex[:8]}"
+        now = datetime.now(timezone.utc)
+        with self._session_factory() as session:
+            record = session.get(StorePolicyRecord, target_id)
+            if record is None:
+                record = StorePolicyRecord(
+                    policy_id=target_id,
+                    store_id=store_id,
+                    category=policy_input.category,
+                    title=policy_input.title,
+                    content=policy_input.content,
+                    keywords=policy_input.keywords,
+                    created_at=now,
+                    updated_at=now,
+                )
+                session.add(record)
+            else:
+                record.category = policy_input.category
+                record.title = policy_input.title
+                record.content = policy_input.content
+                record.keywords = policy_input.keywords
+                record.updated_at = now
+            session.commit()
+            session.refresh(record)
+            return _policy_from_record(record)
+
+    def delete_store_policy(self, store_id: str, policy_id: str) -> bool:
+        with self._session_factory() as session:
+            record = session.get(StorePolicyRecord, policy_id)
+            if record is None or record.store_id != store_id:
+                return False
+            session.delete(record)
+            session.commit()
+            return True
 
     def get_store_settings(self, store_id: str) -> StoreSettings | None:
         """매장 운영 설정(수용 인원 등). 없으면 None."""
@@ -1116,3 +1170,14 @@ def _next_store_id(session: Session) -> str:
         if match:
             max_number = max(max_number, int(match.group(1)))
     return f"store-{max_number + 1:03d}"
+
+
+def _policy_from_record(record: StorePolicyRecord) -> StorePolicyItem:
+    return StorePolicyItem(
+        policy_id=record.policy_id,
+        store_id=record.store_id,
+        category=record.category or "general",
+        title=record.title,
+        content=record.content,
+        keywords=record.keywords if isinstance(record.keywords, list) else [],
+    )

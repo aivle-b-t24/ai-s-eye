@@ -2,6 +2,8 @@ from threading import RLock
 from datetime import datetime, timedelta, timezone
 import re
 
+from uuid import uuid4
+
 from .db_repository import StoreNameAlreadyExistsError
 from .models import (
     AnalysisJobInfo,
@@ -16,6 +18,8 @@ from .models import (
     StoreInfo,
     StoreMediaInfo,
     StoreMediaType,
+    StorePolicyInput,
+    StorePolicyItem,
     StoreSettings,
     StoreState,
 )
@@ -484,3 +488,42 @@ class InMemoryRepository:
     def get_analysis_job(self, job_id: str) -> AnalysisJobInfo | None:
         with self._lock:
             return self._jobs.get(job_id)
+
+    def get_store_policies(self, store_id: str) -> list[StorePolicyItem]:
+        with self._lock:
+            if not hasattr(self, "_policies"):
+                self._policies: dict[str, dict[str, StorePolicyItem]] = {}
+            store_map = self._policies.get(store_id, {})
+            return list(store_map.values())
+
+    def save_store_policy(
+        self,
+        store_id: str,
+        policy_input: StorePolicyInput,
+        policy_id: str | None = None,
+    ) -> StorePolicyItem:
+        with self._lock:
+            if not hasattr(self, "_policies"):
+                self._policies = {}
+            if store_id not in self._policies:
+                self._policies[store_id] = {}
+            target_id = policy_id or f"policy-{uuid4().hex[:8]}"
+            item = StorePolicyItem(
+                policy_id=target_id,
+                store_id=store_id,
+                category=policy_input.category,
+                title=policy_input.title,
+                content=policy_input.content,
+                keywords=policy_input.keywords,
+            )
+            self._policies[store_id][target_id] = item
+            return item
+
+    def delete_store_policy(self, store_id: str, policy_id: str) -> bool:
+        with self._lock:
+            if not hasattr(self, "_policies") or store_id not in self._policies:
+                return False
+            if policy_id in self._policies[store_id]:
+                del self._policies[store_id][policy_id]
+                return True
+            return False

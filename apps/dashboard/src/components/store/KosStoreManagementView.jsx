@@ -63,7 +63,9 @@ export default function KosStoreManagementView({
       <section className="dashboard-bottom-grid kos-grid">
         <div className="dashboard-feature">
           <PolicyListPanel
+            storeId={currentStoreId}
             policies={policies}
+            setPolicies={setPolicies}
             isExpanded={isPolicyExpanded}
             onToggleExpand={() => setIsPolicyExpanded((prev) => !prev)}
           />

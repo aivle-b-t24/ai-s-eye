@@ -37,6 +37,7 @@ export default function GnbHeader({
 
   return (
     <header className="gnb-header">
+      
       <button
         type="button"
         className="header-back-btn"
@@ -49,7 +50,7 @@ export default function GnbHeader({
           <polyline points="12 19 5 12 12 5" />
         </svg>
       </button>
-
+      
       <div className="brand-zone">
         <span className="brand-badge">AI MONITORING SYSTEM</span>
         <h1 className="brand-title">AI&apos;s Eye</h1>

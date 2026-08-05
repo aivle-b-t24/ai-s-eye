@@ -152,6 +152,9 @@ def test_system_prompt_has_probable_cause_guardrail() -> None:
     assert "추정" in SYSTEM_PROMPT  # 가설 어투 강제
     assert "지어내지 않는다" in SYSTEM_PROMPT  # 상권 통계에 없는 사실 지어내기 금지
     assert "실제 POS 실적이라고 표현하지 않는다" in SYSTEM_PROMPT
+    assert "지점명은 절대 지어내지 않는다" in SYSTEM_PROMPT  # 강남점 등 임의 지점명 환각 금지
+    assert "글자 그대로만 쓴다" in SYSTEM_PROMPT  # 동 이름 바꿔치기(신림동 등) 금지
+    assert "evidence에 넣지 않는다" in SYSTEM_PROMPT  # evidence는 숫자만
 
 
 class FakeContext:
@@ -228,6 +231,15 @@ def test_non_json_response_raises() -> None:
     client = FakeGemini("이건 JSON이 아님")
     with pytest.raises(InsightsUnavailableError):
         generate_insights(summary(), client=client)
+
+
+def test_empty_stores_raises_without_calling_gemini() -> None:
+    """데이터가 0개면 Gemini를 부르지 않고 명확한 오류를 낸다(빈 입력 지어내기 방지)."""
+    capture: dict[str, Any] = {}
+    client = FakeGemini(json.dumps(FAKE_OUTPUT), capture=capture)
+    with pytest.raises(InsightsUnavailableError, match="데이터가 없습니다"):
+        generate_insights({"stores": []}, client=client)
+    assert "contents" not in capture  # Gemini 호출이 아예 안 됨
 
 
 @pytest.mark.parametrize("bad", [[], "문자열", {"period": {}}, {"stores": "리스트아님"}, None])

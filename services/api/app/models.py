@@ -626,3 +626,25 @@ class AnalysisJobStatusUpdate(BaseModel):
     stage_message: str | None = None
     error_message: str | None = None
     worker_id: str | None = None
+
+
+class StorePolicyItem(BaseModel):
+    policy_id: str
+    store_id: str
+    category: str = "general"
+    title: str = Field(min_length=1, max_length=100)
+    content: str = Field(min_length=1)
+    keywords: list[str] = Field(default_factory=list)
+
+
+class StorePolicyInput(BaseModel):
+    category: str = "general"
+    title: str = Field(min_length=1, max_length=100)
+    content: str = Field(min_length=1)
+    keywords: list[str] = Field(default_factory=list)
+
+
+class StorePolicyListResponse(BaseModel):
+    data_source: str = "db"
+    store_id: str
+    policies: list[StorePolicyItem] = Field(default_factory=list)

@@ -52,3 +52,46 @@ export async function saveStoreSettings(storeId, maxCapacity) {
   }
   return response.json()
 }
+
+export async function createStorePolicy(storeId, policyData) {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/stores/${storeId}/policies`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(policyData),
+    },
+  )
+  if (!response.ok) {
+    throw new Error(`정책 생성 실패 (${response.status})`)
+  }
+  return response.json()
+}
+
+export async function updateStorePolicy(storeId, policyId, policyData) {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/stores/${storeId}/policies/${policyId}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(policyData),
+    },
+  )
+  if (!response.ok) {
+    throw new Error(`정책 수정 실패 (${response.status})`)
+  }
+  return response.json()
+}
+
+export async function deleteStorePolicy(storeId, policyId) {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/stores/${storeId}/policies/${policyId}`,
+    {
+      method: 'DELETE',
+    },
+  )
+  if (!response.ok) {
+    throw new Error(`정책 삭제 실패 (${response.status})`)
+  }
+  return response.json()
+}

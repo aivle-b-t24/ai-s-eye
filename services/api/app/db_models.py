@@ -438,3 +438,33 @@ class AnalysisJobRecord(Base):
         nullable=False,
         server_default=sa.text("CURRENT_TIMESTAMP"),
     )
+
+
+class StorePolicyRecord(Base):
+    """매장 안내 및 정책 DB 모델."""
+
+    __tablename__ = "store_policies"
+    __table_args__ = (
+        sa.Index("ix_store_policies_store_id", "store_id"),
+    )
+
+    policy_id: Mapped[str] = mapped_column(sa.String(36), primary_key=True)
+    store_id: Mapped[str] = mapped_column(sa.String(100), nullable=False)
+    category: Mapped[str] = mapped_column(sa.String(50), nullable=False, server_default="general")
+    title: Mapped[str] = mapped_column(sa.String(100), nullable=False)
+    content: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    keywords: Mapped[list] = mapped_column(
+        JSONB(astext_type=sa.Text()),
+        nullable=False,
+        server_default="[]",
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True),
+        nullable=False,
+        server_default=sa.text("CURRENT_TIMESTAMP"),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True),
+        nullable=False,
+        server_default=sa.text("CURRENT_TIMESTAMP"),
+    )

@@ -42,6 +42,9 @@ from .models import (
     StoreListResponse,
     StoreMediaInfo,
     StoreMediaType,
+    StorePolicyInput,
+    StorePolicyItem,
+    StorePolicyListResponse,
     StoreSettings,
     StoreSettingsInput,
     StoreState,
@@ -1229,14 +1232,69 @@ def get_store_menus(store_id: str) -> dict[str, Any]:
 
 @app.get(
     "/api/stores/{store_id}/policies",
+    response_model=StorePolicyListResponse,
     tags=["stores"],
     dependencies=[Depends(require_store_access)],
 )
-def get_store_policies(store_id: str) -> dict[str, Any]:
-    policy_data = load_json_file("policies.json")
-    policies = [
-        policy
-        for policy in policy_data.get("policies", [])
-        if policy.get("store_id") == store_id
-    ]
-    return {**policy_data, "store_id": store_id, "policies": policies}
+def get_store_policies(store_id: str) -> StorePolicyListResponse:
+    policies = repository.get_store_policies(store_id)
+    if not policies:
+        policy_data = load_json_file("policies.json")
+        raw_policies = [
+            p for p in policy_data.get("policies", [])
+            if p.get("store_id") == store_id
+        ]
+        for p in raw_policies:
+            inp = StorePolicyInput(
+                category=p.get("category", "general"),
+                title=p.get("title", ""),
+                content=p.get("content", ""),
+                keywords=p.get("keywords", []),
+            )
+            repository.save_store_policy(store_id, inp, policy_id=p.get("policy_id"))
+        policies = repository.get_store_policies(store_id)
+    return StorePolicyListResponse(
+        data_source="db",
+        store_id=store_id,
+        policies=policies,
+    )
+
+
+@app.post(
+    "/api/stores/{store_id}/policies",
+    response_model=StorePolicyItem,
+    status_code=status.HTTP_201_CREATED,
+    tags=["stores"],
+    dependencies=[Depends(require_store_access)],
+)
+def create_store_policy(
+    store_id: str,
+    payload: StorePolicyInput,
+) -> StorePolicyItem:
+    return repository.save_store_policy(store_id, payload)
+
+
+@app.put(
+    "/api/stores/{store_id}/policies/{policy_id}",
+    response_model=StorePolicyItem,
+    tags=["stores"],
+    dependencies=[Depends(require_store_access)],
+)
+def update_store_policy(
+    store_id: str,
+    policy_id: str,
+    payload: StorePolicyInput,
+) -> StorePolicyItem:
+    return repository.save_store_policy(store_id, payload, policy_id=policy_id)
+
+
+@app.delete(
+    "/api/stores/{store_id}/policies/{policy_id}",
+    tags=["stores"],
+    dependencies=[Depends(require_store_access)],
+)
+def delete_store_policy(store_id: str, policy_id: str) -> dict[str, Any]:
+    deleted = repository.delete_store_policy(store_id, policy_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Policy not found")
+    return {"deleted": True, "policy_id": policy_id}

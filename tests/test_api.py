@@ -469,3 +469,40 @@ def test_store_settings_rejects_unknown_store(client: TestClient) -> None:
         "/api/stores/store-unknown/settings", json={"max_capacity": 20}
     )
     assert response.status_code == 422
+
+
+def test_store_policy_crud(client: TestClient) -> None:
+    # 1. GET initial policies (seeded from json)
+    get_res = client.get("/api/stores/store-001/policies")
+    assert get_res.status_code == 200
+    policies = get_res.json()["policies"]
+    assert len(policies) > 0
+
+    # 2. POST create new policy
+    new_policy = {
+        "category": "facility",
+        "title": "Wi-Fi 안내",
+        "content": "비밀번호는 12345678 입니다.",
+        "keywords": ["와이파이", "wifi"]
+    }
+    post_res = client.post("/api/stores/store-001/policies", json=new_policy)
+    assert post_res.status_code == 201
+    created = post_res.json()
+    assert created["title"] == "Wi-Fi 안내"
+    policy_id = created["policy_id"]
+
+    # 3. PUT update policy
+    updated_policy = {
+        "category": "facility",
+        "title": "Wi-Fi 무료 이용",
+        "content": "비밀번호는 wifi1234 입니다.",
+        "keywords": ["와이파이", "wifi", "무료"]
+    }
+    put_res = client.put(f"/api/stores/store-001/policies/{policy_id}", json=updated_policy)
+    assert put_res.status_code == 200
+    assert put_res.json()["title"] == "Wi-Fi 무료 이용"
+
+    # 4. DELETE policy
+    del_res = client.delete(f"/api/stores/store-001/policies/{policy_id}")
+    assert del_res.status_code == 200
+    assert del_res.json()["deleted"] is True

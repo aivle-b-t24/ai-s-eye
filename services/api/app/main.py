@@ -1168,6 +1168,10 @@ def patch_analysis_job(
     updated = repository.update_analysis_job(
         job_id,
         status=payload.status,
+        progress_percent=payload.progress_percent,
+        processed_frames=payload.processed_frames,
+        total_frames=payload.total_frames,
+        stage_message=payload.stage_message,
         error_message=payload.error_message,
         worker_id=payload.worker_id,
     )

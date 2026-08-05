@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { authenticatedFetch } from '../../api/authenticatedFetch'
 import {
   createAnalysisJob,
+  listAnalysisJobs,
   probeUploadApi,
   uploadStoreMedia,
 } from '../../api/storeMediaApi'
@@ -134,6 +135,28 @@ export default function StoreOnboardingView({
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    if (!analysisJob?.id) return undefined
+    if (analysisJob.status === 'completed' || analysisJob.status === 'failed') return undefined
+
+    let cancelled = false
+    const poll = async () => {
+      const jobs = await listAnalysisJobs(storeId)
+      if (cancelled) return
+      const target = jobs.find((j) => j.id === analysisJob.id) || jobs[0]
+      if (target) {
+        setAnalysisJob(target)
+      }
+    }
+
+    poll()
+    const timer = setInterval(poll, 1000)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [analysisJob?.id, analysisJob?.status, storeId])
 
   const tableObjects = useMemo(
     () => sceneObjects.filter((object) => object.type === 'table'),
@@ -801,10 +824,34 @@ export default function StoreOnboardingView({
                 <div><dt>테이블</dt><dd>{tableObjects.length}개</dd></div>
                 <div><dt>바닥 꼭짓점</dt><dd>{floorPoints.length}개</dd></div>
                 <div><dt>운영 구역</dt><dd>{zones.length}개</dd></div>
-                {analysisJob && (
-                  <div><dt>분석 job</dt><dd>{analysisJob.status}</dd></div>
-                )}
               </dl>
+              {analysisJob && (
+                <div className="onboarding-progress-container">
+                  <div className="onboarding-progress-header">
+                    <span className="onboarding-progress-title">
+                      {analysisJob.status === 'completed'
+                        ? '✓ 분석 완료'
+                        : analysisJob.status === 'failed'
+                        ? '❌ 분석 실패'
+                        : '⚡ CCTV 분석 진행 중'}
+                    </span>
+                    <span className="onboarding-progress-pct">
+                      {Math.round(analysisJob.progress_percent ?? 0)}%
+                    </span>
+                  </div>
+                  <div className="onboarding-progress-track">
+                    <div
+                      className={`onboarding-progress-bar status-${analysisJob.status}`}
+                      style={{ width: `${Math.max(5, Math.min(100, analysisJob.progress_percent ?? 0))}%` }}
+                    />
+                  </div>
+                  <p className="onboarding-progress-message">
+                    {analysisJob.stage_message || (analysisJob.processed_frames
+                      ? `프레임 분석 중 (${analysisJob.processed_frames}/${analysisJob.total_frames || '?'})`
+                      : 'GPU 분석 큐에서 대기 중...')}
+                  </p>
+                </div>
+              )}
               {validationErrors.length > 0 && (
                 <ul className="onboarding-errors">
                   {validationErrors.map((error) => <li key={error}>{error}</li>)}

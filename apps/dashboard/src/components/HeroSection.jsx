@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { getDemoAccount, usesCredentialDemoLogin } from '../auth/demoAccounts'
 import { ROLES, STORES, DEMO_CREDENTIALS } from '../constants/auth'
+import LegalFooter from './legal/LegalFooter'
 
 function HeroSection({
   page,
@@ -196,9 +197,7 @@ function HeroSection({
           </div>
         </div>
       </div>
-      <footer className="main-landing-footer">
-        <span>개인정보 처리방침</span> | <span>이용약관</span> | <span>© 2026 AI's Eye. All rights reserved.</span>
-      </footer>
+      <LegalFooter className="main-landing-footer" />
     </section>
   )
 }

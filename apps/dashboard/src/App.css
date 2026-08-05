@@ -1081,6 +1081,335 @@ font-weight: 600;
   font-size: 0.9rem;
   line-height: 1.5;
 }
+/* 본사 회원가입 — 좌우 분할 풀페이지 */
+.signup-page {
+  display: grid;
+  grid-template-columns: 5fr 6fr;
+  /* 높이를 뷰포트로 고정해 탭 전환(폼 높이 변화)에도 좌측 브랜드 패널이 흔들리지 않게 한다. */
+  height: 100vh;
+  background: var(--panel-bg, #fff);
+}
+.signup-brand {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 32px;
+  padding: 56px 52px;
+  color: #fff;
+  background: linear-gradient(155deg, var(--primary-teal) 0%, var(--accent-teal) 100%);
+  overflow: hidden;
+}
+.signup-brand::before {
+  content: '';
+  position: absolute;
+  left: -80px;
+  top: -100px;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  pointer-events: none;
+}
+.signup-brand::after {
+  content: '';
+  position: absolute;
+  right: -120px;
+  bottom: -140px;
+  width: 360px;
+  height: 360px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+.signup-brand-top,
+.signup-brand-body,
+.signup-brand-foot {
+  position: relative;
+  z-index: 1;
+}
+.signup-wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 1.15rem;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+.signup-logo-mark {
+  flex-shrink: 0;
+}
+.signup-brand-title {
+  font-size: 2.3rem;
+  font-weight: 900;
+  line-height: 1.2;
+  margin: 0 0 14px;
+}
+.signup-brand-sub {
+  font-size: 0.98rem;
+  line-height: 1.6;
+  margin: 0 0 26px;
+  color: rgba(255, 255, 255, 0.88);
+  max-width: 360px;
+}
+.signup-brand-features {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.signup-brand-features li {
+  position: relative;
+  padding-left: 26px;
+  font-size: 0.94rem;
+  color: rgba(255, 255, 255, 0.95);
+}
+.signup-brand-features li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+.signup-brand-foot {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+.signup-form-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 40px 40px 24px;
+  overflow-y: auto;
+  /* 폼이 길어지면 이 패널 안에서만 스크롤(브랜드 패널 높이는 고정 유지). */
+  min-height: 0;
+  background: var(--panel-bg, #fff);
+}
+/* 폼을 남은 공간에서 세로 중앙 정렬하고, 푸터는 패널 하단에 고정한다.
+   safe center: 폼이 영역보다 길면 위쪽부터 배치해 상단(탭)이 스크롤로 닿게 한다. */
+.signup-form-scroll {
+  flex: 1 0 auto;
+  display: flex;
+  align-items: safe center;
+  justify-content: center;
+  width: 100%;
+}
+.signup-home-link {
+  position: absolute;
+  top: 22px;
+  right: 26px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 8px;
+  transition: background 0.2s, color 0.2s;
+}
+.signup-home-link:hover {
+  background: #f1f5f9;
+  color: var(--text-main);
+}
+.signup-form-inner {
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.signup-wordmark-mobile {
+  display: none;
+  color: var(--primary-teal);
+  justify-content: center;
+}
+.signup-form-head {
+  text-align: left;
+}
+.signup-form-title {
+  font-size: 1.55rem;
+  font-weight: 900;
+  color: var(--primary-teal);
+  margin: 0 0 4px;
+}
+.signup-form-sub {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+.signup-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 900px) {
+  .signup-page {
+    grid-template-columns: 1fr;
+  }
+  .signup-brand {
+    display: none;
+  }
+  .signup-wordmark-mobile {
+    display: inline-flex;
+  }
+  .signup-form-panel {
+    padding: 64px 22px 40px;
+  }
+  .signup-field-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 본사 회원가입 폼 — 비밀번호 안내 / 개인정보 동의 */
+.pw-hint {
+  margin: 2px 0 0;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+.signup-consent {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  background: #fafcfb;
+}
+.checkbox-label.consent-agree {
+  align-items: flex-start;
+  color: var(--text-main);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+.checkbox-label.consent-agree strong {
+  color: var(--accent-teal);
+}
+.consent-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+.consent-table th,
+.consent-table td {
+  border: 1px solid var(--border-light);
+  padding: 7px 10px;
+  text-align: left;
+  vertical-align: top;
+  line-height: 1.45;
+}
+.consent-table th {
+  width: 92px;
+  background: #f1f5f4;
+  color: var(--text-main);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.consent-table td {
+  color: var(--text-muted);
+}
+.consent-note {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+.privacy-details {
+  border-top: 1px dashed var(--border-light);
+  padding-top: 8px;
+}
+.privacy-details > summary {
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--accent-teal);
+  list-style: none;
+}
+.privacy-details > summary::-webkit-details-marker {
+  display: none;
+}
+.privacy-body {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.privacy-body p {
+  margin: 0;
+}
+.privacy-body strong {
+  color: var(--text-main);
+}
+.signup-to-login {
+  align-self: center;
+  margin-top: -4px;
+  font-size: 0.84rem;
+}
+
+/* reCAPTCHA(보안 확인) */
+.form-static-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+.recaptcha-box {
+  min-height: 78px;
+}
+
+/* 로그인 시 비밀번호 유효기간 만료 프롬프트 */
+.pw-expiry-modal {
+  max-width: 420px;
+  text-align: center;
+}
+.pw-expiry-modal .legal-modal-head {
+  justify-content: center;
+}
+.pw-expiry-text {
+  margin: 0 0 6px;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--text-main);
+}
+.pw-expiry-notice {
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  color: var(--accent-teal);
+  font-weight: 700;
+}
+.pw-expiry-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+.pw-expiry-later {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px;
+}
+.pw-expiry-later:hover:not(:disabled) {
+  color: var(--text-main);
+  text-decoration: underline;
+}
+
 .auth-submit-btn {
 background: linear-gradient(135deg, var(--accent-teal) 0%, var(--primary-teal) 100%);
 color: #ffffff;
@@ -6648,6 +6977,98 @@ body::before {
   color: #34d399 !important;
 }
 
+.footer-legal-link {
+  margin: 0 8px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: inherit !important;
+  font: inherit !important;
+  cursor: pointer !important;
+  transition: color 0.2s ease !important;
+}
+
+.footer-legal-link:hover {
+  color: #34d399 !important;
+  text-decoration: underline !important;
+}
+
+/* 공통 법적고지 푸터 (처리방침·이용약관) */
+.legal-footer {
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.legal-sep {
+  margin: 0 6px;
+  color: #cbd5e1;
+}
+.legal-copy {
+  color: var(--text-muted);
+}
+/* 회원가입 폼 하단 푸터 — 패널 바닥에 고정 */
+.signup-footer {
+  flex-shrink: 0;
+  margin-top: 28px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-light);
+}
+.signup-footer .footer-legal-link {
+  color: var(--text-muted) !important;
+}
+.signup-footer .footer-legal-link:hover {
+  color: var(--accent-teal) !important;
+}
+
+/* 개인정보 처리방침 공개 모달 */
+.legal-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.55);
+}
+.legal-modal {
+  width: 100%;
+  max-width: 520px;
+  max-height: 80vh;
+  overflow-y: auto;
+  background: var(--panel-bg, #fff);
+  border-radius: 16px;
+  padding: 24px 26px 26px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+}
+.legal-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.legal-modal-head h2 {
+  font-size: 1.2rem;
+  font-weight: 900;
+  color: var(--primary-teal);
+  margin: 0;
+}
+.legal-modal-close {
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: background 0.2s, color 0.2s;
+}
+.legal-modal-close:hover {
+  background: #f1f5f9;
+  color: #ef4444;
+}
+
 /* =========================================================
    메인 랜딩 히어로 캡처 시안 정밀 맞춤 스타일
    ========================================================= */
@@ -6746,6 +7167,15 @@ body::before {
   max-width: 100% !important;
   padding: 20px 40px 40px !important;
   box-sizing: border-box !important;
+  /* 뷰포트 높이를 꽉 채우고 내부를 세로 컬럼으로 배치해 푸터를 바닥으로 민다. */
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 100vh !important;
+}
+
+/* 랜딩 푸터를 화면 맨 아래에 고정 */
+.is-main-landing .main-landing-footer {
+  margin-top: auto !important;
 }
 
 .is-main-landing .hero-header {

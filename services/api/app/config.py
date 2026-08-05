@@ -20,6 +20,7 @@ class Settings(BaseModel):
     firebase_project_id: str | None
     firebase_credentials_path: Path | None
     internal_api_key: str | None
+    recaptcha_secret: str
 
 
 def _default_sample_data_dir() -> Path:
@@ -93,4 +94,9 @@ def get_settings() -> Settings:
             else None
         ),
         internal_api_key=os.getenv("INTERNAL_API_KEY"),
+        # 기본값은 Google 공식 reCAPTCHA 테스트 시크릿(항상 성공). 운영은 RECAPTCHA_SECRET_KEY로 교체.
+        recaptcha_secret=os.getenv(
+            "RECAPTCHA_SECRET_KEY",
+            "6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe",
+        ),
     )

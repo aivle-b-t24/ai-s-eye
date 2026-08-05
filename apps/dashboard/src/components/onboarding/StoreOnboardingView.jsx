@@ -137,26 +137,29 @@ export default function StoreOnboardingView({
   }, [])
 
   useEffect(() => {
-    if (!analysisJob?.id) return undefined
-    if (analysisJob.status === 'completed' || analysisJob.status === 'failed') return undefined
+    if (!storeId) return undefined
 
     let cancelled = false
-    const poll = async () => {
-      const jobs = await listAnalysisJobs(storeId)
-      if (cancelled) return
-      const target = jobs.find((j) => j.id === analysisJob.id) || jobs[0]
-      if (target) {
-        setAnalysisJob(target)
+    const pollJobs = async () => {
+      try {
+        const jobs = await listAnalysisJobs(storeId)
+        if (cancelled) return
+        if (Array.isArray(jobs) && jobs.length > 0) {
+          // 최신 job 선택
+          setAnalysisJob(jobs[0])
+        }
+      } catch (err) {
+        console.warn('Analysis jobs fetch failed:', err)
       }
     }
 
-    poll()
-    const timer = setInterval(poll, 1000)
+    pollJobs()
+    const timer = setInterval(pollJobs, 1000)
     return () => {
       cancelled = true
       clearInterval(timer)
     }
-  }, [analysisJob?.id, analysisJob?.status, storeId])
+  }, [storeId])
 
   const tableObjects = useMemo(
     () => sceneObjects.filter((object) => object.type === 'table'),

@@ -13,6 +13,7 @@ import aicc.config as config
 from aicc.kakao import (
     KakaoSkillPayload,
     build_skill_response,
+    build_store_picker,
     coerce_payload,
     extract_utterance,
     resolve_store_id,
@@ -31,6 +32,19 @@ def two_store_directory() -> StoreDirectory:
     return StoreDirectory(
         [StoreEntry("store-001", "동명점"), StoreEntry("store-002", "수완점")]
     )
+
+
+def picker_titles(data: dict[str, Any]) -> set[str]:
+    """매장 선택지 이름을 뽑는다(리스트카드 items 또는 폴백 퀵리플라이 둘 다 지원)."""
+    for output in data["template"]["outputs"]:
+        if "listCard" in output:
+            return {item["title"] for item in output["listCard"]["items"]}
+    return {q["label"] for q in data["template"].get("quickReplies", [])}
+
+
+def is_store_picker(data: dict[str, Any]) -> bool:
+    """이 응답이 '매장 선택'을 요청하는 화면인지."""
+    return any("listCard" in o for o in data["template"]["outputs"]) or bool(picker_titles(data))
 
 
 # 카카오 i 오픈빌더 스킬 테스트가 실제로 보내는 형태(널 필드 다수 포함).
@@ -329,29 +343,41 @@ def test_session_expires() -> None:
 
 
 def test_multistore_asks_to_pick_when_no_store() -> None:
-    """매장 여러 개 + 아직 미선택 → 두뇌 안 부르고 매장 선택 버튼."""
+    """매장 여러 개 + 아직 미선택 → 두뇌 안 부르고 매장 선택 카드."""
     agent = FakeAgent()
     tc = client_with(agent, directory=two_store_directory())
     r = tc.post("/kakao/skill", json=skill_request("지금 붐벼요?", user_id="u1"))
     assert r.status_code == 200
     assert not agent.called
-    body = r.json()
-    assert "어느 매장" in body["template"]["outputs"][0]["simpleText"]["text"]
-    labels = {q["label"] for q in body["template"]["quickReplies"]}
-    assert labels == {"동명점", "수완점"}
+    assert picker_titles(r.json()) == {"동명점", "수완점"}
+
+
+def test_build_store_picker_card_and_fallback() -> None:
+    few = [StoreEntry(f"store-00{i}", f"매장{i}") for i in range(1, 4)]
+    card = build_store_picker(few)["template"]["outputs"][0]["listCard"]
+    assert {it["title"] for it in card["items"]} == {"매장1", "매장2", "매장3"}
+    # greeting=True → 인삿말 말풍선 + 카드
+    greet = build_store_picker(few, greeting=True)
+    assert "안녕하세요" in greet["template"]["outputs"][0]["simpleText"]["text"]
+    assert "listCard" in greet["template"]["outputs"][1]
+    # 6개 초과 → 리스트카드(최대 5) 대신 퀵리플라이 폴백
+    many = [StoreEntry(f"store-{i:03d}", f"매장{i}") for i in range(1, 7)]
+    fb = build_store_picker(many)
+    assert all("listCard" not in o for o in fb["template"]["outputs"])
+    assert len(fb["template"]["quickReplies"]) == 6
 
 
 def test_multistore_welcome_on_first_entry() -> None:
-    """채널 첫 진입(빈 발화) → 인삿말 + 매장 선택지를 한 번에."""
+    """채널 첫 진입(빈 발화) → 인삿말 말풍선 + 매장 선택 리스트카드."""
     agent = FakeAgent()
     tc = client_with(agent, directory=two_store_directory())
     r = tc.post("/kakao/skill", json=skill_request("", user_id="newbie"))
     assert r.status_code == 200
     body = r.json()
-    text = body["template"]["outputs"][0]["simpleText"]["text"]
-    assert "안녕하세요" in text  # 인삿말
-    labels = {q["label"] for q in body["template"]["quickReplies"]}
-    assert labels == {"동명점", "수완점"}  # 매장 선택지
+    # 첫 출력은 인삿말 말풍선
+    assert "안녕하세요" in body["template"]["outputs"][0]["simpleText"]["text"]
+    # 매장은 리스트카드로
+    assert picker_titles(body) == {"동명점", "수완점"}
     assert not agent.called
 
 
@@ -374,10 +400,10 @@ def test_multistore_different_users_isolated() -> None:
     agent = FakeAgent()
     tc = client_with(agent, directory=two_store_directory())
     tc.post("/kakao/skill", json=skill_request("동명점", user_id="u1"))
-    # 다른 유저는 아직 미선택 → 선택 버튼
+    # 다른 유저는 아직 미선택 → 선택 카드
     r = tc.post("/kakao/skill", json=skill_request("메뉴 알려줘", user_id="u2"))
     assert not agent.called
-    assert "어느 매장" in r.json()["template"]["outputs"][0]["simpleText"]["text"]
+    assert picker_titles(r.json()) == {"동명점", "수완점"}
 
 
 def test_qr_override_sets_and_remembers_store() -> None:
@@ -401,11 +427,11 @@ def test_change_store_resets_selection() -> None:
     tc = client_with(agent, directory=two_store_directory())
     tc.post("/kakao/skill", json=skill_request("동명점", user_id="u1"))
     r = tc.post("/kakao/skill", json=skill_request("매장 변경", user_id="u1"))
-    assert "어느 매장" in r.json()["template"]["outputs"][0]["simpleText"]["text"]
-    # 초기화됐으니 다시 질문하면 선택 버튼
+    assert picker_titles(r.json()) == {"동명점", "수완점"}
+    # 초기화됐으니 다시 질문하면 선택 카드
     r2 = tc.post("/kakao/skill", json=skill_request("붐벼요?", user_id="u1"))
     assert not agent.called
-    assert "어느 매장" in r2.json()["template"]["outputs"][0]["simpleText"]["text"]
+    assert picker_titles(r2.json()) == {"동명점", "수완점"}
 
 
 def test_single_store_directory_answers_directly() -> None:
@@ -475,9 +501,9 @@ def test_kakao_picker_ignores_callback_url() -> None:
         }
     }
     r = tc.post("/kakao/skill", json=body)
-    assert r.json().get("useCallback") is None  # 선택 버튼은 콜백 아님
+    assert r.json().get("useCallback") is None  # 선택 단계는 콜백 아님
     assert not agent.called
-    assert "어느 매장" in r.json()["template"]["outputs"][0]["simpleText"]["text"]
+    assert picker_titles(r.json()) == {"동명점", "수완점"}
 
 
 # --- 매장 자동 등록(백엔드 목록 + 이름 오버레이) ---
@@ -521,10 +547,9 @@ def test_directory_auto_built_from_backend(monkeypatch) -> None:
     try:
         r = tc.post("/kakao/skill", json=skill_request("메뉴 알려줘", user_id="u1"))
         assert r.status_code == 200
-        assert not agent.called  # 매장 여럿 → 선택 버튼
-        labels = {q["label"] for q in r.json()["template"]["quickReplies"]}
+        assert not agent.called  # 매장 여럿 → 선택 카드
         # store-001은 오버레이 이름(동명점), store-002는 이름 없어 id 그대로
-        assert labels == {"동명점", "store-002"}
+        assert picker_titles(r.json()) == {"동명점", "store-002"}
     finally:
         config.get_settings.cache_clear()
         for attr in ("store_directory", "_store_directory_cache"):

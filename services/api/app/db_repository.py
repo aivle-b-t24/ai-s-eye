@@ -19,6 +19,7 @@ from .db_models import (
     OrderEventRecord,
     OrderItemRecord,
     StoreMediaRecord,
+    StoreMenuRecord,
     StorePolicyRecord,
     StoreRecord,
     StoreSettingsRecord,
@@ -39,6 +40,8 @@ from .models import (
     StoreInfo,
     StoreMediaInfo,
     StoreMediaType,
+    StoreMenuInput,
+    StoreMenuItem,
     StorePolicyInput,
     StorePolicyItem,
     StoreSettings,
@@ -339,6 +342,80 @@ class DatabaseRepository:
     def delete_store_policy(self, store_id: str, policy_id: str) -> bool:
         with self._session_factory() as session:
             record = session.get(StorePolicyRecord, policy_id)
+            if record is None or record.store_id != store_id:
+                return False
+            session.delete(record)
+            session.commit()
+            return True
+
+    def get_store_menus(self, store_id: str) -> list[StoreMenuItem]:
+        with self._session_factory() as session:
+            records = session.scalars(
+                select(StoreMenuRecord)
+                .where(StoreMenuRecord.store_id == store_id)
+                .order_by(StoreMenuRecord.created_at.asc())
+            ).all()
+            return [_menu_from_record(r) for r in records]
+
+    def save_store_menu(
+        self,
+        store_id: str,
+        menu_input: StoreMenuInput,
+        menu_id: str | None = None,
+    ) -> StoreMenuItem:
+        from uuid import uuid4
+        target_id = menu_id or f"menu-{uuid4().hex[:8]}"
+        now = datetime.now(timezone.utc)
+        with self._session_factory() as session:
+            record = session.get(StoreMenuRecord, target_id)
+            if record is None:
+                record = StoreMenuRecord(
+                    menu_id=target_id,
+                    store_id=store_id,
+                    category=menu_input.category,
+                    name=menu_input.name,
+                    price=menu_input.price,
+                    prep_minutes=menu_input.prep_minutes,
+                    available=menu_input.available,
+                    sold_out_reason=menu_input.sold_out_reason if not menu_input.available else None,
+                    created_at=now,
+                    updated_at=now,
+                )
+                session.add(record)
+            else:
+                record.category = menu_input.category
+                record.name = menu_input.name
+                record.price = menu_input.price
+                record.prep_minutes = menu_input.prep_minutes
+                record.available = menu_input.available
+                record.sold_out_reason = menu_input.sold_out_reason if not menu_input.available else None
+                record.updated_at = now
+            session.commit()
+            session.refresh(record)
+            return _menu_from_record(record)
+
+    def toggle_store_menu_sold_out(
+        self,
+        store_id: str,
+        menu_id: str,
+        available: bool,
+        sold_out_reason: str | None = None,
+    ) -> StoreMenuItem | None:
+        now = datetime.now(timezone.utc)
+        with self._session_factory() as session:
+            record = session.get(StoreMenuRecord, menu_id)
+            if record is None or record.store_id != store_id:
+                return None
+            record.available = available
+            record.sold_out_reason = sold_out_reason if not available else None
+            record.updated_at = now
+            session.commit()
+            session.refresh(record)
+            return _menu_from_record(record)
+
+    def delete_store_menu(self, store_id: str, menu_id: str) -> bool:
+        with self._session_factory() as session:
+            record = session.get(StoreMenuRecord, menu_id)
             if record is None or record.store_id != store_id:
                 return False
             session.delete(record)
@@ -1180,4 +1257,17 @@ def _policy_from_record(record: StorePolicyRecord) -> StorePolicyItem:
         title=record.title,
         content=record.content,
         keywords=record.keywords if isinstance(record.keywords, list) else [],
+    )
+
+
+def _menu_from_record(record: StoreMenuRecord) -> StoreMenuItem:
+    return StoreMenuItem(
+        menu_id=record.menu_id,
+        store_id=record.store_id,
+        category=record.category or "coffee",
+        name=record.name,
+        price=record.price,
+        prep_minutes=record.prep_minutes,
+        available=record.available,
+        sold_out_reason=record.sold_out_reason,
     )

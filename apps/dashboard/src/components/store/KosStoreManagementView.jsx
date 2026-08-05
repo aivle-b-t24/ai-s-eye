@@ -73,7 +73,9 @@ export default function KosStoreManagementView({
 
         <div className="dashboard-feature">
           <MenuListPanel
+            storeId={currentStoreId}
             menus={menus}
+            setMenus={setMenus}
             soldOutCount={soldOutCount}
             isExpanded={isMenuExpanded}
             onToggleExpand={() => setIsMenuExpanded((prev) => !prev)}

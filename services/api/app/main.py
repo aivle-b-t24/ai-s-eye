@@ -42,6 +42,10 @@ from .models import (
     StoreListResponse,
     StoreMediaInfo,
     StoreMediaType,
+    StoreMenuInput,
+    StoreMenuItem,
+    StoreMenuListResponse,
+    StoreMenuToggleInput,
     StorePolicyInput,
     StorePolicyItem,
     StorePolicyListResponse,
@@ -1217,17 +1221,96 @@ def update_store_settings(
 
 @app.get(
     "/api/stores/{store_id}/menus",
+    response_model=StoreMenuListResponse,
     tags=["stores"],
     dependencies=[Depends(require_store_access)],
 )
-def get_store_menus(store_id: str) -> dict[str, Any]:
-    menu_data = load_json_file("menus.json")
-    menus = [
-        menu
-        for menu in menu_data.get("menus", [])
-        if menu.get("store_id") == store_id
-    ]
-    return {**menu_data, "store_id": store_id, "menus": menus}
+def get_store_menus(store_id: str) -> StoreMenuListResponse:
+    menus = repository.get_store_menus(store_id)
+    if not menus:
+        menu_data = load_json_file("menus.json")
+        raw_menus = [
+            m for m in menu_data.get("menus", [])
+            if m.get("store_id") == store_id
+        ]
+        for m in raw_menus:
+            inp = StoreMenuInput(
+                category=m.get("category", "coffee"),
+                name=m.get("name", ""),
+                price=m.get("price", 0),
+                prep_minutes=m.get("prep_minutes", 3),
+                available=m.get("available", True),
+                sold_out_reason=m.get("sold_out_reason"),
+            )
+            repository.save_store_menu(store_id, inp, menu_id=m.get("menu_id"))
+        menus = repository.get_store_menus(store_id)
+    return StoreMenuListResponse(
+        data_source="db",
+        store_id=store_id,
+        menus=menus,
+    )
+
+
+@app.post(
+    "/api/stores/{store_id}/menus",
+    response_model=StoreMenuItem,
+    status_code=status.HTTP_201_CREATED,
+    tags=["stores"],
+    dependencies=[Depends(require_store_access)],
+)
+def create_store_menu(
+    store_id: str,
+    payload: StoreMenuInput,
+) -> StoreMenuItem:
+    return repository.save_store_menu(store_id, payload)
+
+
+@app.put(
+    "/api/stores/{store_id}/menus/{menu_id}",
+    response_model=StoreMenuItem,
+    tags=["stores"],
+    dependencies=[Depends(require_store_access)],
+)
+def update_store_menu(
+    store_id: str,
+    menu_id: str,
+    payload: StoreMenuInput,
+) -> StoreMenuItem:
+    return repository.save_store_menu(store_id, payload, menu_id=menu_id)
+
+
+@app.patch(
+    "/api/stores/{store_id}/menus/{menu_id}/toggle-sold-out",
+    response_model=StoreMenuItem,
+    tags=["stores"],
+    dependencies=[Depends(require_store_access)],
+)
+def toggle_store_menu_sold_out(
+    store_id: str,
+    menu_id: str,
+    payload: StoreMenuToggleInput,
+) -> StoreMenuItem:
+    updated = repository.toggle_store_menu_sold_out(
+        store_id,
+        menu_id,
+        available=payload.available,
+        sold_out_reason=payload.sold_out_reason,
+    )
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Menu not found")
+    return updated
+
+
+@app.delete(
+    "/api/stores/{store_id}/menus/{menu_id}",
+    tags=["stores"],
+    dependencies=[Depends(require_store_access)],
+)
+def delete_store_menu(store_id: str, menu_id: str) -> dict[str, Any]:
+    deleted = repository.delete_store_menu(store_id, menu_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Menu not found")
+    return {"deleted": True, "menu_id": menu_id}
 
 
 @app.get(

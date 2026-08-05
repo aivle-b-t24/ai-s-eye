@@ -506,3 +506,40 @@ def test_store_policy_crud(client: TestClient) -> None:
     del_res = client.delete(f"/api/stores/store-001/policies/{policy_id}")
     assert del_res.status_code == 200
     assert del_res.json()["deleted"] is True
+
+
+def test_store_menu_crud_and_toggle(client: TestClient) -> None:
+    # 1. GET initial menus (seeded from json)
+    get_res = client.get("/api/stores/store-001/menus")
+    assert get_res.status_code == 200
+    menus = get_res.json()["menus"]
+    assert len(menus) > 0
+
+    # 2. POST create new menu
+    new_menu = {
+        "category": "coffee",
+        "name": "디카페인 아메리카노",
+        "price": 4800,
+        "prep_minutes": 3,
+        "available": True,
+        "sold_out_reason": None,
+    }
+    post_res = client.post("/api/stores/store-001/menus", json=new_menu)
+    assert post_res.status_code == 201
+    created = post_res.json()
+    assert created["name"] == "디카페인 아메리카노"
+    menu_id = created["menu_id"]
+
+    # 3. PATCH 1-click toggle sold out
+    patch_res = client.patch(
+        f"/api/stores/store-001/menus/{menu_id}/toggle-sold-out",
+        json={"available": False, "sold_out_reason": "원두 일시 품절"},
+    )
+    assert patch_res.status_code == 200
+    assert patch_res.json()["available"] is False
+    assert patch_res.json()["sold_out_reason"] == "원두 일시 품절"
+
+    # 4. DELETE menu
+    del_res = client.delete(f"/api/stores/store-001/menus/{menu_id}")
+    assert del_res.status_code == 200
+    assert del_res.json()["deleted"] is True

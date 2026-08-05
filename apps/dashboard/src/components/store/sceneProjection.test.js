@@ -7,17 +7,9 @@ import {
   agentScale,
   allocateRenderPositions,
   objectDepth,
-  perspectiveScale,
   stabilizeTrackPosition,
   stabilizeTrackState,
 } from './sceneProjection.js'
-
-test('사람 크기는 원거리에서 근거리로 갈수록 단조롭게 커진다', () => {
-  const scales = [0.2, 0.5, 0.8, 0.98].map((y) => perspectiveScale(y))
-
-  assert.ok(scales.every((scale, index) => index === 0 || scale >= scales[index - 1]))
-  assert.ok(scales[0] < scales.at(-1))
-})
 
 test('같은 발 위치에서는 YOLO bbox가 큰 사람을 더 크게 표시한다', () => {
   const small = agentScale({
@@ -36,12 +28,11 @@ test('같은 발 위치에서는 YOLO bbox가 큰 사람을 더 크게 표시한
   assert.ok(large > small)
 })
 
-test('bbox가 없는 시뮬레이션 고객은 기존 원근 곡선을 그대로 사용한다', () => {
+test('bbox가 없는 시뮬레이션 고객은 기본 크기 1을 쓴다', () => {
   const agent = { y: 0.7, state: 'queue' }
 
-  assert.equal(agentScale(agent), perspectiveScale(agent.y))
+  assert.equal(agentScale(agent), 1)
 })
-
 test('발 위치가 테이블 뒤면 테이블이 가리고 앞이면 사람이 가린다', () => {
   const table = {
     type: 'table',

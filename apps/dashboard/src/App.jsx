@@ -83,9 +83,9 @@ function PublicShell() {
     }
   }, [pathname, setAuthRole])
 
-  if (authReady && currentUser) {
+  /*if (authReady && currentUser) {
     return <Navigate to={homeForUser(currentUser)} replace />
-  }
+  }*/
 
   return (
     <main className="page-shell is-main-landing has-hero">

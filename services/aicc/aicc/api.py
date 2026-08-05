@@ -37,19 +37,17 @@ from .franchise_insights import InsightsUnavailableError, generate_insights
 from .kakao import (
     ERROR_TEXT,
     GREETING_TEXT,
-    PICK_STORE_TEXT,
     answer_quick_replies,
     build_callback_ack,
     build_skill_response,
+    build_store_picker,
     coerce_payload,
     extract_callback_url,
     extract_user_id,
     extract_utterance,
     is_change_store,
     store_id_override,
-    store_quick_replies,
     store_selected_text,
-    WELCOME_TEXT,
 )
 from .session import SessionStore
 from .store_directory import (
@@ -358,15 +356,15 @@ async def kakao_skill(
     # '매장 변경' 요청 → 기억 초기화하고 다시 선택받기
     if not override and utterance and is_change_store(utterance) and directory.has_multiple():
         session.clear(user_id)
-        return build_skill_response(PICK_STORE_TEXT, store_quick_replies(directory.list()))
+        return build_store_picker(directory.list())
 
     store_id = override or session.get(user_id)
 
     # 2·3) 아직 매장 미정 + 매장이 여러 개
     if not store_id and directory.has_multiple():
-        # 채널 첫 진입(빈 발화) → 인삿말 + 매장 선택지를 한 번에
+        # 채널 첫 진입(빈 발화) → 인삿말 + 매장 선택 카드
         if not utterance:
-            return build_skill_response(WELCOME_TEXT, store_quick_replies(directory.list()))
+            return build_store_picker(directory.list(), greeting=True)
         selected = directory.resolve(utterance)
         if selected:
             session.set(user_id, selected)
@@ -374,7 +372,7 @@ async def kakao_skill(
                 store_selected_text(directory.name_of(selected)),
                 answer_quick_replies(directory),
             )
-        return build_skill_response(PICK_STORE_TEXT, store_quick_replies(directory.list()))
+        return build_store_picker(directory.list())
 
     # 4) 단일 매장/미설정이면 기본 매장
     if not store_id:

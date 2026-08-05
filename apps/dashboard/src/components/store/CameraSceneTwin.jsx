@@ -10,7 +10,6 @@ import {
   agentScale,
   allocateRenderPositions,
   DEFAULT_BBOX_SCALE,
-  DEFAULT_PERSPECTIVE,
   objectDepth,
   stabilizeTrackPosition,
   stabilizeTrackState,
@@ -182,7 +181,6 @@ export default function CameraSceneTwin({
       storeId,
       cameraId: sceneConfig.camera_id ?? defaultCameraId(storeId),
       label: 'CAM',
-      perspective: DEFAULT_PERSPECTIVE,
       bboxScale: DEFAULT_BBOX_SCALE,
       objects: [],
       seatAnchors: [],
@@ -190,7 +188,6 @@ export default function CameraSceneTwin({
     return {
       ...base,
       objects,
-      perspective: sceneConfig.perspective ?? base.perspective,
       seatAnchors: sceneConfig.seat_anchors?.length
         ? sceneConfig.seat_anchors
         : deriveSeatAnchors(objects),
@@ -578,7 +575,7 @@ export default function CameraSceneTwin({
 
             <div className="camera-scene-agent-layer" aria-live="polite">
               {renderTrackList.map((track) => {
-                const scale = agentScale(track, scene.perspective, scene.bboxScale)
+                const scale = agentScale(track, scene.bboxScale)
                 const motion = agentMotion(track)
                 return (
                   <div

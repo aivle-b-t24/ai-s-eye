@@ -111,7 +111,7 @@ export function useAuth() {
         const profile = await loadProfile()
         setCurrentUser(profile)
         setAuthRole(profile.role)
-        setAuthMode('dashboard')
+        setAuthMode('main')
         setAuthError('')
       } catch (error) {
         setCurrentUser(null)
@@ -154,13 +154,8 @@ export function useAuth() {
 
   const handleLoginSuccess = (userData) => {
     setCurrentUser(userData)
-    if (IS_LOCAL_AUTH_MODE) {
-      setAuthMode('dashboard')
-      navigate(homeForUser(userData), { replace: true })
-    } else {
-      setAuthMode('main')
-      navigate(ROUTES.HOME, { replace: true })
-    }
+    setAuthMode('main')
+    navigate(ROUTES.HOME, { replace: true })
   }
 
   const handleLogin = async ({ email, password, remember, role }) => {

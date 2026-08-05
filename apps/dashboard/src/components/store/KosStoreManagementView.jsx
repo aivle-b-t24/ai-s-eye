@@ -23,6 +23,9 @@ export default function KosStoreManagementView({
   const [policies, setPolicies] = useState(dashboard?.policies ?? [])
   const currentStoreId = page?.startsWith('store') ? page : 'store-001'
 
+  // menus state에서 실시간 계산 (props soldOutCount 무시)
+  const computedSoldOutCount = menus.filter((m) => !m.available).length
+
   // 2. 메뉴 & 정책 백엔드 API 경로 (/api/stores/${storeId}/menus, /api/stores/${storeId}/policies) 로딩
   useEffect(() => {
     async function loadKosData() {
@@ -76,7 +79,8 @@ export default function KosStoreManagementView({
             storeId={currentStoreId}
             menus={menus}
             setMenus={setMenus}
-            soldOutCount={soldOutCount}
+            soldOutCount={computedSoldOutCount}
+            soldOutCount={computedSoldOutCount}
             isExpanded={isMenuExpanded}
             onToggleExpand={() => setIsMenuExpanded((prev) => !prev)}
           />

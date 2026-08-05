@@ -159,6 +159,7 @@ export function useAuth() {
       navigate(homeForUser(userData), { replace: true })
     } else {
       setAuthMode('main')
+      navigate(ROUTES.HOME, { replace: true })
     }
   }
 

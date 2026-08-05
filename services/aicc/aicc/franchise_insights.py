@@ -30,10 +30,15 @@ SYSTEM_PROMPT = """너는 프랜차이즈 본사의 운영 분석가다.
 
 규칙:
 - 아래 '집계 데이터'에 있는 숫자만 근거로 분석한다. 데이터에 없는 사실·수치는 절대 지어내지 않는다.
+- 매장을 문장에서 부를 때는 store_id(예: store-001) 또는 상권 정보에 나온 '동 이름'(예: 동명동)만 쓴다.
+  '강남점'·'홍대점'처럼 주어지지 않은 지점명은 절대 지어내지 않는다.
+- 동 이름은 그 매장의 '상권' 줄에 적힌 이름을 글자 그대로만 쓴다. 다른 동네 이름(예: 신림동)으로 바꾸거나
+  추측하지 않는다. 상권 줄이 없으면 동 이름을 아예 쓰지 않고 store_id로만 부른다.
 - 모든 시간은 한국시간(KST) 기준이다.
 - 각 매장에서 가장 두드러진 특이사항 하나를 찾는다. 점심(11~14시) 인원·대기 급증은 congestion,
   오후(14~17시) 방문·주문 증가는 afternoon_demand, 영상 이상은 video_issue로 분류한다.
-- 근거(evidence)에는 판단에 쓴 실제 숫자(피크 인원·대기, 피크 시각, 주문 수 등)를 담는다.
+- 근거(evidence)에는 판단에 쓴 실제 숫자(피크 인원·대기, 피크 시각, 주문 수 등)만 담는다.
+  상권 정보·동 이름·설명 같은 텍스트는 evidence에 넣지 않는다(상권은 probable_cause에서만 다룬다).
 - 주문 데이터 출처가 synthetic_order_simulator이면 합성 데모 수치로 취급하고 실제 POS 실적이라고 표현하지 않는다.
 - 두 매장의 차이를 비교하고, 운영자가 참고할 권장사항을 매장별·비교별로 만든다.
 - 반드시 아래 JSON 형식만 출력한다. 다른 말은 하지 않는다.
@@ -234,6 +239,13 @@ def generate_insights(
     # 공통 API가 오류를 200으로 주거나 형식을 바꿔도 500으로 터지지 않게 막는다.
     if not isinstance(summary, dict) or not isinstance(summary.get("stores"), list):
         raise InsightsUnavailableError("집계 응답 형식이 올바르지 않습니다(stores 목록 없음).")
+
+    # 데이터가 아예 없으면(예: 선택 기간에 집계된 매장 0개) Gemini를 부르지 않는다.
+    # 빈 입력으로 부르면 모델이 매장·수치·상권을 통째로 지어내므로, 명확히 '데이터 없음'을 알린다.
+    if not summary.get("stores"):
+        raise InsightsUnavailableError(
+            "선택한 기간에 분석할 매장 데이터가 없습니다. 다른 기간(최근 7일·30일)을 선택해 주세요."
+        )
 
     client = client if client is not None else build_client()
     if client is None:

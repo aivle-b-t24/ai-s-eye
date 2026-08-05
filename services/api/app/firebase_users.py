@@ -78,7 +78,7 @@ def create_store_manager_account(
     return _summary(user, store_name=store_name)
 
 
-def delete_store_manager_account(uid: str) -> None:
+def delete_store_manager_account(uid: str) -> str | None:
     app = get_firebase_app()
     try:
         user = firebase_auth.get_user(uid, app=app)
@@ -89,7 +89,9 @@ def delete_store_manager_account(uid: str) -> None:
     if claims.get("role") != STORE_MANAGER_ROLE:
         raise FirebaseUserNotStoreManagerError(uid)
 
+    store_id = claims.get("store_id")
     firebase_auth.delete_user(uid, app=app)
+    return store_id
 
 
 def update_store_manager_password(

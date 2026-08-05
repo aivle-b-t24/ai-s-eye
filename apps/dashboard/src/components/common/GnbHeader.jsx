@@ -80,16 +80,6 @@ export default function GnbHeader({
       </nav>
 
       <div className="header-actions">
-        {needsOnboarding && (
-          <NavLink
-            to={ROUTES.ONBOARDING}
-            className={({ isActive }) =>
-              `action-btn settings-btn${isActive || page === 'onboarding' ? ' active' : ''}`
-            }
-          >
-            온보딩 시작
-          </NavLink>
-        )}
         <button
           type="button"
           className={`action-btn settings-btn ${

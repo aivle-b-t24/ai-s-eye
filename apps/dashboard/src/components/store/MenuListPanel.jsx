@@ -196,8 +196,9 @@ export default function MenuListPanel({ storeId = 'store-001', menus = [], setMe
               key={menu.menu_id}
               style={{
                 display: 'flex',
-                justify: 'space-between',
+                justifyContent: 'space-between',
                 alignItems: 'center',
+                gap: '8px',
                 padding: '12px 14px',
                 marginBottom: '8px',
                 borderRadius: '10px',
@@ -206,7 +207,7 @@ export default function MenuListPanel({ storeId = 'store-001', menus = [], setMe
                 transition: 'all 0.2s ease',
               }}
             >
-              <div className="menu-info" style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <div className="menu-info" style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, minWidth: 0, overflow: 'hidden' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span
                     style={{

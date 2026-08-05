@@ -36,10 +36,9 @@ from .errors import ToolError
 from .franchise_insights import InsightsUnavailableError, generate_insights
 from .kakao import (
     ERROR_TEXT,
-    GREETING_TEXT,
-    answer_quick_replies,
+    build_action_menu,
+    build_answer,
     build_callback_ack,
-    build_skill_response,
     build_store_picker,
     coerce_payload,
     extract_callback_url,
@@ -47,7 +46,6 @@ from .kakao import (
     extract_utterance,
     is_change_store,
     store_id_override,
-    store_selected_text,
 )
 from .session import SessionStore
 from .store_directory import (
@@ -301,7 +299,7 @@ def _send_kakao_callback(
     callback_url: str,
     utterance: str,
     store_id: str,
-    quick_replies: list[dict[str, str]],
+    directory,
 ) -> None:
     """느린 답변을 만들어 카카오 콜백 URL로 보낸다(백그라운드에서 실행).
 
@@ -309,7 +307,7 @@ def _send_kakao_callback(
     답을 계산해 콜백으로 POST한다.
     """
     answer = _answer_text(utterance, store_id)
-    body = build_skill_response(answer, quick_replies)
+    body = build_answer(answer, directory)
     try:
         httpx.post(callback_url, json=body, timeout=15.0)
     except Exception as exc:
@@ -368,9 +366,9 @@ async def kakao_skill(
         selected = directory.resolve(utterance)
         if selected:
             session.set(user_id, selected)
-            return build_skill_response(
-                store_selected_text(directory.name_of(selected)),
-                answer_quick_replies(directory),
+            # 매장 선택 확인 = 그 매장 이름을 헤더로 한 액션 메뉴 카드
+            return build_action_menu(
+                directory, header=f"{directory.name_of(selected)} · 무엇이 궁금하세요?"
             )
         return build_store_picker(directory.list())
 
@@ -378,26 +376,25 @@ async def kakao_skill(
     if not store_id:
         store_id = get_settings().default_store_id
 
-    # 매장은 정해졌는데 발화가 비었으면(채널 진입 등) 인사
+    # 매장은 정해졌는데 발화가 비었으면(채널 진입 등) 액션 메뉴
     if not utterance:
-        return build_skill_response(GREETING_TEXT, answer_quick_replies(directory))
+        return build_action_menu(directory)
 
     logger.info("kakao 질문 store=%s: %s", store_id, utterance)
-    quick_replies = answer_quick_replies(directory)
 
     # LLM 답변은 5초를 넘길 수 있다. 콜백이 켜져 있으면(callbackUrl 존재) 즉시 '확인 중'을
     # 주고 백그라운드로 답을 만들어 콜백으로 보낸다 → 카카오 타임아웃('멈춤')을 피한다.
     callback_url = extract_callback_url(payload)
     if callback_url:
         background_tasks.add_task(
-            _send_kakao_callback, callback_url, utterance, store_id, quick_replies
+            _send_kakao_callback, callback_url, utterance, store_id, directory
         )
         return build_callback_ack()
 
     # 콜백이 없으면(오픈빌더에서 콜백 미사용) 동기로 답한다.
     answer = _answer_text(utterance, store_id)
     logger.info("kakao 답변 store=%s: %s", store_id, answer)
-    return build_skill_response(answer, quick_replies)
+    return build_answer(answer, directory)
 
 
 @app.post(

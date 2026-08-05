@@ -19,6 +19,8 @@ from .db_models import (
     OrderEventRecord,
     OrderItemRecord,
     StoreMediaRecord,
+    StoreMenuRecord,
+    StorePolicyRecord,
     StoreRecord,
     StoreSettingsRecord,
     StoreStateHistoryRecord,
@@ -38,6 +40,10 @@ from .models import (
     StoreInfo,
     StoreMediaInfo,
     StoreMediaType,
+    StoreMenuInput,
+    StoreMenuItem,
+    StorePolicyInput,
+    StorePolicyItem,
     StoreSettings,
     StoreState,
     StoreSummaryResponse,
@@ -255,6 +261,10 @@ class DatabaseRepository:
         job_id: str,
         *,
         status: AnalysisJobStatus,
+        progress_percent: float | None = None,
+        processed_frames: int | None = None,
+        total_frames: int | None = None,
+        stage_message: str | None = None,
         error_message: str | None = None,
         worker_id: str | None = None,
     ) -> AnalysisJobInfo | None:
@@ -264,10 +274,20 @@ class DatabaseRepository:
                 return None
             record.status = status.value
             record.error_message = error_message
+            if progress_percent is not None:
+                record.progress_percent = progress_percent
+            if processed_frames is not None:
+                record.processed_frames = processed_frames
+            if total_frames is not None:
+                record.total_frames = total_frames
+            if stage_message is not None:
+                record.stage_message = stage_message
             if worker_id is not None:
                 record.worker_id = worker_id
             if status in {AnalysisJobStatus.COMPLETED, AnalysisJobStatus.FAILED}:
                 record.completed_at = datetime.now(timezone.utc)
+                if status == AnalysisJobStatus.COMPLETED and progress_percent is None:
+                    record.progress_percent = 100.0
             session.commit()
             session.refresh(record)
             return _job_from_record(record)
@@ -276,6 +296,131 @@ class DatabaseRepository:
         with self._session_factory() as session:
             record = session.get(AnalysisJobRecord, job_id)
             return None if record is None else _job_from_record(record)
+
+    def get_store_policies(self, store_id: str) -> list[StorePolicyItem]:
+        with self._session_factory() as session:
+            records = session.scalars(
+                select(StorePolicyRecord)
+                .where(StorePolicyRecord.store_id == store_id)
+                .order_by(StorePolicyRecord.created_at.asc())
+            ).all()
+            return [_policy_from_record(r) for r in records]
+
+    def save_store_policy(
+        self,
+        store_id: str,
+        policy_input: StorePolicyInput,
+        policy_id: str | None = None,
+    ) -> StorePolicyItem:
+        from uuid import uuid4
+        target_id = policy_id or f"policy-{uuid4().hex[:8]}"
+        now = datetime.now(timezone.utc)
+        with self._session_factory() as session:
+            record = session.get(StorePolicyRecord, target_id)
+            if record is None:
+                record = StorePolicyRecord(
+                    policy_id=target_id,
+                    store_id=store_id,
+                    category=policy_input.category,
+                    title=policy_input.title,
+                    content=policy_input.content,
+                    keywords=policy_input.keywords,
+                    created_at=now,
+                    updated_at=now,
+                )
+                session.add(record)
+            else:
+                record.category = policy_input.category
+                record.title = policy_input.title
+                record.content = policy_input.content
+                record.keywords = policy_input.keywords
+                record.updated_at = now
+            session.commit()
+            session.refresh(record)
+            return _policy_from_record(record)
+
+    def delete_store_policy(self, store_id: str, policy_id: str) -> bool:
+        with self._session_factory() as session:
+            record = session.get(StorePolicyRecord, policy_id)
+            if record is None or record.store_id != store_id:
+                return False
+            session.delete(record)
+            session.commit()
+            return True
+
+    def get_store_menus(self, store_id: str) -> list[StoreMenuItem]:
+        with self._session_factory() as session:
+            records = session.scalars(
+                select(StoreMenuRecord)
+                .where(StoreMenuRecord.store_id == store_id)
+                .order_by(StoreMenuRecord.created_at.asc())
+            ).all()
+            return [_menu_from_record(r) for r in records]
+
+    def save_store_menu(
+        self,
+        store_id: str,
+        menu_input: StoreMenuInput,
+        menu_id: str | None = None,
+    ) -> StoreMenuItem:
+        from uuid import uuid4
+        target_id = menu_id or f"menu-{uuid4().hex[:8]}"
+        now = datetime.now(timezone.utc)
+        with self._session_factory() as session:
+            record = session.get(StoreMenuRecord, target_id)
+            if record is None:
+                record = StoreMenuRecord(
+                    menu_id=target_id,
+                    store_id=store_id,
+                    category=menu_input.category,
+                    name=menu_input.name,
+                    price=menu_input.price,
+                    prep_minutes=menu_input.prep_minutes,
+                    available=menu_input.available,
+                    sold_out_reason=menu_input.sold_out_reason if not menu_input.available else None,
+                    created_at=now,
+                    updated_at=now,
+                )
+                session.add(record)
+            else:
+                record.category = menu_input.category
+                record.name = menu_input.name
+                record.price = menu_input.price
+                record.prep_minutes = menu_input.prep_minutes
+                record.available = menu_input.available
+                record.sold_out_reason = menu_input.sold_out_reason if not menu_input.available else None
+                record.updated_at = now
+            session.commit()
+            session.refresh(record)
+            return _menu_from_record(record)
+
+    def toggle_store_menu_sold_out(
+        self,
+        store_id: str,
+        menu_id: str,
+        available: bool,
+        sold_out_reason: str | None = None,
+    ) -> StoreMenuItem | None:
+        now = datetime.now(timezone.utc)
+        with self._session_factory() as session:
+            record = session.get(StoreMenuRecord, menu_id)
+            if record is None or record.store_id != store_id:
+                return None
+            record.available = available
+            record.sold_out_reason = sold_out_reason if not available else None
+            record.updated_at = now
+            session.commit()
+            session.refresh(record)
+            return _menu_from_record(record)
+
+    def delete_store_menu(self, store_id: str, menu_id: str) -> bool:
+        with self._session_factory() as session:
+            record = session.get(StoreMenuRecord, menu_id)
+            if record is None or record.store_id != store_id:
+                return False
+            session.delete(record)
+            session.commit()
+            return True
 
     def get_store_settings(self, store_id: str) -> StoreSettings | None:
         """매장 운영 설정(수용 인원 등). 없으면 None."""
@@ -1082,6 +1227,10 @@ def _job_from_record(record: AnalysisJobRecord) -> AnalysisJobInfo:
         store_id=record.store_id,
         media_id=record.media_id,
         status=AnalysisJobStatus(record.status),
+        progress_percent=getattr(record, "progress_percent", 0.0) or 0.0,
+        processed_frames=getattr(record, "processed_frames", None),
+        total_frames=getattr(record, "total_frames", None),
+        stage_message=getattr(record, "stage_message", None),
         error_message=record.error_message,
         worker_id=record.worker_id,
         claimed_at=record.claimed_at,
@@ -1098,3 +1247,27 @@ def _next_store_id(session: Session) -> str:
         if match:
             max_number = max(max_number, int(match.group(1)))
     return f"store-{max_number + 1:03d}"
+
+
+def _policy_from_record(record: StorePolicyRecord) -> StorePolicyItem:
+    return StorePolicyItem(
+        policy_id=record.policy_id,
+        store_id=record.store_id,
+        category=record.category or "general",
+        title=record.title,
+        content=record.content,
+        keywords=record.keywords if isinstance(record.keywords, list) else [],
+    )
+
+
+def _menu_from_record(record: StoreMenuRecord) -> StoreMenuItem:
+    return StoreMenuItem(
+        menu_id=record.menu_id,
+        store_id=record.store_id,
+        category=record.category or "coffee",
+        name=record.name,
+        price=record.price,
+        prep_minutes=record.prep_minutes,
+        available=record.available,
+        sold_out_reason=record.sold_out_reason,
+    )

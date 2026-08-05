@@ -21,8 +21,9 @@ class CurrentUser:
     name: str
     role: str
     store_id: str
+    password_changed_at: str | None = None
 
-    def response(self) -> dict[str, str]:
+    def response(self) -> dict[str, str | None]:
         return {
             "uid": self.uid,
             "id": self.email.split("@", 1)[0],
@@ -30,6 +31,7 @@ class CurrentUser:
             "name": self.name,
             "role": self.role,
             "storeId": self.store_id,
+            "passwordChangedAt": self.password_changed_at,
         }
 
 
@@ -118,12 +120,14 @@ def get_current_user(
         )
 
     email = str(claims.get("email") or "")
+    password_changed_at = claims.get("password_changed_at")
     return CurrentUser(
         uid=str(claims["uid"]),
         email=email,
         name=str(claims.get("name") or email.split("@", 1)[0] or "사용자"),
         role=str(role),
         store_id=str(store_id or "head-office"),
+        password_changed_at=str(password_changed_at) if password_changed_at else None,
     )
 
 

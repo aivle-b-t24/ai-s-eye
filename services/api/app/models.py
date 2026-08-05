@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from enum import StrEnum
 from typing import Literal
@@ -51,6 +52,100 @@ class StoreManagerPasswordUpdate(BaseModel):
     password: str = Field(min_length=8, max_length=128)
 
 
+def enforce_password_policy(value: str) -> str:
+    """개인정보 보호 가이드(접근통제 제4조⑧) 비밀번호 작성규칙을 강제한다.
+
+    영대문자·영소문자·숫자·특수문자 중 2종류 이상 조합 시 최소 10자리,
+    3종류 이상 조합 시 최소 8자리 이상으로 구성해야 한다.
+    """
+
+    classes = sum(
+        (
+            any(ch.islower() for ch in value),
+            any(ch.isupper() for ch in value),
+            any(ch.isdigit() for ch in value),
+            any(not ch.isalnum() for ch in value),
+        )
+    )
+    if classes >= 3 and len(value) >= 8:
+        return value
+    if classes >= 2 and len(value) >= 10:
+        return value
+    raise ValueError(
+        "비밀번호는 영문·숫자·특수문자 중 2종류 이상 조합 시 10자리 이상, "
+        "3종류 이상 조합 시 8자리 이상이어야 합니다"
+    )
+
+
+def _has_sequential_run(value: str, length: int = 4) -> bool:
+    """1234·abcd 같은 오름/내림 연속 문자가 length자 이상 있는지 검사한다."""
+    lowered = value.lower()
+    run_up = run_down = 1
+    for prev, curr in zip(lowered, lowered[1:]):
+        delta = ord(curr) - ord(prev)
+        run_up = run_up + 1 if delta == 1 else 1
+        run_down = run_down + 1 if delta == -1 else 1
+        if run_up >= length or run_down >= length:
+            return True
+    return False
+
+
+def enforce_no_easy_password(password: str, id_part: str | None = None) -> str:
+    """접근통제 제4조⑧-2: 추측하기 쉬운 비밀번호(연속·반복·아이디 유사)를 막는다."""
+    if re.search(r"(.)\1{3,}", password):
+        raise ValueError("같은 문자를 4자 이상 반복한 비밀번호는 사용할 수 없습니다")
+    if _has_sequential_run(password):
+        raise ValueError("연속된 숫자·문자(예: 1234, abcd)는 사용할 수 없습니다")
+    if id_part and len(id_part) >= 3 and id_part.lower() in password.lower():
+        raise ValueError("아이디(이메일)와 비슷한 비밀번호는 사용할 수 없습니다")
+    return password
+
+
+class HqAdminSignupRequest(BaseModel):
+    """본사 관리자 셀프 회원가입 요청. 개인정보 최소 수집 원칙에 따라 필수 항목만 받는다."""
+
+    # 길이 제약 대신 normalize_email 검증기가 한글 메시지로 형식을 안내한다.
+    email: str = Field(max_length=254)
+    name: str = Field(min_length=1, max_length=100)
+    company: str = Field(min_length=1, max_length=100)
+    # 길이 제약 대신 check_password(비밀번호 정책)가 한글 메시지로 안내한다.
+    password: str = Field(max_length=128)
+    agree_privacy: bool = False
+    recaptcha_token: str | None = None
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        local, separator, domain = normalized.partition("@")
+        if not separator or not local or "." not in domain:
+            raise ValueError("유효한 이메일 주소를 입력해 주세요")
+        return normalized
+
+    @field_validator("name", "company")
+    @classmethod
+    def strip_text(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("password")
+    @classmethod
+    def check_password(cls, value: str) -> str:
+        return enforce_password_policy(value)
+
+    @field_validator("agree_privacy")
+    @classmethod
+    def require_consent(cls, value: bool) -> bool:
+        if not value:
+            raise ValueError("개인정보 수집·이용 동의가 필요합니다")
+        return value
+
+    @model_validator(mode="after")
+    def check_easy_password(self) -> "HqAdminSignupRequest":
+        id_part = self.email.split("@", 1)[0] if self.email else None
+        enforce_no_easy_password(self.password, id_part)
+        return self
+
+
 class StoreInfo(BaseModel):
     id: str
     name: str
@@ -66,6 +161,7 @@ class FirebaseUserSummary(BaseModel):
     store_id: str | None = None
     store_name: str | None = None
     disabled: bool = False
+    password_changed_at: str | None = None
 
 
 class TwinMode(StrEnum):
@@ -601,6 +697,10 @@ class AnalysisJobInfo(BaseModel):
     store_id: str
     media_id: str
     status: AnalysisJobStatus
+    progress_percent: float = Field(default=0.0, ge=0.0, le=100.0)
+    processed_frames: int | None = Field(default=None, ge=0)
+    total_frames: int | None = Field(default=None, ge=0)
+    stage_message: str | None = None
     error_message: str | None = None
     worker_id: str | None = None
     claimed_at: datetime | None = None
@@ -616,5 +716,62 @@ class AnalysisJobClaim(BaseModel):
 
 class AnalysisJobStatusUpdate(BaseModel):
     status: AnalysisJobStatus
+    progress_percent: float | None = Field(default=None, ge=0.0, le=100.0)
+    processed_frames: int | None = Field(default=None, ge=0)
+    total_frames: int | None = Field(default=None, ge=0)
+    stage_message: str | None = None
     error_message: str | None = None
     worker_id: str | None = None
+
+
+class StorePolicyItem(BaseModel):
+    policy_id: str
+    store_id: str
+    category: str = "general"
+    title: str = Field(min_length=1, max_length=100)
+    content: str = Field(min_length=1)
+    keywords: list[str] = Field(default_factory=list)
+
+
+class StorePolicyInput(BaseModel):
+    category: str = "general"
+    title: str = Field(min_length=1, max_length=100)
+    content: str = Field(min_length=1)
+    keywords: list[str] = Field(default_factory=list)
+
+
+class StorePolicyListResponse(BaseModel):
+    data_source: str = "db"
+    store_id: str
+    policies: list[StorePolicyItem] = Field(default_factory=list)
+
+
+class StoreMenuItem(BaseModel):
+    menu_id: str
+    store_id: str
+    category: str = "coffee"
+    name: str = Field(min_length=1, max_length=100)
+    price: int = Field(ge=0)
+    prep_minutes: int = Field(default=3, ge=0)
+    available: bool = True
+    sold_out_reason: str | None = None
+
+
+class StoreMenuInput(BaseModel):
+    category: str = "coffee"
+    name: str = Field(min_length=1, max_length=100)
+    price: int = Field(ge=0)
+    prep_minutes: int = Field(default=3, ge=0)
+    available: bool = True
+    sold_out_reason: str | None = None
+
+
+class StoreMenuToggleInput(BaseModel):
+    available: bool
+    sold_out_reason: str | None = None
+
+
+class StoreMenuListResponse(BaseModel):
+    data_source: str = "db"
+    store_id: str
+    menus: list[StoreMenuItem] = Field(default_factory=list)

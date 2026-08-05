@@ -415,6 +415,14 @@ class AnalysisJobRecord(Base):
         nullable=False,
     )
     status: Mapped[str] = mapped_column(sa.String(30), nullable=False)
+    progress_percent: Mapped[float] = mapped_column(
+        sa.Float,
+        nullable=False,
+        server_default=sa.text("0.0"),
+    )
+    processed_frames: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
+    total_frames: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
+    stage_message: Mapped[str | None] = mapped_column(sa.String(255), nullable=True)
     error_message: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     worker_id: Mapped[str | None] = mapped_column(sa.String(120), nullable=True)
     claimed_at: Mapped[datetime | None] = mapped_column(
@@ -426,6 +434,64 @@ class AnalysisJobRecord(Base):
         nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True),
+        nullable=False,
+        server_default=sa.text("CURRENT_TIMESTAMP"),
+    )
+
+
+class StorePolicyRecord(Base):
+    """매장 안내 및 정책 DB 모델."""
+
+    __tablename__ = "store_policies"
+    __table_args__ = (
+        sa.Index("ix_store_policies_store_id", "store_id"),
+    )
+
+    policy_id: Mapped[str] = mapped_column(sa.String(36), primary_key=True)
+    store_id: Mapped[str] = mapped_column(sa.String(100), nullable=False)
+    category: Mapped[str] = mapped_column(sa.String(50), nullable=False, server_default="general")
+    title: Mapped[str] = mapped_column(sa.String(100), nullable=False)
+    content: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    keywords: Mapped[list] = mapped_column(
+        JSONB(astext_type=sa.Text()),
+        nullable=False,
+        server_default="[]",
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True),
+        nullable=False,
+        server_default=sa.text("CURRENT_TIMESTAMP"),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True),
+        nullable=False,
+        server_default=sa.text("CURRENT_TIMESTAMP"),
+    )
+
+
+class StoreMenuRecord(Base):
+    """매장 메뉴 및 품절 상태 DB 모델."""
+
+    __tablename__ = "store_menus"
+    __table_args__ = (
+        sa.Index("ix_store_menus_store_id", "store_id"),
+    )
+
+    menu_id: Mapped[str] = mapped_column(sa.String(36), primary_key=True)
+    store_id: Mapped[str] = mapped_column(sa.String(100), nullable=False)
+    category: Mapped[str] = mapped_column(sa.String(50), nullable=False, server_default="coffee")
+    name: Mapped[str] = mapped_column(sa.String(100), nullable=False)
+    price: Mapped[int] = mapped_column(sa.Integer, nullable=False, server_default="0")
+    prep_minutes: Mapped[int] = mapped_column(sa.Integer, nullable=False, server_default="3")
+    available: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.text("true"))
+    sold_out_reason: Mapped[str | None] = mapped_column(sa.String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True),
+        nullable=False,
+        server_default=sa.text("CURRENT_TIMESTAMP"),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
         sa.DateTime(timezone=True),
         nullable=False,
         server_default=sa.text("CURRENT_TIMESTAMP"),

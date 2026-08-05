@@ -1,12 +1,7 @@
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useAuthContext } from '../auth/AuthContext'
-import { IS_LOCAL_AUTH_MODE } from '../auth/runtimeAuth'
 import { getDemoAccount, usesCredentialDemoLogin } from '../auth/demoAccounts'
 import { ROLES, STORES, DEMO_CREDENTIALS } from '../constants/auth'
-
-// 로컬 가짜 로그인 테스트 허용 스위치 (나중에 안 쓸 때 false 로 변경)
-const ENABLE_LOCAL_DEMO_LOGIN = true
+import LegalFooter from './legal/LegalFooter'
 
 function HeroSection({
   page,
@@ -18,8 +13,6 @@ function HeroSection({
   onLoginSuccess,
   onCredentialLogin,
 }) {
-  const navigate = useNavigate()
-  const { currentUser } = useAuthContext()
   const [isStoreSubmenuOpen, setIsStoreSubmenuOpen] = useState(false)
   const [demoError, setDemoError] = useState('')
   const [demoSubmitting, setDemoSubmitting] = useState(false)
@@ -61,11 +54,6 @@ function HeroSection({
   const handleDemoLogin = async (selectedRole, targetStoreId = STORES.DONGMYEONG) => {
     const credKey = selectedRole === ROLES.STORE_MANAGER ? targetStoreId : STORES.HEAD_OFFICE
     setDemoError('')
-
-    if (IS_LOCAL_AUTH_MODE && ENABLE_LOCAL_DEMO_LOGIN) {
-      enterWithDemoProfile(selectedRole, targetStoreId)
-      return
-    }
 
     // Firebase/로컬 데모 계정이 설정돼 있으면 실제 로그인, 아니면 기존 원클릭(비연결) 유지
     if (usesCredentialDemoLogin() && onCredentialLogin) {
@@ -110,20 +98,6 @@ function HeroSection({
             >
               로그인
             </button>
-
-            {(ENABLE_LOCAL_DEMO_LOGIN || !IS_LOCAL_AUTH_MODE) && currentUser && (
-              <button
-                type="button"
-                className="landing-go-dashboard-btn"
-                onClick={() => {
-                  const targetPath = currentUser.role === 'admin' ? '/hq' : '/dashboard'
-                  navigate(targetPath)
-                }}
-              >
-                {currentUser.role === 'admin' ? '본사 관제 이동 ↗' : '점주 관제 이동 ↗'}
-              </button>
-            )}
-
             <button
               type="button"
               className="landing-signup-btn"
@@ -223,9 +197,7 @@ function HeroSection({
           </div>
         </div>
       </div>
-      <footer className="main-landing-footer">
-        <span>개인정보 처리방침</span> | <span>이용약관</span> | <span>© 2026 AI's Eye. All rights reserved.</span>
-      </footer>
+      <LegalFooter className="main-landing-footer" />
     </section>
   )
 }

@@ -71,6 +71,11 @@ def test_update_store_manager_password_updates_and_revokes_tokens(
         "revoke_refresh_tokens",
         lambda uid, app: revoked.append((uid, app)),
     )
+    monkeypatch.setattr(
+        firebase_users.firebase_auth,
+        "set_custom_user_claims",
+        lambda uid, claims, app: None,
+    )
 
     firebase_users.update_store_manager_password("owner-002", request)
 

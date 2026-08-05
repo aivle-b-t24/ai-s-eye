@@ -58,3 +58,11 @@ export async function createAnalysisJob(storeId, mediaId) {
   }
   return response.json()
 }
+
+export async function listAnalysisJobs(storeId) {
+  const response = await authenticatedFetch(
+    `${UPLOAD_API_BASE_URL}/api/stores/${storeId}/analysis-jobs`,
+  )
+  if (!response.ok) return []
+  return response.json()
+}

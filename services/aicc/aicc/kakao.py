@@ -248,3 +248,82 @@ def answer_quick_replies(directory: StoreDirectory | None) -> list[dict[str, str
 
 def store_selected_text(store_name: str) -> str:
     return f"‘{store_name}’으로 안내해 드릴게요. 무엇이 궁금하세요?"
+
+
+# 리스트카드는 최대 5개 항목. 그 이상이면 선택 버튼(퀵리플라이)으로 물러난다.
+MAX_LIST_CARD_ITEMS = 5
+STORE_PICK_HEADER = "어느 매장이 궁금하세요? 🏪"
+WELCOME_INTRO = "안녕하세요! 😊 매장 혼잡도·대기·메뉴·영업시간을 안내해 드려요."
+
+
+def build_store_picker(entries: list[StoreEntry], *, greeting: bool = False) -> dict[str, Any]:
+    """매장 선택을 보기 좋게 만든다. 5개 이하면 리스트카드, 초과면 텍스트+선택버튼으로 물러난다.
+
+    greeting=True(첫 진입)면 인삿말 말풍선을 카드 앞에 붙인다.
+    """
+    if entries and len(entries) <= MAX_LIST_CARD_ITEMS:
+        outputs: list[dict[str, Any]] = []
+        if greeting:
+            outputs.append({"simpleText": {"text": WELCOME_INTRO}})
+        outputs.append(
+            {
+                "listCard": {
+                    "header": {"title": STORE_PICK_HEADER},
+                    "items": [
+                        {"title": entry.name, "action": "message", "messageText": entry.name}
+                        for entry in entries
+                    ],
+                }
+            }
+        )
+        return {"version": "2.0", "template": {"outputs": outputs}}
+    # 6개 이상(또는 비어있음): 리스트카드 한도 초과 → 텍스트 + 선택 버튼
+    text = f"{WELCOME_INTRO}\n{PICK_STORE_TEXT}" if greeting else PICK_STORE_TEXT
+    return build_skill_response(text, store_quick_replies(entries))
+
+
+# 답변 뒤에 붙는 '무엇이 궁금하세요?' 액션 메뉴(리스트카드). 라벨=버튼, messageText=실제 질문.
+ACTION_MENU_HEADER = "무엇이 궁금하세요?"
+_ACTION_MENU_ITEMS: list[tuple[str, str]] = [
+    ("지금 붐비나요?", "지금 사람 많나요?"),
+    ("얼마나 기다려요?", "지금 가면 얼마나 기다려야 하나요?"),
+    ("메뉴·가격", "메뉴 알려주세요"),
+    ("영업시간", "영업시간 알려주세요"),
+]
+
+
+def action_menu_output(
+    directory: StoreDirectory | None,
+    header: str = ACTION_MENU_HEADER,
+) -> dict[str, Any]:
+    """'무엇이 궁금하세요?' 리스트카드 한 장(출력 요소). 매장 여럿이면 '매장 변경' 추가."""
+    items = [
+        {"title": label, "action": "message", "messageText": message}
+        for label, message in _ACTION_MENU_ITEMS
+    ]
+    if directory is not None and directory.has_multiple():
+        items.append(
+            {"title": CHANGE_STORE_LABEL, "action": "message", "messageText": CHANGE_STORE_LABEL}
+        )
+    return {"listCard": {"header": {"title": header}, "items": items[:MAX_LIST_CARD_ITEMS]}}
+
+
+def build_action_menu(
+    directory: StoreDirectory | None,
+    header: str = ACTION_MENU_HEADER,
+) -> dict[str, Any]:
+    """액션 메뉴 리스트카드만 있는 응답(매장 선택 직후 등)."""
+    return {"version": "2.0", "template": {"outputs": [action_menu_output(directory, header)]}}
+
+
+def build_answer(text: str, directory: StoreDirectory | None) -> dict[str, Any]:
+    """답변 말풍선 + 액션 메뉴 리스트카드."""
+    return {
+        "version": "2.0",
+        "template": {
+            "outputs": [
+                {"simpleText": {"text": text}},
+                action_menu_output(directory),
+            ]
+        },
+    }

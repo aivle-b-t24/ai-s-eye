@@ -2,6 +2,8 @@ from threading import RLock
 from datetime import datetime, timedelta, timezone
 import re
 
+from uuid import uuid4
+
 from .db_repository import StoreNameAlreadyExistsError
 from .models import (
     AnalysisJobInfo,
@@ -16,6 +18,10 @@ from .models import (
     StoreInfo,
     StoreMediaInfo,
     StoreMediaType,
+    StoreMenuInput,
+    StoreMenuItem,
+    StorePolicyInput,
+    StorePolicyItem,
     StoreSettings,
     StoreState,
 )
@@ -451,6 +457,10 @@ class InMemoryRepository:
         job_id: str,
         *,
         status: AnalysisJobStatus,
+        progress_percent: float | None = None,
+        processed_frames: int | None = None,
+        total_frames: int | None = None,
+        stage_message: str | None = None,
         error_message: str | None = None,
         worker_id: str | None = None,
     ) -> AnalysisJobInfo | None:
@@ -459,10 +469,20 @@ class InMemoryRepository:
             if job is None:
                 return None
             updates: dict = {"status": status, "error_message": error_message}
+            if progress_percent is not None:
+                updates["progress_percent"] = progress_percent
+            if processed_frames is not None:
+                updates["processed_frames"] = processed_frames
+            if total_frames is not None:
+                updates["total_frames"] = total_frames
+            if stage_message is not None:
+                updates["stage_message"] = stage_message
             if worker_id is not None:
                 updates["worker_id"] = worker_id
             if status in {AnalysisJobStatus.COMPLETED, AnalysisJobStatus.FAILED}:
                 updates["completed_at"] = datetime.now(timezone.utc)
+                if status == AnalysisJobStatus.COMPLETED and progress_percent is None:
+                    updates["progress_percent"] = 100.0
             updated = job.model_copy(update=updates)
             self._jobs[job_id] = updated
             return updated
@@ -470,3 +490,105 @@ class InMemoryRepository:
     def get_analysis_job(self, job_id: str) -> AnalysisJobInfo | None:
         with self._lock:
             return self._jobs.get(job_id)
+
+    def get_store_policies(self, store_id: str) -> list[StorePolicyItem]:
+        with self._lock:
+            if not hasattr(self, "_policies"):
+                self._policies: dict[str, dict[str, StorePolicyItem]] = {}
+            store_map = self._policies.get(store_id, {})
+            return list(store_map.values())
+
+    def save_store_policy(
+        self,
+        store_id: str,
+        policy_input: StorePolicyInput,
+        policy_id: str | None = None,
+    ) -> StorePolicyItem:
+        with self._lock:
+            if not hasattr(self, "_policies"):
+                self._policies = {}
+            if store_id not in self._policies:
+                self._policies[store_id] = {}
+            target_id = policy_id or f"policy-{uuid4().hex[:8]}"
+            item = StorePolicyItem(
+                policy_id=target_id,
+                store_id=store_id,
+                category=policy_input.category,
+                title=policy_input.title,
+                content=policy_input.content,
+                keywords=policy_input.keywords,
+            )
+            self._policies[store_id][target_id] = item
+            return item
+
+    def delete_store_policy(self, store_id: str, policy_id: str) -> bool:
+        with self._lock:
+            if not hasattr(self, "_policies") or store_id not in self._policies:
+                return False
+            if policy_id in self._policies[store_id]:
+                del self._policies[store_id][policy_id]
+                return True
+            return False
+
+    def get_store_menus(self, store_id: str) -> list[StoreMenuItem]:
+        with self._lock:
+            if not hasattr(self, "_menus"):
+                self._menus: dict[str, dict[str, StoreMenuItem]] = {}
+            store_map = self._menus.get(store_id, {})
+            return list(store_map.values())
+
+    def save_store_menu(
+        self,
+        store_id: str,
+        menu_input: StoreMenuInput,
+        menu_id: str | None = None,
+    ) -> StoreMenuItem:
+        with self._lock:
+            if not hasattr(self, "_menus"):
+                self._menus = {}
+            if store_id not in self._menus:
+                self._menus[store_id] = {}
+            target_id = menu_id or f"menu-{uuid4().hex[:8]}"
+            item = StoreMenuItem(
+                menu_id=target_id,
+                store_id=store_id,
+                category=menu_input.category,
+                name=menu_input.name,
+                price=menu_input.price,
+                prep_minutes=menu_input.prep_minutes,
+                available=menu_input.available,
+                sold_out_reason=menu_input.sold_out_reason if not menu_input.available else None,
+            )
+            self._menus[store_id][target_id] = item
+            return item
+
+    def toggle_store_menu_sold_out(
+        self,
+        store_id: str,
+        menu_id: str,
+        available: bool,
+        sold_out_reason: str | None = None,
+    ) -> StoreMenuItem | None:
+        with self._lock:
+            if not hasattr(self, "_menus") or store_id not in self._menus:
+                return None
+            item = self._menus[store_id].get(menu_id)
+            if item is None:
+                return None
+            updated = item.model_copy(
+                update={
+                    "available": available,
+                    "sold_out_reason": sold_out_reason if not available else None,
+                }
+            )
+            self._menus[store_id][menu_id] = updated
+            return updated
+
+    def delete_store_menu(self, store_id: str, menu_id: str) -> bool:
+        with self._lock:
+            if not hasattr(self, "_menus") or store_id not in self._menus:
+                return False
+            if menu_id in self._menus[store_id]:
+                del self._menus[store_id][menu_id]
+                return True
+            return False

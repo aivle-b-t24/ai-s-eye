@@ -1,4 +1,6 @@
 import json
+import urllib.parse
+import urllib.request
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
@@ -33,6 +35,7 @@ from .models import (
     CameraSceneConfigInput,
     EtaResponse,
     FirebaseUserSummary,
+    HqAdminSignupRequest,
     OrderEvent,
     OperationsSimulationResult,
     OperationsSimulationScenario,
@@ -42,6 +45,13 @@ from .models import (
     StoreListResponse,
     StoreMediaInfo,
     StoreMediaType,
+    StoreMenuInput,
+    StoreMenuItem,
+    StoreMenuListResponse,
+    StoreMenuToggleInput,
+    StorePolicyInput,
+    StorePolicyItem,
+    StorePolicyListResponse,
     StoreSettings,
     StoreSettingsInput,
     StoreState,
@@ -61,6 +71,7 @@ from .firebase_users import (
     FirebaseUserAlreadyExistsError,
     FirebaseUserNotFoundError,
     FirebaseUserNotStoreManagerError,
+    create_hq_admin_account,
     create_store_manager_account,
     delete_store_manager_account,
     list_managed_accounts,
@@ -264,6 +275,52 @@ def get_authenticated_user(
     return payload
 
 
+def _verify_recaptcha(token: str | None) -> bool:
+    """구글 reCAPTCHA 토큰을 검증한다. 시크릿 미설정 시(개발) 검증을 생략한다."""
+    secret = get_settings().recaptcha_secret
+    if not secret:
+        return True
+    if not token:
+        return False
+    try:
+        body = urllib.parse.urlencode({"secret": secret, "response": token}).encode()
+        with urllib.request.urlopen(
+            "https://www.google.com/recaptcha/api/siteverify", data=body, timeout=5
+        ) as resp:
+            payload = json.load(resp)
+        return bool(payload.get("success"))
+    except Exception:
+        # 네트워크 오류 등으로 검증 자체가 불가하면 데모 진행을 막지 않는다.
+        return True
+
+
+@app.post(
+    "/api/auth/signup/hq",
+    response_model=FirebaseUserSummary,
+    status_code=status.HTTP_201_CREATED,
+    tags=["auth"],
+)
+def signup_hq_admin(request: HqAdminSignupRequest) -> FirebaseUserSummary:
+    """본사 관리자 셀프 회원가입(공개 엔드포인트). 가입 즉시 로그인할 수 있도록 admin 권한을 부여한다."""
+    if not _verify_recaptcha(request.recaptcha_token):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="reCAPTCHA 확인에 실패했습니다. 다시 시도해 주세요.",
+        )
+    try:
+        return create_hq_admin_account(
+            email=request.email,
+            name=request.name,
+            password=request.password,
+            company=request.company,
+        )
+    except FirebaseUserAlreadyExistsError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="이미 가입된 이메일입니다",
+        ) from exc
+
+
 @app.get(
     "/api/admin/stores",
     response_model=list[StoreInfo],
@@ -329,7 +386,7 @@ def create_admin_user(
 )
 def delete_admin_user(uid: str) -> None:
     try:
-        delete_store_manager_account(uid)
+        store_id = delete_store_manager_account(uid)
     except FirebaseUserNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -340,6 +397,11 @@ def delete_admin_user(uid: str) -> None:
             status_code=status.HTTP_409_CONFLICT,
             detail="점주 계정만 삭제할 수 있습니다",
         ) from exc
+
+    # Firebase 계정 삭제 후 연결된 매장도 DB에서 함께 삭제
+    if store_id:
+        repository.delete_store(store_id)
+
 
 
 @app.patch(
@@ -1168,6 +1230,10 @@ def patch_analysis_job(
     updated = repository.update_analysis_job(
         job_id,
         status=payload.status,
+        progress_percent=payload.progress_percent,
+        processed_frames=payload.processed_frames,
+        total_frames=payload.total_frames,
+        stage_message=payload.stage_message,
         error_message=payload.error_message,
         worker_id=payload.worker_id,
     )
@@ -1210,29 +1276,163 @@ def update_store_settings(
 
 @app.get(
     "/api/stores/{store_id}/menus",
+    response_model=StoreMenuListResponse,
     tags=["stores"],
     dependencies=[Depends(require_store_access)],
 )
-def get_store_menus(store_id: str) -> dict[str, Any]:
-    menu_data = load_json_file("menus.json")
-    menus = [
-        menu
-        for menu in menu_data.get("menus", [])
-        if menu.get("store_id") == store_id
-    ]
-    return {**menu_data, "store_id": store_id, "menus": menus}
+def get_store_menus(store_id: str) -> StoreMenuListResponse:
+    menus = repository.get_store_menus(store_id)
+    if not menus:
+        menu_data = load_json_file("menus.json")
+        raw_menus = [
+            m for m in menu_data.get("menus", [])
+            if m.get("store_id") == store_id
+        ]
+        for m in raw_menus:
+            inp = StoreMenuInput(
+                category=m.get("category", "coffee"),
+                name=m.get("name", ""),
+                price=m.get("price", 0),
+                prep_minutes=m.get("prep_minutes", 3),
+                available=m.get("available", True),
+                sold_out_reason=m.get("sold_out_reason"),
+            )
+            repository.save_store_menu(store_id, inp, menu_id=m.get("menu_id"))
+        menus = repository.get_store_menus(store_id)
+    return StoreMenuListResponse(
+        data_source="db",
+        store_id=store_id,
+        menus=menus,
+    )
+
+
+@app.post(
+    "/api/stores/{store_id}/menus",
+    response_model=StoreMenuItem,
+    status_code=status.HTTP_201_CREATED,
+    tags=["stores"],
+    dependencies=[Depends(require_store_access)],
+)
+def create_store_menu(
+    store_id: str,
+    payload: StoreMenuInput,
+) -> StoreMenuItem:
+    return repository.save_store_menu(store_id, payload)
+
+
+@app.put(
+    "/api/stores/{store_id}/menus/{menu_id}",
+    response_model=StoreMenuItem,
+    tags=["stores"],
+    dependencies=[Depends(require_store_access)],
+)
+def update_store_menu(
+    store_id: str,
+    menu_id: str,
+    payload: StoreMenuInput,
+) -> StoreMenuItem:
+    return repository.save_store_menu(store_id, payload, menu_id=menu_id)
+
+
+@app.patch(
+    "/api/stores/{store_id}/menus/{menu_id}/toggle-sold-out",
+    response_model=StoreMenuItem,
+    tags=["stores"],
+    dependencies=[Depends(require_store_access)],
+)
+def toggle_store_menu_sold_out(
+    store_id: str,
+    menu_id: str,
+    payload: StoreMenuToggleInput,
+) -> StoreMenuItem:
+    updated = repository.toggle_store_menu_sold_out(
+        store_id,
+        menu_id,
+        available=payload.available,
+        sold_out_reason=payload.sold_out_reason,
+    )
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Menu not found")
+    return updated
+
+
+@app.delete(
+    "/api/stores/{store_id}/menus/{menu_id}",
+    tags=["stores"],
+    dependencies=[Depends(require_store_access)],
+)
+def delete_store_menu(store_id: str, menu_id: str) -> dict[str, Any]:
+    deleted = repository.delete_store_menu(store_id, menu_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Menu not found")
+    return {"deleted": True, "menu_id": menu_id}
 
 
 @app.get(
     "/api/stores/{store_id}/policies",
+    response_model=StorePolicyListResponse,
     tags=["stores"],
     dependencies=[Depends(require_store_access)],
 )
-def get_store_policies(store_id: str) -> dict[str, Any]:
-    policy_data = load_json_file("policies.json")
-    policies = [
-        policy
-        for policy in policy_data.get("policies", [])
-        if policy.get("store_id") == store_id
-    ]
-    return {**policy_data, "store_id": store_id, "policies": policies}
+def get_store_policies(store_id: str) -> StorePolicyListResponse:
+    policies = repository.get_store_policies(store_id)
+    if not policies:
+        policy_data = load_json_file("policies.json")
+        raw_policies = [
+            p for p in policy_data.get("policies", [])
+            if p.get("store_id") == store_id
+        ]
+        for p in raw_policies:
+            inp = StorePolicyInput(
+                category=p.get("category", "general"),
+                title=p.get("title", ""),
+                content=p.get("content", ""),
+                keywords=p.get("keywords", []),
+            )
+            repository.save_store_policy(store_id, inp, policy_id=p.get("policy_id"))
+        policies = repository.get_store_policies(store_id)
+    return StorePolicyListResponse(
+        data_source="db",
+        store_id=store_id,
+        policies=policies,
+    )
+
+
+@app.post(
+    "/api/stores/{store_id}/policies",
+    response_model=StorePolicyItem,
+    status_code=status.HTTP_201_CREATED,
+    tags=["stores"],
+    dependencies=[Depends(require_store_access)],
+)
+def create_store_policy(
+    store_id: str,
+    payload: StorePolicyInput,
+) -> StorePolicyItem:
+    return repository.save_store_policy(store_id, payload)
+
+
+@app.put(
+    "/api/stores/{store_id}/policies/{policy_id}",
+    response_model=StorePolicyItem,
+    tags=["stores"],
+    dependencies=[Depends(require_store_access)],
+)
+def update_store_policy(
+    store_id: str,
+    policy_id: str,
+    payload: StorePolicyInput,
+) -> StorePolicyItem:
+    return repository.save_store_policy(store_id, payload, policy_id=policy_id)
+
+
+@app.delete(
+    "/api/stores/{store_id}/policies/{policy_id}",
+    tags=["stores"],
+    dependencies=[Depends(require_store_access)],
+)
+def delete_store_policy(store_id: str, policy_id: str) -> dict[str, Any]:
+    deleted = repository.delete_store_policy(store_id, policy_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Policy not found")
+    return {"deleted": True, "policy_id": policy_id}

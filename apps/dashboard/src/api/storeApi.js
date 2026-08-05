@@ -52,3 +52,107 @@ export async function saveStoreSettings(storeId, maxCapacity) {
   }
   return response.json()
 }
+
+export async function createStorePolicy(storeId, policyData) {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/stores/${storeId}/policies`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(policyData),
+    },
+  )
+  if (!response.ok) {
+    throw new Error(`정책 생성 실패 (${response.status})`)
+  }
+  return response.json()
+}
+
+export async function updateStorePolicy(storeId, policyId, policyData) {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/stores/${storeId}/policies/${policyId}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(policyData),
+    },
+  )
+  if (!response.ok) {
+    throw new Error(`정책 수정 실패 (${response.status})`)
+  }
+  return response.json()
+}
+
+export async function deleteStorePolicy(storeId, policyId) {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/stores/${storeId}/policies/${policyId}`,
+    {
+      method: 'DELETE',
+    },
+  )
+  if (!response.ok) {
+    throw new Error(`정책 삭제 실패 (${response.status})`)
+  }
+  return response.json()
+}
+
+export async function createStoreMenu(storeId, menuData) {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/stores/${storeId}/menus`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(menuData),
+    },
+  )
+  if (!response.ok) {
+    throw new Error(`메뉴 생성 실패 (${response.status})`)
+  }
+  return response.json()
+}
+
+export async function updateStoreMenu(storeId, menuId, menuData) {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/stores/${storeId}/menus/${menuId}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(menuData),
+    },
+  )
+  if (!response.ok) {
+    throw new Error(`메뉴 수정 실패 (${response.status})`)
+  }
+  return response.json()
+}
+
+export async function toggleStoreMenuSoldOut(storeId, menuId, available, soldOutReason) {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/stores/${storeId}/menus/${menuId}/toggle-sold-out`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        available,
+        sold_out_reason: soldOutReason || null,
+      }),
+    },
+  )
+  if (!response.ok) {
+    throw new Error(`품절 상태 변경 실패 (${response.status})`)
+  }
+  return response.json()
+}
+
+export async function deleteStoreMenu(storeId, menuId) {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/api/stores/${storeId}/menus/${menuId}`,
+    {
+      method: 'DELETE',
+    },
+  )
+  if (!response.ok) {
+    throw new Error(`메뉴 삭제 실패 (${response.status})`)
+  }
+  return response.json()
+}

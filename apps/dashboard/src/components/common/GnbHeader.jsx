@@ -37,18 +37,7 @@ export default function GnbHeader({
 
   return (
     <header className="gnb-header">
-      <button
-        type="button"
-        className="header-back-btn"
-        onClick={onLogout}
-        aria-label="뒤로가기 (로그인 화면으로 이동)"
-        title="로그인 화면으로 돌아가기"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="19" y1="12" x2="5" y2="12" />
-          <polyline points="12 19 5 12 12 5" />
-        </svg>
-      </button>
+      
 
       <div className="brand-zone">
         <span className="brand-badge">AI MONITORING SYSTEM</span>

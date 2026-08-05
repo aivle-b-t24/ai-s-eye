@@ -4077,13 +4077,27 @@ font-size: 16px !important;
   font-weight: 700;
 }
 
-.top-global-nav .logout-btn {
-  appearance: none;
-  -webkit-appearance: none;
-  outline: 0;
+.top-global-nav .logout-btn,
+.gnb-header .logout-btn,
+.user-profile-badge .logout-btn {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  outline: none !important;
+  background: transparent !important;
+  border: none !important;
+  color: #0f382c !important;
   font: inherit;
-  font-size: 17.4px;
-  cursor: pointer;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  padding: 0 4px !important;
+}
+
+.top-global-nav .logout-btn:hover,
+.gnb-header .logout-btn:hover,
+.user-profile-badge .logout-btn:hover {
+  color: #059669 !important;
+  text-decoration: underline !important;
 }
 
 

@@ -53,11 +53,18 @@ function polygonPoints(points = []) {
 }
 
 function errorMessage(detail, fallback) {
-  const message = detail?.detail?.message
+  let message = detail?.detail?.message
     ?? detail?.detail?.[0]?.msg
     ?? detail?.detail
     ?? fallback
-  return typeof message === 'string' ? message : fallback
+  if (typeof message !== 'string') message = fallback
+  if (message.includes('polygon edges must not intersect')) {
+    return '지정한 구역/바닥의 선이 서로 꼬여(교차) 있습니다. 점을 둘레를 따라 순서대로(시계 또는 반시계 방향) 찍어 주세요.'
+  }
+  if (message.includes('polygon points must be unique')) {
+    return '구역 꼭짓점이 동일한 위치에 중복 지정되었습니다. 점을 서로 떨어진 위치에 찍어 주세요.'
+  }
+  return message
 }
 
 function entrancePolygon(point) {

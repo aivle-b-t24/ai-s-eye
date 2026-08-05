@@ -6,6 +6,10 @@ import { IS_LOCAL_AUTH_MODE } from '../../auth/runtimeAuth';
 const REMEMBERED_EMAIL_KEY = 'aicafe.rememberedEmail';
 const _DEMO_LOGIN_ENABLED = usesCredentialDemoLogin();
 
+// 접근통제(제4조④) — 로그인 반복 실패 시 일시 계정 잠금.
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCK_DURATION_SECONDS = 60;
+
 export default function LoginPage({ onClose, onLogin, onPasswordReset, _onGoToSignup, initialRole = ROLES.STORE_MANAGER, initialError = '', onRoleChange }) {
   const [role, setRole] = useState(initialRole);
   const [userId, setUserId] = useState(() => localStorage.getItem(REMEMBERED_EMAIL_KEY) ?? '');
@@ -16,9 +20,28 @@ export default function LoginPage({ onClose, onLogin, onPasswordReset, _onGoToSi
   const [successMessage, setSuccessMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [_isStoreSubmenuOpen, _setIsStoreSubmenuOpen] = useState(false);
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockUntil, setLockUntil] = useState(0);
+  const [lockRemaining, setLockRemaining] = useState(0);
 
   useEffect(() => setRole(initialRole), [initialRole]);
   useEffect(() => setErrorMessage(initialError), [initialError]);
+
+  useEffect(() => {
+    if (!lockUntil) return undefined;
+    const tick = () => {
+      const remain = Math.ceil((lockUntil - Date.now()) / 1000);
+      if (remain <= 0) {
+        setLockUntil(0);
+        setLockRemaining(0);
+      } else {
+        setLockRemaining(remain);
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [lockUntil]);
 
   const handleTabSwitch = (newRole) => {
     setRole(newRole);
@@ -43,6 +66,10 @@ export default function LoginPage({ onClose, onLogin, onPasswordReset, _onGoToSi
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (lockUntil && Date.now() < lockUntil) {
+      setErrorMessage(`로그인 ${MAX_LOGIN_ATTEMPTS}회 실패로 계정이 일시 잠금되었습니다. ${lockRemaining}초 후 다시 시도해 주세요.`);
+      return;
+    }
     if (!userId.trim()) {
       setErrorMessage('이메일을 입력해 주세요.');
       return;
@@ -65,8 +92,17 @@ export default function LoginPage({ onClose, onLogin, onPasswordReset, _onGoToSi
         localStorage.removeItem(REMEMBERED_EMAIL_KEY);
       }
       setErrorMessage('');
+      setFailedAttempts(0);
     } catch (error) {
-      setErrorMessage(error.message || '로그인에 실패했습니다.');
+      const nextAttempts = failedAttempts + 1;
+      if (nextAttempts >= MAX_LOGIN_ATTEMPTS) {
+        setFailedAttempts(0);
+        setLockUntil(Date.now() + LOCK_DURATION_SECONDS * 1000);
+        setErrorMessage(`로그인 ${MAX_LOGIN_ATTEMPTS}회 실패로 계정이 ${LOCK_DURATION_SECONDS}초간 잠금되었습니다.`);
+      } else {
+        setFailedAttempts(nextAttempts);
+        setErrorMessage(`${error.message || '로그인에 실패했습니다.'} (${MAX_LOGIN_ATTEMPTS - nextAttempts}회 남음)`);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -233,12 +269,14 @@ export default function LoginPage({ onClose, onLogin, onPasswordReset, _onGoToSi
             )}
           </div>
 
-          <button type="submit" className="auth-submit-btn" disabled={isSubmitting}>
-            {isSubmitting
-              ? '로그인 확인 중...'
-              : role === ROLES.STORE_MANAGER
-                ? '점주 관제 화면 로그인'
-                : '본사 관리자 대시보드 로그인'}
+          <button type="submit" className="auth-submit-btn" disabled={isSubmitting || lockRemaining > 0}>
+            {lockRemaining > 0
+              ? `계정 잠금 · ${lockRemaining}초 후 재시도`
+              : isSubmitting
+                ? '로그인 확인 중...'
+                : role === ROLES.STORE_MANAGER
+                  ? '점주 관제 화면 로그인'
+                  : '본사 관리자 대시보드 로그인'}
           </button>
         </form>
 

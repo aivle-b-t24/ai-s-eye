@@ -12,6 +12,7 @@ import './App.css'
 
 import LoginPage from './components/user/LoginPage'
 import SignupPage from './components/user/SignupPage'
+import PasswordExpiryPrompt from './components/legal/PasswordExpiryPrompt'
 import StoreDashboardView from './components/store/StoreDashboardView'
 import SupervisorHeadOfficeView from './components/head-office/SupervisorHeadOfficeView'
 import HeadOfficeHeader from './components/head-office/HeadOfficeHeader'
@@ -87,6 +88,19 @@ function PublicShell() {
     return <Navigate to={homeForUser(currentUser)} replace />
   }
 
+  // 회원가입은 모달이 아닌 전용 풀페이지로 렌더한다.
+  if (isSignup) {
+    return (
+      <SignupPage
+        initialRole={authRole}
+        onRoleChange={handleSignupRoleChange}
+        onGoToLogin={handleGoToLogin}
+        onLogin={handleLogin}
+        onClose={() => navigate(ROUTES.HOME)}
+      />
+    )
+  }
+
   return (
     <main className="page-shell is-main-landing has-hero">
       <HeroSection
@@ -111,28 +125,17 @@ function PublicShell() {
         onClose={() => setIsSidebarOpen(false)}
       />
 
-      {(isLogin || isSignup) && (
+      {isLogin && (
         <div className="auth-modal-overlay">
-          {isLogin && (
-            <LoginPage
-              initialRole={authRole}
-              onRoleChange={handleLoginRoleChange}
-              initialError={authError}
-              onLogin={handleLogin}
-              onPasswordReset={handlePasswordReset}
-              onGoToSignup={handleGoToSignup}
-              onClose={() => navigate(ROUTES.HOME)}
-            />
-          )}
-          {isSignup && (
-            <SignupPage
-              initialRole={authRole}
-              onRoleChange={handleSignupRoleChange}
-              onGoToLogin={handleGoToLogin}
-              onCompleteSignup={handleGoToLogin}
-              onClose={() => navigate(ROUTES.HOME)}
-            />
-          )}
+          <LoginPage
+            initialRole={authRole}
+            onRoleChange={handleLoginRoleChange}
+            initialError={authError}
+            onLogin={handleLogin}
+            onPasswordReset={handlePasswordReset}
+            onGoToSignup={handleGoToSignup}
+            onClose={() => navigate(ROUTES.HOME)}
+          />
         </div>
       )}
 
@@ -364,6 +367,7 @@ function AuthBootstrap({ children }) {
 function App() {
   return (
     <AuthBootstrap>
+      <PasswordExpiryPrompt />
       <Routes>
         <Route element={<PublicShell />}>
           <Route path={ROUTES.HOME} element={null} />

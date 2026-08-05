@@ -2,10 +2,19 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from firebase_admin import auth as firebase_auth
 
-from .auth import STORE_MANAGER_ROLE, get_firebase_app
+from .auth import ADMIN_ROLE, STORE_MANAGER_ROLE, get_firebase_app
 from .models import FirebaseUserSummary, StoreManagerPasswordUpdate
+
+HEAD_OFFICE_STORE_ID = "head-office"
+
+
+def _now_iso() -> str:
+    """비밀번호 유효기간 계산용 변경 시각(UTC ISO 8601)."""
+    return datetime.now(timezone.utc).isoformat()
 
 
 class FirebaseUserAlreadyExistsError(Exception):
@@ -34,6 +43,7 @@ def _summary(
         store_id=claims.get("store_id"),
         store_name=store_name,
         disabled=user.disabled,
+        password_changed_at=claims.get("password_changed_at"),
     )
 
 
@@ -67,6 +77,7 @@ def create_store_manager_account(
             {
                 "role": STORE_MANAGER_ROLE,
                 "store_id": store_id,
+                "password_changed_at": _now_iso(),
             },
             app=app,
         )
@@ -78,7 +89,50 @@ def create_store_manager_account(
     return _summary(user, store_name=store_name)
 
 
-def delete_store_manager_account(uid: str) -> None:
+def create_hq_admin_account(
+    *,
+    email: str,
+    name: str,
+    password: str,
+    company: str,
+) -> FirebaseUserSummary:
+    """본사 관리자(admin) 계정을 셀프 회원가입으로 생성한다."""
+    app = get_firebase_app()
+    try:
+        firebase_auth.get_user_by_email(email, app=app)
+    except firebase_auth.UserNotFoundError:
+        pass
+    else:
+        raise FirebaseUserAlreadyExistsError(email)
+
+    user = firebase_auth.create_user(
+        email=email,
+        display_name=name,
+        # 비밀번호는 Firebase가 일방향 해시로 저장하며 평문은 보관하지 않는다.
+        password=password,
+        email_verified=True,
+        app=app,
+    )
+    try:
+        firebase_auth.set_custom_user_claims(
+            user.uid,
+            {
+                "role": ADMIN_ROLE,
+                "store_id": HEAD_OFFICE_STORE_ID,
+                "company": company,
+                "password_changed_at": _now_iso(),
+            },
+            app=app,
+        )
+        user = firebase_auth.get_user(user.uid, app=app)
+    except Exception:
+        # 권한 설정까지 끝나지 않은 반쪽 계정은 남기지 않는다.
+        firebase_auth.delete_user(user.uid, app=app)
+        raise
+    return _summary(user)
+
+
+def delete_store_manager_account(uid: str) -> str | None:
     app = get_firebase_app()
     try:
         user = firebase_auth.get_user(uid, app=app)
@@ -89,7 +143,9 @@ def delete_store_manager_account(uid: str) -> None:
     if claims.get("role") != STORE_MANAGER_ROLE:
         raise FirebaseUserNotStoreManagerError(uid)
 
+    store_id = claims.get("store_id")
     firebase_auth.delete_user(uid, app=app)
+    return store_id
 
 
 def update_store_manager_password(
@@ -107,6 +163,12 @@ def update_store_manager_password(
         raise FirebaseUserNotStoreManagerError(uid)
 
     firebase_auth.update_user(uid, password=request.password, app=app)
+    # 비밀번호를 바꾸면 유효기간을 초기화한다(만료 표시 해제).
+    firebase_auth.set_custom_user_claims(
+        uid,
+        {**claims, "password_changed_at": _now_iso()},
+        app=app,
+    )
     firebase_auth.revoke_refresh_tokens(uid, app=app)
 
 

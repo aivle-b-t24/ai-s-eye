@@ -1,11 +1,27 @@
 import logging
+import re
 from typing import Any
 
 from .config import get_settings
-from .router import QuestionRouter
+from .router import QuestionRouter, QuestionType, classify
 from .tools import StoreTools
 
 logger = logging.getLogger(__name__)
+
+# 줄 맨 앞의 마크다운 불릿(*, -)을 잡는다. 뒤 공백까지 포함해 '• '로 바꾼다.
+_MD_BULLET = re.compile(r"^([ \t]*)[*\-]\s+", re.MULTILINE)
+
+
+def _tidy_markdown(text: str) -> str:
+    """화면 말풍선은 마크다운을 렌더링하지 않으므로(기호가 그대로 보인다),
+    모델이 섞어 쓴 마크다운 기호를 사람이 읽기 좋은 형태로 정리한다.
+
+    - 줄 앞 불릿 '*'/'-' → '• '
+    - 굵게 표시 '**...**' → 기호 제거(강조는 문장으로만)
+    """
+    text = _MD_BULLET.sub(r"\1• ", text)
+    text = text.replace("**", "")
+    return text
 
 
 SYSTEM_PROMPT = """너는 카페 매장의 안내 직원이다.
@@ -16,6 +32,9 @@ SYSTEM_PROMPT = """너는 카페 매장의 안내 직원이다.
 - 도구 결과에 없는 내용은 추론해서 채우지 않는다. 일반적인 카페 상식으로 보완하는
   것도 금지다. 적혀 있지 않으면 "안내된 정보가 없어 확인이 어렵습니다. 매장에
   문의해 주세요"라고 답한다.
+- 물어본 것만 답한다. 묻지 않은 정보는 덧붙이지 않는다. 메뉴 이름·가격을 물으면 가격만
+  안내하고, 품절 여부는 본문에도 맨 끝 ⚠️ 참고에도 넣지 않는다. 품절·재고는 손님이 그것을
+  직접 물었을 때만, 그 답에서만 다룬다.
 - 정책을 조회했다면 돌려받은 목록 전체를 끝까지 살펴본 뒤 답한다. 관련 항목이
   없다고 성급히 판단하지 않는다. 단, '살펴보는 것'은 전체지만 '답하는 것'은 관련 항목만이다.
 - 정책 답변은 질문과 직접 관련된 항목만 골라 한두 문장으로 말한다. 손님이 하나를
@@ -33,12 +52,48 @@ SYSTEM_PROMPT = """너는 카페 매장의 안내 직원이다.
 
 그 밖에:
 - 도구가 ok=false를 돌려주면 그 message를 고객에게 그대로 전달한다.
-- 답변은 반드시 한국어로만 한두 문장으로 짧고 정중하게 한다. 영어 번역이나 영어 문장을 덧붙이지 않는다.
+- 답변은 반드시 한국어로만, 짧고 정중하게 한다. 영어 번역이나 영어 문장을 덧붙이지 않는다.
 - 주문 상태는 get_order_status로 조회한다. 주문번호를 모르면 되묻는다.
+- "붐비는지/혼잡/얼마나 기다려" 같은 혼잡도 질문에는 get_store_state와 get_wait_time을 함께
+  조회해, 매장 인원·대기 인원·예상 대기시간을 "• " 불릿으로 함께 안내한다.
 - 직원 연결은 아직 지원하지 않는다.
+
+답변 형식 (읽기 좋게):
+- 핵심 답을 먼저 한 문장으로 말한다.
+- 나열할 항목이 둘 이상이면 각 줄을 "• "로 시작하는 불릿으로 쓴다(한 항목당 한 줄).
+- 주의·한계가 있으면 맨 끝에 "⚠️ 참고 — ..." 한 줄로 덧붙인다. 없으면 넣지 않는다.
+  단, 품절·재고 같은 개별 항목 상태는 ⚠️ 참고에 넣지 않는다(품절은 품절을 물었을 때만 답한다).
+- 항목/문단은 빈 줄로 구분해 답답하지 않게 한다.
+- 굵게(**), 제목(#), 표 같은 마크다운 기호는 쓰지 않는다. 화면에 기호가 그대로 보이므로 금지.
+  강조는 기호 없이 문장으로 한다. 이모지는 ⚠️ 정도만 절제해서 쓴다.
+- 답이 짧으면(가격 하나, 대기시간 하나 등) 불릿 없이 한 문장으로 끝낸다. 억지로 늘리지 않는다.
+- 이 형식으로 꾸미더라도 내용은 도구가 준 데이터만 쓴다(위 규칙 그대로). 형식 때문에 없는 항목을 만들지 않는다.
 """
 
 FALLBACK_NOTICE = "AI 응답에 실패해 키워드 기준으로 안내합니다."
+
+# '이어서 물어보세요'용 추천 질문. 종류별 대표 질문 하나씩 두고,
+# 방금 물어본 종류는 빼서 같은 질문을 다시 권하는 어색함을 막는다. 모두 우리가 답할 수 있는 것.
+# 화면(완태)에서 버튼으로 그려 누르면 그대로 재질문된다.
+_TOPIC_QUESTION: dict[QuestionType, str] = {
+    QuestionType.MENU: "메뉴 가격 알려줘",
+    QuestionType.STATE: "지금 매장 붐벼?",
+    QuestionType.ETA: "예상 대기시간 얼마야?",
+    QuestionType.POLICY: "영업시간 언제까지야?",
+}
+_TOPIC_ORDER: tuple[QuestionType, ...] = (
+    QuestionType.MENU,
+    QuestionType.STATE,
+    QuestionType.ETA,
+    QuestionType.POLICY,
+)
+
+
+def suggest_questions(question: str, limit: int = 2) -> list[str]:
+    """이어서 물어볼 추천 질문. 방금 물어본 종류는 빼고 다른 종류를 권한다."""
+    asked = classify(question)
+    picks = [q for t, q in ((t, _TOPIC_QUESTION[t]) for t in _TOPIC_ORDER) if t != asked]
+    return picks[:limit]
 
 # 무한루프 방지: 질문 하나에 도구를 이 횟수까지만 자동 호출한다.
 # 우리 챗봇은 질문당 도구 1~2번이면 충분하므로 5로 제한한다(SDK 기본값은 10).
@@ -105,7 +160,12 @@ class StoreAgent:
             answer = self._ask_gemini(question, store_id)
         except GeminiUnavailableError as exc:
             return self._fallback(question, store_id, str(exc))
-        return {"question": question, "answer": answer, "source": "gemini"}
+        return {
+            "question": question,
+            "answer": answer,
+            "source": "gemini",
+            "suggestions": suggest_questions(question),
+        }
 
     def _ask_gemini(self, question: str, store_id: str | None) -> str:
         if self._client is None:
@@ -131,7 +191,7 @@ class StoreAgent:
         text = (response.text or "").strip()
         if not text:
             raise GeminiUnavailableError("Gemini가 빈 응답을 돌려줬습니다.")
-        return text
+        return _tidy_markdown(text)
 
     def _tool_functions(self, store_id: str | None) -> list[Any]:
         """Gemini에 넘길 함수 목록. 독스트링이 그대로 도구 설명이 된다."""
@@ -197,6 +257,7 @@ class StoreAgent:
             "notice": FALLBACK_NOTICE,
             "reason": reason,
             "result": result,
+            "suggestions": suggest_questions(question),
         }
 
 
@@ -228,15 +289,20 @@ def _fallback_answer(routed: dict[str, Any]) -> str:
         menus = inner.get("menus") or []
         if not menus:
             return "해당 메뉴 정보를 찾지 못했습니다."
-        parts = []
+        lines = ["메뉴를 안내해 드릴게요.", ""]
         for m in menus[:5]:
-            price = f"{m.get('price')}원" if m.get("price") is not None else ""
+            price = f"{m.get('price')}원" if m.get("price") is not None else "가격 미정"
             sold = " (품절)" if m.get("available") is False else ""
-            parts.append(f"{m.get('name')} {price}{sold}".strip())
-        return "메뉴 안내: " + ", ".join(parts)
+            lines.append(f"• {m.get('name')}: {price}{sold}")
+        return "\n".join(lines)
     if tool == "policy":
         policies = inner.get("policies") or []
         if not policies:
             return "관련 정책 정보를 찾지 못했습니다."
-        return " ".join(f"[{p.get('title')}] {p.get('content')}" for p in policies[:3])
+        if len(policies) == 1:
+            return str(policies[0].get("content") or "관련 정책 정보를 찾지 못했습니다.")
+        lines = ["안내해 드릴게요.", ""]
+        for p in policies[:3]:
+            lines.append(f"• {p.get('title')}: {p.get('content')}")
+        return "\n".join(lines)
     return FALLBACK_NOTICE

@@ -1,4 +1,6 @@
 import json
+import urllib.parse
+import urllib.request
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
@@ -33,6 +35,7 @@ from .models import (
     CameraSceneConfigInput,
     EtaResponse,
     FirebaseUserSummary,
+    HqAdminSignupRequest,
     OrderEvent,
     OperationsSimulationResult,
     OperationsSimulationScenario,
@@ -68,6 +71,7 @@ from .firebase_users import (
     FirebaseUserAlreadyExistsError,
     FirebaseUserNotFoundError,
     FirebaseUserNotStoreManagerError,
+    create_hq_admin_account,
     create_store_manager_account,
     delete_store_manager_account,
     list_managed_accounts,
@@ -271,6 +275,52 @@ def get_authenticated_user(
     return payload
 
 
+def _verify_recaptcha(token: str | None) -> bool:
+    """구글 reCAPTCHA 토큰을 검증한다. 시크릿 미설정 시(개발) 검증을 생략한다."""
+    secret = get_settings().recaptcha_secret
+    if not secret:
+        return True
+    if not token:
+        return False
+    try:
+        body = urllib.parse.urlencode({"secret": secret, "response": token}).encode()
+        with urllib.request.urlopen(
+            "https://www.google.com/recaptcha/api/siteverify", data=body, timeout=5
+        ) as resp:
+            payload = json.load(resp)
+        return bool(payload.get("success"))
+    except Exception:
+        # 네트워크 오류 등으로 검증 자체가 불가하면 데모 진행을 막지 않는다.
+        return True
+
+
+@app.post(
+    "/api/auth/signup/hq",
+    response_model=FirebaseUserSummary,
+    status_code=status.HTTP_201_CREATED,
+    tags=["auth"],
+)
+def signup_hq_admin(request: HqAdminSignupRequest) -> FirebaseUserSummary:
+    """본사 관리자 셀프 회원가입(공개 엔드포인트). 가입 즉시 로그인할 수 있도록 admin 권한을 부여한다."""
+    if not _verify_recaptcha(request.recaptcha_token):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="reCAPTCHA 확인에 실패했습니다. 다시 시도해 주세요.",
+        )
+    try:
+        return create_hq_admin_account(
+            email=request.email,
+            name=request.name,
+            password=request.password,
+            company=request.company,
+        )
+    except FirebaseUserAlreadyExistsError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="이미 가입된 이메일입니다",
+        ) from exc
+
+
 @app.get(
     "/api/admin/stores",
     response_model=list[StoreInfo],
@@ -336,7 +386,7 @@ def create_admin_user(
 )
 def delete_admin_user(uid: str) -> None:
     try:
-        delete_store_manager_account(uid)
+        store_id = delete_store_manager_account(uid)
     except FirebaseUserNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -347,6 +397,11 @@ def delete_admin_user(uid: str) -> None:
             status_code=status.HTTP_409_CONFLICT,
             detail="점주 계정만 삭제할 수 있습니다",
         ) from exc
+
+    # Firebase 계정 삭제 후 연결된 매장도 DB에서 함께 삭제
+    if store_id:
+        repository.delete_store(store_id)
+
 
 
 @app.patch(

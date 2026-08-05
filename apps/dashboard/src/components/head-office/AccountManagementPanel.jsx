@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { authenticatedFetch } from '../../api/authenticatedFetch'
+import { maskEmail } from '../../utils/mask'
 import './AccountManagementPanel.css'
 
 async function errorMessage(response, fallback) {
@@ -297,7 +298,7 @@ export default function AccountManagementPanel({ apiBaseUrl }) {
               {storeManagers.map((user) => (
                 <tr key={user.uid}>
                   <td>{user.name}</td>
-                  <td>{user.email}</td>
+                  <td>{maskEmail(user.email)}</td>
                   <td>{storeLabel(user)}</td>
                   <td>{user.disabled ? '사용 중지' : '사용 가능'}</td>
                   <td>
@@ -336,7 +337,7 @@ export default function AccountManagementPanel({ apiBaseUrl }) {
             aria-labelledby="account-password-title"
           >
             <h3 id="account-password-title">점주 비밀번호 변경</h3>
-            <p>{passwordUser.name} ({passwordUser.email})</p>
+            <p>{passwordUser.name} ({maskEmail(passwordUser.email)})</p>
             <form onSubmit={changePassword}>
               <label>
                 <span>새 비밀번호</span>

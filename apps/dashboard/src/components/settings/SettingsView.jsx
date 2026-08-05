@@ -20,13 +20,6 @@ export default function SettingsView({
 
   return (
     <section className="setting-view">
-      {/*<div className="setting-header">
-        <h2>⚙️ 대시보드 환경설정</h2>
-        <button className="back-btn" onClick={onBack}>
-          ← [점주] 담당 매장 대시보드로 돌아가기
-        </button>
-      </div>*/}
-
       <div className="setting-tabs" role="tablist" aria-label="설정 항목">
         <button
           type="button"

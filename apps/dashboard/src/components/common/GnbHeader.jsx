@@ -55,25 +55,16 @@ export default function GnbHeader({
         <h1 className="brand-title">AI&apos;s Eye</h1>
       </div>
 
-      {needsOnboarding ? (
-        <NavLink
-          to={ROUTES.ONBOARDING}
-          className={({ isActive }) =>
-            `tab-btn dark-pill-btn${isActive ? ' active' : ''}`
-          }
-        >
-          매장 온보딩
-        </NavLink>
-      ) : (
-        <NavLink
-          to={ROUTES.MENUS}
-          className={({ isActive }) =>
-            `tab-btn dark-pill-btn${isActive ? ' active' : ''}`
-          }
-        >
-          메뉴 & 정책
-        </NavLink>
-      )}
+      
+      <NavLink
+        to={ROUTES.MENUS}
+        className={({ isActive }) =>
+          `tab-btn dark-pill-btn${isActive ? ' active' : ''}`
+        }
+      >
+        메뉴 & 정책
+      </NavLink>
+      
 
       <nav className="store-tabs" aria-label="가맹점 정보">
         {storeId?.startsWith('store') && (

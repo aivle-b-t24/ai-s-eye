@@ -80,7 +80,6 @@ export default function KosStoreManagementView({
             menus={menus}
             setMenus={setMenus}
             soldOutCount={computedSoldOutCount}
-            soldOutCount={computedSoldOutCount}
             isExpanded={isMenuExpanded}
             onToggleExpand={() => setIsMenuExpanded((prev) => !prev)}
           />

@@ -6064,14 +6064,16 @@ font-size: 16px !important;
 /* Floating Trigger Container on Bottom Left (Follows Scroll) */
 .store-chatbot-trigger-container {
   position: fixed;
-  bottom: 30px;
-  left: 30px;
+  /*bottom: 30px;*/
+  /*left: 30px;*/
   z-index: 9999;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 8px;
   animation: chatbotPop 0.4s ease-out;
+  user-select: none;
+  touch-action: none;
 }
 
 @keyframes chatbotPop {
@@ -7263,5 +7265,27 @@ body::before {
   font-weight: 700 !important;
 }
 
+/* 📍 [3번 코드 적용 위치] 챗봇 추천 질문 버튼 스타일 */
+.chat-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
 
+.chat-suggestion-chip {
+  background: #fff;
+  border: 1px solid #c2e2db;
+  color: #173f3a;
+  border-radius: 16px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.chat-suggestion-chip:hover {
+  background: #173f3a;
+  color: #fff;
+}
 

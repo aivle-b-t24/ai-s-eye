@@ -16,6 +16,75 @@ export default function StoreChatbotWidget({ page, storeName }) {
       time: getCurrentTime(),
     },
   ])
+  
+
+  // 📍 1. 자유 위치 지정을 위한 좌표 State (초기 위치: 화면 좌측 하단)
+  const [position, setPosition] = useState({
+    x: 40,
+    y: window.innerHeight - 120,
+  })
+
+  const isDragging = useRef(false)
+  const dragStart = useRef({ x: 0, y: 0 })
+  const hasDragged = useRef(false) // 드래그 여부 구분용
+
+  // 📍 2. 마우스 누름 (드래그 시작)
+  const handleMouseDown = (e) => {
+    // input 입력창을 누를 때는 드래그하지 않음
+    if (e.target.tagName === 'INPUT') return
+
+    isDragging.current = true
+    hasDragged.current = false // 초기화
+
+    // 현재 포인터와 챗봇 위치 간의 차이 계산
+    dragStart.current = {
+      x: e.clientX - position.x,
+      y: e.clientY - position.y,
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+  }
+
+  // 📍 3. 마우스 이동 (실시간 좌표 갱신)
+  const handleMouseMove = (e) => {
+    if (!isDragging.current) return
+
+    const newX = e.clientX - dragStart.current.x
+    const newY = e.clientY - dragStart.current.y
+
+    // 약간이라도 움직였으면 드래그 상태로 변경 (클릭으로 창 열리는 것 방지)
+    if (Math.abs(newX - position.x) > 3 || Math.abs(newY - position.y) > 3) {
+      hasDragged.current = true
+    }
+
+    // 화면(뷰포트) 바깥으로 넘어가가지 않게 범위 제한
+    const maxX = window.innerWidth - 90
+    const maxY = window.innerHeight - 90
+
+    setPosition({
+      x: Math.max(10, Math.min(newX, maxX)),
+      y: Math.max(10, Math.min(newY, maxY)),
+    })
+  }
+
+  // 📍 4. 마우스 뗌 (드래그 종료)
+  const handleMouseUp = () => {
+    isDragging.current = false
+    window.removeEventListener('mousemove', handleMouseMove)
+    window.removeEventListener('mouseup', handleMouseUp)
+  }
+
+  // 📍 5. 버튼 클릭 동작 (드래그 중일 때는 창이 열리지 않게 처리)
+  const handleToggleOpen = (e) => {
+    if (hasDragged.current) {
+      e.preventDefault()
+      e.stopPropagation()
+      return
+    }
+    setIsOpen(!isOpen)
+  }
+
   const [inputValue, setInputValue] = useState('')
   const messagesEndRef = useRef(null)
 
@@ -39,7 +108,6 @@ export default function StoreChatbotWidget({ page, storeName }) {
     }
   }, [messages, isOpen, isLoading])
 
-  // Real Chatbot API Call (POST ${VITE_CHATBOT_BASE_URL}/chat)
   const handleSend = async (textToSend) => {
     const query = textToSend || inputValue
     if (!query.trim() || isLoading) return
@@ -61,18 +129,11 @@ export default function StoreChatbotWidget({ page, storeName }) {
       const endpoint = `${CHATBOT_BASE_URL.replace(/\/$/, '')}/chat`
       const response = await authenticatedFetch(endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          question: query,
-          store_id: activeStoreId,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: query, store_id: activeStoreId }),
       })
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
 
       const data = await response.json()
       const botMsg = {
@@ -80,6 +141,7 @@ export default function StoreChatbotWidget({ page, storeName }) {
         sender: 'bot',
         text: data.answer || '답변을 가져올 수 없습니다.',
         source: data.source || '',
+        suggestions: data.suggestions || [],
         time: getCurrentTime(),
       }
       setMessages((prev) => [...prev, botMsg])
@@ -98,7 +160,6 @@ export default function StoreChatbotWidget({ page, storeName }) {
     }
   }
 
-  // Open external dedicated standalone popup window
   const openExternalPopupWindow = async () => {
     const width = 450
     const height = 680
@@ -133,8 +194,6 @@ export default function StoreChatbotWidget({ page, storeName }) {
           .msg-bubble { max-width: 78%; padding: 10px 14px; border-radius: 14px; font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
           .msg-row.bot .msg-bubble { background: #eee9e0; color: #1f2937; border-top-left-radius: 2px; }
           .msg-row.user .msg-bubble { background: #173f3a; color: white; border-top-right-radius: 2px; }
-          .source-tag { font-size: 11px; color: #365e56; margin-top: 6px; font-weight: 700; background: #e8f3f0; border: 1px solid #c2e2db; padding: 3px 8px; border-radius: 6px; display: inline-block; }
-          .msg-time { font-size: 10px; color: #8c7e72; margin-top: 4px; align-self: flex-end; }
           .input-area { background: white; padding: 12px 16px; border-top: 1px solid #e5ded3; display: flex; gap: 10px; align-items: center; }
           .input-area input { flex: 1; border: 1px solid #d8cdbe; border-radius: 20px; padding: 10px 16px; font-size: 13px; outline: none; }
           .send-btn { width: 38px; height: 38px; background: #173f3a; border: none; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; }
@@ -149,18 +208,12 @@ export default function StoreChatbotWidget({ page, storeName }) {
           <div class="mascot">☕</div>
           <div class="welcome-title">안녕하세요! 저는 AI's Eye 카페 매니저예요!</div>
           <div class="welcome-sub">매장 운영시간, 품절 메뉴, 주차, AI 관제 현황을 알려드릴게요.</div>
-          <div class="faq-grid">
-            <button class="faq-btn" onclick="sendFaq('매장 운영 안내')">📅 매장 운영<br/>안내</button>
-            <button class="faq-btn" onclick="sendFaq('품절 및 재고 안내')">☕ 품절 재고<br/>안내</button>
-            <button class="faq-btn" onclick="sendFaq('AI 카메라 관제')">🤖 AI 관제<br/>가이드</button>
-          </div>
         </div>
         <div class="chat-area" id="chatArea">
           <div class="msg-row bot">
             <div class="avatar">☕</div>
             <div>
               <div class="msg-bubble">안녕하세요! AI 카페 매니저예요. 궁금하신 내용을 질문해 주세요.</div>
-              <div class="msg-time">실시간 연동 가동 중</div>
             </div>
           </div>
         </div>
@@ -168,57 +221,6 @@ export default function StoreChatbotWidget({ page, storeName }) {
           <input type="text" id="userInput" placeholder="질문을 입력하세요..." onkeydown="if(event.key==='Enter') sendMsg()" />
           <button class="send-btn" onclick="sendMsg()">➤</button>
         </div>
-        <script>
-          const firebaseToken = ${JSON.stringify(token)};
-
-          function sendFaq(text) {
-            document.getElementById('userInput').value = text;
-            sendMsg();
-          }
-          async function sendMsg() {
-            const input = document.getElementById('userInput');
-            const val = input.value.trim();
-            if(!val) return;
-            
-            const chatArea = document.getElementById('chatArea');
-            const userHtml = '<div class="msg-row user"><div><div class="msg-bubble">' + val + '</div></div></div>';
-            chatArea.insertAdjacentHTML('beforeend', userHtml);
-            input.value = '';
-            chatArea.scrollTop = chatArea.scrollHeight;
-
-            const loadingId = 'loading-' + Date.now();
-            const loadingHtml = '<div class="msg-row bot" id="' + loadingId + '"><div class="avatar">☕</div><div><div class="msg-bubble">답변을 생성 중입니다...</div></div></div>';
-            chatArea.insertAdjacentHTML('beforeend', loadingHtml);
-            chatArea.scrollTop = chatArea.scrollHeight;
-
-            try {
-              const res = await fetch('${targetEndpoint}', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': 'Bearer ' + firebaseToken
-                },
-                body: JSON.stringify({ question: val, store_id: '${activeStoreId}' })
-              });
-
-              const loader = document.getElementById(loadingId);
-              if(loader) loader.remove();
-
-              if(!res.ok) throw new Error('HTTP ' + res.status);
-              const data = await res.json();
-
-              const botHtml = '<div class="msg-row bot"><div class="avatar">☕</div><div><div class="msg-bubble">' + (data.answer || '답변을 가져올 수 없습니다.') + '</div></div></div>';
-              chatArea.insertAdjacentHTML('beforeend', botHtml);
-              chatArea.scrollTop = chatArea.scrollHeight;
-            } catch(err) {
-              const loader = document.getElementById(loadingId);
-              if(loader) loader.remove();
-              const errHtml = '<div class="msg-row bot"><div class="avatar">☕</div><div><div class="msg-bubble" style="color:#b91c1c;">챗봇 서버(8100)와 통신 중 오류가 발생했습니다.</div></div></div>';
-              chatArea.insertAdjacentHTML('beforeend', errHtml);
-              chatArea.scrollTop = chatArea.scrollHeight;
-            }
-          }
-        </script>
       </body>
       </html>
     `
@@ -237,8 +239,22 @@ export default function StoreChatbotWidget({ page, storeName }) {
 
   return (
     <>
-      {/* Floating Trigger Button on Bottom Left (Position Fixed, follows scroll) */}
-      <div className="store-chatbot-trigger-container">
+      {/* 📍 마우스 드래그가 가능한 플로팅 챗봇 트리거 버튼 */}
+      <div
+        className="store-chatbot-trigger-container"
+        onMouseDown={handleMouseDown}
+        style={{
+          position: 'fixed',
+          left: `${position.x}px`,
+          top: `${position.y}px`,
+          bottom: 'auto',
+          right: 'auto',
+          cursor: isDragging.current ? 'grabbing' : 'grab',
+          zIndex: 99999,
+          userSelect: 'none',
+          touchAction: 'none',
+        }}
+      >
         <div className="store-chatbot-speech-bubble">
           <span>카페 운영 질문 언제든 가능!</span>
           <div className="speech-arrow" />
@@ -246,7 +262,7 @@ export default function StoreChatbotWidget({ page, storeName }) {
         <button
           type="button"
           className="store-chatbot-trigger-btn"
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={handleToggleOpen}
           title="AI Cafe 챗봇 열기"
         >
           <div className="chatbot-icon-wrapper">
@@ -256,10 +272,9 @@ export default function StoreChatbotWidget({ page, storeName }) {
         </button>
       </div>
 
-      {/* Floating Chatbot Widget Panel on Bottom Right */}
+      {/* 챗봇 대화 패널 */}
       {isOpen && (
         <div className="store-chatbot-panel">
-          {/* Header */}
           <div className="chatbot-header">
             <div className="chatbot-header-left">
               <button type="button" className="chatbot-menu-btn" title="메뉴">
@@ -271,23 +286,13 @@ export default function StoreChatbotWidget({ page, storeName }) {
               </div>
             </div>
             <div className="chatbot-header-right">
-              {/* External New Window Popup Button */}
               <button
                 type="button"
                 className="chatbot-external-btn"
                 onClick={openExternalPopupWindow}
                 title="새 창으로 챗봇 열기"
               >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
                   <polyline points="15 3 21 3 21 9"></polyline>
                   <line x1="10" y1="14" x2="21" y2="3"></line>
@@ -304,7 +309,6 @@ export default function StoreChatbotWidget({ page, storeName }) {
             </div>
           </div>
 
-          {/* Hero Greeting & Mascot Banner */}
           <div className="chatbot-hero-banner">
             <div className="mascot-circle">
               <span>☕</span>
@@ -350,7 +354,6 @@ export default function StoreChatbotWidget({ page, storeName }) {
             </div>
           </div>
 
-          {/* Chat Messages Container */}
           <div className="chatbot-messages-body">
             {messages.map((msg) => (
               <div
@@ -364,17 +367,29 @@ export default function StoreChatbotWidget({ page, storeName }) {
                     <span>☕</span>
                   </div>
                 )}
-
                 <div className="message-content-group">
-                  <div className="message-bubble-box">
-                    {msg.text}
-                  </div>
+                  <div className="message-bubble-box">{msg.text}</div>
                   <span className="message-time-stamp">{msg.time}</span>
+                  {msg.suggestions?.length > 0 && (
+                    <div className="chat-suggestions">
+                      {msg.suggestions.map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          className="chat-suggestion-chip"
+                          onClick={() => handleSend(s)}
+                          disabled={isLoading}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  
                 </div>
               </div>
             ))}
 
-            {/* Loading Typing Dots Indicator */}
             {isLoading && (
               <div className="chat-message-row is-bot">
                 <div className="bot-avatar-small">
@@ -389,11 +404,9 @@ export default function StoreChatbotWidget({ page, storeName }) {
                 </div>
               </div>
             )}
-
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input Footer Area */}
           <div className="chatbot-input-footer">
             <div className="input-box-wrapper">
               <input

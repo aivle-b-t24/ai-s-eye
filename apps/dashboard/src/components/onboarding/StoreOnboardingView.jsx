@@ -53,11 +53,18 @@ function polygonPoints(points = []) {
 }
 
 function errorMessage(detail, fallback) {
-  const message = detail?.detail?.message
+  let message = detail?.detail?.message
     ?? detail?.detail?.[0]?.msg
     ?? detail?.detail
     ?? fallback
-  return typeof message === 'string' ? message : fallback
+  if (typeof message !== 'string') message = fallback
+  if (message.includes('polygon edges must not intersect')) {
+    return '지정한 구역/바닥의 선이 서로 꼬여(교차) 있습니다. 점을 둘레를 따라 순서대로(시계 또는 반시계 방향) 찍어 주세요.'
+  }
+  if (message.includes('polygon points must be unique')) {
+    return '구역 꼭짓점이 동일한 위치에 중복 지정되었습니다. 점을 서로 떨어진 위치에 찍어 주세요.'
+  }
+  return message
 }
 
 function entrancePolygon(point) {
@@ -137,26 +144,29 @@ export default function StoreOnboardingView({
   }, [])
 
   useEffect(() => {
-    if (!analysisJob?.id) return undefined
-    if (analysisJob.status === 'completed' || analysisJob.status === 'failed') return undefined
+    if (!storeId) return undefined
 
     let cancelled = false
-    const poll = async () => {
-      const jobs = await listAnalysisJobs(storeId)
-      if (cancelled) return
-      const target = jobs.find((j) => j.id === analysisJob.id) || jobs[0]
-      if (target) {
-        setAnalysisJob(target)
+    const pollJobs = async () => {
+      try {
+        const jobs = await listAnalysisJobs(storeId)
+        if (cancelled) return
+        if (Array.isArray(jobs) && jobs.length > 0) {
+          // 최신 job 선택
+          setAnalysisJob(jobs[0])
+        }
+      } catch (err) {
+        console.warn('Analysis jobs fetch failed:', err)
       }
     }
 
-    poll()
-    const timer = setInterval(poll, 1000)
+    pollJobs()
+    const timer = setInterval(pollJobs, 1000)
     return () => {
       cancelled = true
       clearInterval(timer)
     }
-  }, [analysisJob?.id, analysisJob?.status, storeId])
+  }, [storeId])
 
   const tableObjects = useMemo(
     () => sceneObjects.filter((object) => object.type === 'table'),
@@ -539,13 +549,23 @@ export default function StoreOnboardingView({
                   ))}
                   {step === 2 && isDrawingTable && tableDraftPoints.length > 0 && (
                     <g>
-                      <polyline
-                        points={polygonPoints(tableDraftPoints)}
-                        fill="none"
-                        stroke={OVERLAY_COLORS.table}
-                        strokeWidth="6"
-                        strokeDasharray="12 10"
-                      />
+                      {tableDraftPoints.length >= 3 ? (
+                        <polygon
+                          points={polygonPoints(tableDraftPoints)}
+                          fill={`${OVERLAY_COLORS.table}33`}
+                          stroke={OVERLAY_COLORS.table}
+                          strokeWidth="6"
+                          strokeDasharray="12 10"
+                        />
+                      ) : (
+                        <polyline
+                          points={polygonPoints(tableDraftPoints)}
+                          fill="none"
+                          stroke={OVERLAY_COLORS.table}
+                          strokeWidth="6"
+                          strokeDasharray="12 10"
+                        />
+                      )}
                       {tableDraftPoints.map((point, index) => (
                         <circle
                           key={`table-draft-${point.x}-${point.y}-${index}`}
@@ -588,13 +608,23 @@ export default function StoreOnboardingView({
                   ))}
                   {step === 4 && draftZonePoints.length > 0 && (
                     <g>
-                      <polyline
-                        points={polygonPoints(draftZonePoints)}
-                        fill="none"
-                        stroke={OVERLAY_COLORS[activeZoneType]}
-                        strokeWidth="6"
-                        strokeDasharray="12 10"
-                      />
+                      {draftZonePoints.length >= 3 ? (
+                        <polygon
+                          points={polygonPoints(draftZonePoints)}
+                          fill={`${OVERLAY_COLORS[activeZoneType]}25`}
+                          stroke={OVERLAY_COLORS[activeZoneType]}
+                          strokeWidth="6"
+                          strokeDasharray="12 10"
+                        />
+                      ) : (
+                        <polyline
+                          points={polygonPoints(draftZonePoints)}
+                          fill="none"
+                          stroke={OVERLAY_COLORS[activeZoneType]}
+                          strokeWidth="6"
+                          strokeDasharray="12 10"
+                        />
+                      )}
                       {draftZonePoints.map((point, index) => (
                         <circle
                           key={`zone-draft-${point.x}-${point.y}-${index}`}

@@ -18,6 +18,8 @@ from .models import (
     StoreInfo,
     StoreMediaInfo,
     StoreMediaType,
+    StoreMenuInput,
+    StoreMenuItem,
     StorePolicyInput,
     StorePolicyItem,
     StoreSettings,
@@ -525,5 +527,68 @@ class InMemoryRepository:
                 return False
             if policy_id in self._policies[store_id]:
                 del self._policies[store_id][policy_id]
+                return True
+            return False
+
+    def get_store_menus(self, store_id: str) -> list[StoreMenuItem]:
+        with self._lock:
+            if not hasattr(self, "_menus"):
+                self._menus: dict[str, dict[str, StoreMenuItem]] = {}
+            store_map = self._menus.get(store_id, {})
+            return list(store_map.values())
+
+    def save_store_menu(
+        self,
+        store_id: str,
+        menu_input: StoreMenuInput,
+        menu_id: str | None = None,
+    ) -> StoreMenuItem:
+        with self._lock:
+            if not hasattr(self, "_menus"):
+                self._menus = {}
+            if store_id not in self._menus:
+                self._menus[store_id] = {}
+            target_id = menu_id or f"menu-{uuid4().hex[:8]}"
+            item = StoreMenuItem(
+                menu_id=target_id,
+                store_id=store_id,
+                category=menu_input.category,
+                name=menu_input.name,
+                price=menu_input.price,
+                prep_minutes=menu_input.prep_minutes,
+                available=menu_input.available,
+                sold_out_reason=menu_input.sold_out_reason if not menu_input.available else None,
+            )
+            self._menus[store_id][target_id] = item
+            return item
+
+    def toggle_store_menu_sold_out(
+        self,
+        store_id: str,
+        menu_id: str,
+        available: bool,
+        sold_out_reason: str | None = None,
+    ) -> StoreMenuItem | None:
+        with self._lock:
+            if not hasattr(self, "_menus") or store_id not in self._menus:
+                return None
+            item = self._menus[store_id].get(menu_id)
+            if item is None:
+                return None
+            updated = item.model_copy(
+                update={
+                    "available": available,
+                    "sold_out_reason": sold_out_reason if not available else None,
+                }
+            )
+            self._menus[store_id][menu_id] = updated
+            return updated
+
+    def delete_store_menu(self, store_id: str, menu_id: str) -> bool:
+        with self._lock:
+            if not hasattr(self, "_menus") or store_id not in self._menus:
+                return False
+            if menu_id in self._menus[store_id]:
+                del self._menus[store_id][menu_id]
                 return True
             return False

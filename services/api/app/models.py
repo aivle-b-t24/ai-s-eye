@@ -648,3 +648,34 @@ class StorePolicyListResponse(BaseModel):
     data_source: str = "db"
     store_id: str
     policies: list[StorePolicyItem] = Field(default_factory=list)
+
+
+class StoreMenuItem(BaseModel):
+    menu_id: str
+    store_id: str
+    category: str = "coffee"
+    name: str = Field(min_length=1, max_length=100)
+    price: int = Field(ge=0)
+    prep_minutes: int = Field(default=3, ge=0)
+    available: bool = True
+    sold_out_reason: str | None = None
+
+
+class StoreMenuInput(BaseModel):
+    category: str = "coffee"
+    name: str = Field(min_length=1, max_length=100)
+    price: int = Field(ge=0)
+    prep_minutes: int = Field(default=3, ge=0)
+    available: bool = True
+    sold_out_reason: str | None = None
+
+
+class StoreMenuToggleInput(BaseModel):
+    available: bool
+    sold_out_reason: str | None = None
+
+
+class StoreMenuListResponse(BaseModel):
+    data_source: str = "db"
+    store_id: str
+    menus: list[StoreMenuItem] = Field(default_factory=list)

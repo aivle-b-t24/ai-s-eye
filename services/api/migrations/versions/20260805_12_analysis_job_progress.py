@@ -18,27 +18,39 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "analysis_jobs",
-        sa.Column(
-            "progress_percent",
-            sa.Float(),
-            server_default=sa.text("0.0"),
-            nullable=False,
-        ),
-    )
-    op.add_column(
-        "analysis_jobs",
-        sa.Column("processed_frames", sa.Integer(), nullable=True),
-    )
-    op.add_column(
-        "analysis_jobs",
-        sa.Column("total_frames", sa.Integer(), nullable=True),
-    )
-    op.add_column(
-        "analysis_jobs",
-        sa.Column("stage_message", sa.String(length=255), nullable=True),
-    )
+    try:
+        op.add_column(
+            "analysis_jobs",
+            sa.Column(
+                "progress_percent",
+                sa.Float(),
+                server_default=sa.text("0.0"),
+                nullable=False,
+            ),
+        )
+    except Exception:
+        pass
+    try:
+        op.add_column(
+            "analysis_jobs",
+            sa.Column("processed_frames", sa.Integer(), nullable=True),
+        )
+    except Exception:
+        pass
+    try:
+        op.add_column(
+            "analysis_jobs",
+            sa.Column("total_frames", sa.Integer(), nullable=True),
+        )
+    except Exception:
+        pass
+    try:
+        op.add_column(
+            "analysis_jobs",
+            sa.Column("stage_message", sa.String(length=255), nullable=True),
+        )
+    except Exception:
+        pass
 
 
 def downgrade() -> None:

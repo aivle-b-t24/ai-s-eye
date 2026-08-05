@@ -451,6 +451,10 @@ class InMemoryRepository:
         job_id: str,
         *,
         status: AnalysisJobStatus,
+        progress_percent: float | None = None,
+        processed_frames: int | None = None,
+        total_frames: int | None = None,
+        stage_message: str | None = None,
         error_message: str | None = None,
         worker_id: str | None = None,
     ) -> AnalysisJobInfo | None:
@@ -459,10 +463,20 @@ class InMemoryRepository:
             if job is None:
                 return None
             updates: dict = {"status": status, "error_message": error_message}
+            if progress_percent is not None:
+                updates["progress_percent"] = progress_percent
+            if processed_frames is not None:
+                updates["processed_frames"] = processed_frames
+            if total_frames is not None:
+                updates["total_frames"] = total_frames
+            if stage_message is not None:
+                updates["stage_message"] = stage_message
             if worker_id is not None:
                 updates["worker_id"] = worker_id
             if status in {AnalysisJobStatus.COMPLETED, AnalysisJobStatus.FAILED}:
                 updates["completed_at"] = datetime.now(timezone.utc)
+                if status == AnalysisJobStatus.COMPLETED and progress_percent is None:
+                    updates["progress_percent"] = 100.0
             updated = job.model_copy(update=updates)
             self._jobs[job_id] = updated
             return updated

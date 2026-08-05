@@ -25,6 +25,8 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+from typing import Callable
+
 import urllib.error
 import urllib.request
 
@@ -81,10 +83,29 @@ def claim_job(api: str, api_key: str | None, worker_id: str) -> dict | None:
         raise
 
 
-def patch_job(api: str, api_key: str | None, job_id: str, status: str, error: str | None = None):
-    payload = {"status": status, "worker_id": os.getenv("HOSTNAME", "gpu-worker")}
-    if error:
+def patch_job(
+    api: str,
+    api_key: str | None,
+    job_id: str,
+    status: str,
+    error: str | None = None,
+    *,
+    progress_percent: float | None = None,
+    processed_frames: int | None = None,
+    total_frames: int | None = None,
+    stage_message: str | None = None,
+):
+    payload: dict = {"status": status, "worker_id": os.getenv("HOSTNAME", "gpu-worker")}
+    if error is not None:
         payload["error_message"] = error
+    if progress_percent is not None:
+        payload["progress_percent"] = round(progress_percent, 1)
+    if processed_frames is not None:
+        payload["processed_frames"] = processed_frames
+    if total_frames is not None:
+        payload["total_frames"] = total_frames
+    if stage_message is not None:
+        payload["stage_message"] = stage_message
     http_json(
         "PATCH",
         f"{api.rstrip('/')}/internal/analysis-jobs/{job_id}",
@@ -268,10 +289,18 @@ class CafeUploadTracker:
         self.reset_ultralytics_tracker = reset_ultralytics_tracker
         self.prepare_occupancy = prepare_occupancy
         self.build_store_state = build_store_state
-        self.ft_model = YOLO(str(model_path))
+        self.YOLO = YOLO
         self.model_path = model_path
-        self._analyze_lock = threading.Lock()
+        self._models: dict[str, YOLO] = {}
+        self._models_lock = threading.Lock()
         print(f"[tracker] loaded {model_path} conf={DETECTION_CONFIDENCE} tracker={TRACKER_CONFIG}")
+
+    def get_model(self, store_id: str):
+        with self._models_lock:
+            if store_id not in self._models:
+                print(f"[tracker] initializing YOLO model instance for {store_id}")
+                self._models[store_id] = self.YOLO(str(self.model_path))
+            return self._models[store_id]
 
     def analyze_frames(
         self,
@@ -283,135 +312,140 @@ class CafeUploadTracker:
         play_interval: float = 0.02,
         loop_forever: bool = False,
         cycle: int = 0,
+        on_progress: Callable[[int, int, str], None] | None = None,
     ) -> None:
         camera_id = f"{store_id}-cam1"
         epoch = self.TrackingEpoch(camera_id)
         empty_pose = {"waiting": [], "seated": []}
         cycle_index = cycle
+        ft_model = self.get_model(store_id)
 
         while True:
-            with self._analyze_lock:
-                epoch.reset()
-                self.reset_ultralytics_tracker(self.ft_model)
-                print(
-                    f"[tracker] play store={store_id} cycle={cycle_index} "
-                    f"frames={len(frames)} interval={play_interval}s"
+            epoch.reset()
+            self.reset_ultralytics_tracker(ft_model)
+            print(
+                f"[tracker] play store={store_id} cycle={cycle_index} "
+                f"frames={len(frames)} interval={play_interval}s"
+            )
+            for index, frame_path in enumerate(frames):
+                frame = self.cv2.imread(str(frame_path))
+                if frame is None:
+                    print(f"[tracker] skip unreadable frame {frame_path.name}")
+                    continue
+                height, width = frame.shape[:2]
+                zones = self.runtime_zones(store_id, camera_id, width, height)
+                roi_version, _roi_source = self.runtime_roi_identity(
+                    store_id, camera_id, width, height
                 )
-                for index, frame_path in enumerate(frames):
-                    frame = self.cv2.imread(str(frame_path))
-                    if frame is None:
-                        print(f"[tracker] skip unreadable frame {frame_path.name}")
-                        continue
-                    height, width = frame.shape[:2]
-                    zones = self.runtime_zones(store_id, camera_id, width, height)
-                    roi_version, _roi_source = self.runtime_roi_identity(
-                        store_id, camera_id, width, height
-                    )
 
-                    result = self.ft_model.track(
-                        frame,
-                        persist=True,
-                        tracker=self.TRACKER_CONFIG,
-                        classes=[0],
-                        conf=self.DETECTION_CONFIDENCE,
-                        iou=0.5,
-                        agnostic_nms=True,
-                        verbose=False,
-                    )[0]
-                    boxes = (
-                        result.boxes.xyxy.cpu().numpy()
-                        if result.boxes is not None
-                        else self.np.empty((0, 4))
-                    )
-                    confidences = (
-                        result.boxes.conf.cpu().numpy().tolist()
-                        if result.boxes is not None
-                        else []
-                    )
-                    local_ids = (
-                        result.boxes.id.cpu().numpy().astype(int).tolist()
-                        if result.boxes is not None and result.boxes.id is not None
-                        else [None] * len(boxes)
-                    )
-                    public_ids = [
-                        epoch.public_id(track_id) if track_id is not None else None
-                        for track_id in local_ids
-                    ]
-                    staff_flags = self.staff_candidates(boxes, zones, store_id)
-                    positions = self.person_positions(
-                        boxes,
-                        zones,
-                        empty_pose,
-                        public_ids,
-                        confidences,
-                        staff_flags,
-                    )
-                    customers = sum(
-                        1 for position in positions if position.get("type") != "staff"
-                    )
-                    staff = sum(
-                        1 for position in positions if position.get("type") == "staff"
-                    )
-                    waiting = sum(
-                        1
-                        for position in positions
-                        if position.get("state") == "queue"
-                        or position.get("zone") == "waiting"
-                    )
+                result = ft_model.track(
+                    frame,
+                    persist=True,
+                    tracker=self.TRACKER_CONFIG,
+                    classes=[0],
+                    conf=self.DETECTION_CONFIDENCE,
+                    iou=0.5,
+                    agnostic_nms=True,
+                    verbose=False,
+                )[0]
+                boxes = (
+                    result.boxes.xyxy.cpu().numpy()
+                    if result.boxes is not None
+                    else self.np.empty((0, 4))
+                )
+                confidences = (
+                    result.boxes.conf.cpu().numpy().tolist()
+                    if result.boxes is not None
+                    else []
+                )
+                local_ids = (
+                    result.boxes.id.cpu().numpy().astype(int).tolist()
+                    if result.boxes is not None and result.boxes.id is not None
+                    else [None] * len(boxes)
+                )
+                public_ids = [
+                    epoch.public_id(track_id) if track_id is not None else None
+                    for track_id in local_ids
+                ]
+                staff_flags = self.staff_candidates(boxes, zones, store_id)
+                positions = self.person_positions(
+                    boxes,
+                    zones,
+                    empty_pose,
+                    public_ids,
+                    confidences,
+                    staff_flags,
+                )
+                customers = sum(
+                    1 for position in positions if position.get("type") != "staff"
+                )
+                staff = sum(
+                    1 for position in positions if position.get("type") == "staff"
+                )
+                waiting = sum(
+                    1
+                    for position in positions
+                    if position.get("state") == "queue"
+                    or position.get("zone") == "waiting"
+                )
 
-                    now = datetime.now(timezone.utc)
-                    frame_id = f"upload-c{cycle_index}-f{index:04d}"
-                    state = self.build_store_state(
-                        {"staff": staff, "waiting": waiting},
-                        customers,
-                        waiting,
-                        camera_id=camera_id,
-                        store_id=store_id,
-                        quality="normal",
-                        captured_at=now,
-                    )
-                    state.update(
-                        {
-                            "frame_id": frame_id,
-                            "processed_at": now.isoformat(),
-                            "roi_version": roi_version,
-                            "source": "upload_worker_track",
-                            "model_version": self.MODEL_VERSION,
-                            "tracking_epoch": epoch.value,
-                            "tracking_reset": index == 0,
-                            "positions": positions,
-                        }
-                    )
-                    occupancy = self.prepare_occupancy(
-                        state,
-                        preserve_timestamp=True,
-                        frame_width=width,
-                        frame_height=height,
-                    )
-                    occupancy["source"] = "upload_worker_track"
-                    occupancy["model_version"] = self.MODEL_VERSION
-                    occupancy["published_at"] = now.isoformat()
+                now = datetime.now(timezone.utc)
+                frame_id = f"upload-c{cycle_index}-f{index:04d}"
+                state = self.build_store_state(
+                    {"staff": staff, "waiting": waiting},
+                    customers,
+                    waiting,
+                    camera_id=camera_id,
+                    store_id=store_id,
+                    quality="normal",
+                    captured_at=now,
+                )
+                state.update(
+                    {
+                        "frame_id": frame_id,
+                        "processed_at": now.isoformat(),
+                        "roi_version": roi_version,
+                        "source": "upload_worker_track",
+                        "model_version": self.MODEL_VERSION,
+                        "tracking_epoch": epoch.value,
+                        "tracking_reset": index == 0,
+                        "positions": positions,
+                    }
+                )
+                occupancy = self.prepare_occupancy(
+                    state,
+                    preserve_timestamp=True,
+                    frame_width=width,
+                    frame_height=height,
+                )
+                occupancy["source"] = "upload_worker_track"
+                occupancy["model_version"] = self.MODEL_VERSION
+                occupancy["published_at"] = now.isoformat()
 
-                    try:
-                        post_snapshot(api, api_key, store_id, frame_path.read_bytes())
-                    except Exception as exc:  # noqa: BLE001
-                        print(f"[tracker] snapshot warn@{index}: {exc}")
+                try:
+                    post_snapshot(api, api_key, store_id, frame_path.read_bytes())
+                except Exception as exc:  # noqa: BLE001
+                    print(f"[tracker] snapshot warn@{index}: {exc}")
 
-                    post_json(api, api_key, "/internal/store-states", state)
-                    post_json(
-                        api,
-                        api_key,
-                        f"/internal/stores/{store_id}/occupancy",
-                        occupancy,
+                post_json(api, api_key, "/internal/store-states", state)
+                post_json(
+                    api,
+                    api_key,
+                    f"/internal/stores/{store_id}/occupancy",
+                    occupancy,
+                )
+
+                if index % 5 == 0 or index + 1 == len(frames):
+                    if on_progress is not None:
+                        on_progress(index + 1, len(frames), f"YOLOv11s 객체 추적 중 ({index + 1}/{len(frames)})")
+
+                if index % 10 == 0 or index + 1 == len(frames):
+                    print(
+                        f"[tracker] [{store_id}] c{cycle_index} {index + 1}/{len(frames)} "
+                        f"people={customers} staff={staff} "
+                        f"agents={len(occupancy.get('agents', []))}"
                     )
-
-                    if index % 10 == 0 or index + 1 == len(frames):
-                        print(
-                            f"[tracker] c{cycle_index} {index + 1}/{len(frames)} "
-                            f"people={customers} staff={staff} "
-                            f"agents={len(occupancy.get('agents', []))}"
-                        )
-                    time.sleep(max(play_interval, 0.0))
+                time.sleep(max(play_interval, 0.0))
 
             if not loop_forever:
                 return
@@ -469,10 +503,42 @@ def process_claim(
     store_id = job["store_id"]
     download_url = f"{api.rstrip('/')}{claim['download_path']}"
     print(f"[job {job_id}] claim store={store_id} media={media['filename']}")
+    patch_job(
+        api,
+        api_key,
+        job_id,
+        "running",
+        progress_percent=5.0,
+        stage_message="미디어 영상 다운로드 및 프레임 추출 중...",
+    )
     media_bytes = http_bytes(download_url, api_key)
     with tempfile.TemporaryDirectory(prefix="aiseeye-job-") as tmp:
         frames = extract_frames(media_bytes, media["media_type"], Path(tmp))
         cache_frames(store_id, frames)
+        patch_job(
+            api,
+            api_key,
+            job_id,
+            "running",
+            progress_percent=15.0,
+            processed_frames=0,
+            total_frames=len(frames),
+            stage_message=f"프레임 {len(frames)}개 추출 완료 · YOLOv11s 분석 준비",
+        )
+
+        def report_progress(current_frame: int, total_f: int, msg: str):
+            pct = 15.0 + (current_frame / max(total_f, 1)) * 80.0
+            patch_job(
+                api,
+                api_key,
+                job_id,
+                "running",
+                progress_percent=min(pct, 98.0),
+                processed_frames=current_frame,
+                total_frames=total_f,
+                stage_message=msg,
+            )
+
         if tracker is not None:
             # One pass to seed state/occupancy quickly, then auto-replay thread loops.
             tracker.analyze_frames(
@@ -482,6 +548,7 @@ def process_claim(
                 frames,
                 play_interval=min(play_interval, 0.05),
                 loop_forever=False,
+                on_progress=report_progress,
             )
         else:
             print("[job] AISEYE_CAFE_MODEL 없음 → empty ingest")
@@ -496,8 +563,19 @@ def process_claim(
                     except Exception as exc:  # noqa: BLE001
                         print(f"[job {job_id}] snapshot warn@{index}: {exc}")
                 post_empty_ingest(api, api_key, store_id, index)
+                if index % 5 == 0 or index + 1 == len(frames):
+                    report_progress(index + 1, len(frames), f"프레임 수집 중 ({index + 1}/{len(frames)})")
                 time.sleep(0.05)
-    patch_job(api, api_key, job_id, "completed")
+    patch_job(
+        api,
+        api_key,
+        job_id,
+        "completed",
+        progress_percent=100.0,
+        processed_frames=len(frames),
+        total_frames=len(frames),
+        stage_message="CCTV 영상 분석 완료",
+    )
     print(f"[job {job_id}] completed frames={len(frames)}")
     return store_id
 
@@ -530,6 +608,13 @@ class AutoReplayManager:
                 previous.set()
         if thread is not None and thread.is_alive():
             thread.join(timeout=max(self.play_interval * 3, 5.0))
+
+    def stop_all(self) -> None:
+        """다른 매장 재생 스레드가 tracker lock을 잡지 않도록 모두 멈춘다."""
+        with self._lock:
+            store_ids = list(self._threads)
+        for store_id in store_ids:
+            self.stop_store(store_id)
 
     def start_store(self, store_id: str) -> None:
         self.stop_store(store_id)
@@ -672,7 +757,15 @@ def main() -> int:
 
     while True:
         try:
-            claim = claim_job(args.api, args.api_key, args.worker_id)
+            try:
+                claim = claim_job(args.api, args.api_key, args.worker_id)
+            except Exception as exc:  # noqa: BLE001
+                print(f"[worker-poll] claim_job error (will retry in {args.interval}s): {exc}")
+                if not args.loop:
+                    return 1
+                time.sleep(args.interval)
+                continue
+
             if claim is None:
                 if not args.loop:
                     print("queued job 없음")
@@ -682,7 +775,7 @@ def main() -> int:
             try:
                 store_id = claim["job"]["store_id"]
                 if replay_manager is not None:
-                    replay_manager.stop_store(store_id)
+                    replay_manager.stop_all()
                 store_id = process_claim(
                     args.api,
                     args.api_key,

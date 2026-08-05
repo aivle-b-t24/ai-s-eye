@@ -415,6 +415,14 @@ class AnalysisJobRecord(Base):
         nullable=False,
     )
     status: Mapped[str] = mapped_column(sa.String(30), nullable=False)
+    progress_percent: Mapped[float] = mapped_column(
+        sa.Float,
+        nullable=False,
+        server_default=sa.text("0.0"),
+    )
+    processed_frames: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
+    total_frames: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
+    stage_message: Mapped[str | None] = mapped_column(sa.String(255), nullable=True)
     error_message: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     worker_id: Mapped[str | None] = mapped_column(sa.String(120), nullable=True)
     claimed_at: Mapped[datetime | None] = mapped_column(

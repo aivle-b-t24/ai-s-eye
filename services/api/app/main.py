@@ -336,7 +336,7 @@ def create_admin_user(
 )
 def delete_admin_user(uid: str) -> None:
     try:
-        delete_store_manager_account(uid)
+        store_id = delete_store_manager_account(uid)
     except FirebaseUserNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -347,6 +347,11 @@ def delete_admin_user(uid: str) -> None:
             status_code=status.HTTP_409_CONFLICT,
             detail="점주 계정만 삭제할 수 있습니다",
         ) from exc
+
+    # Firebase 계정 삭제 후 연결된 매장도 DB에서 함께 삭제
+    if store_id:
+        repository.delete_store(store_id)
+
 
 
 @app.patch(

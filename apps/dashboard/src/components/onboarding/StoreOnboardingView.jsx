@@ -598,13 +598,23 @@ export default function StoreOnboardingView({
                   ))}
                   {step === 4 && draftZonePoints.length > 0 && (
                     <g>
-                      <polyline
-                        points={polygonPoints(draftZonePoints)}
-                        fill="none"
-                        stroke={OVERLAY_COLORS[activeZoneType]}
-                        strokeWidth="6"
-                        strokeDasharray="12 10"
-                      />
+                      {draftZonePoints.length >= 3 ? (
+                        <polygon
+                          points={polygonPoints(draftZonePoints)}
+                          fill={`${OVERLAY_COLORS[activeZoneType]}25`}
+                          stroke={OVERLAY_COLORS[activeZoneType]}
+                          strokeWidth="6"
+                          strokeDasharray="12 10"
+                        />
+                      ) : (
+                        <polyline
+                          points={polygonPoints(draftZonePoints)}
+                          fill="none"
+                          stroke={OVERLAY_COLORS[activeZoneType]}
+                          strokeWidth="6"
+                          strokeDasharray="12 10"
+                        />
+                      )}
                       {draftZonePoints.map((point, index) => (
                         <circle
                           key={`zone-draft-${point.x}-${point.y}-${index}`}

@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from enum import StrEnum
 from typing import Literal
@@ -76,6 +77,30 @@ def enforce_password_policy(value: str) -> str:
     )
 
 
+def _has_sequential_run(value: str, length: int = 4) -> bool:
+    """1234·abcd 같은 오름/내림 연속 문자가 length자 이상 있는지 검사한다."""
+    lowered = value.lower()
+    run_up = run_down = 1
+    for prev, curr in zip(lowered, lowered[1:]):
+        delta = ord(curr) - ord(prev)
+        run_up = run_up + 1 if delta == 1 else 1
+        run_down = run_down + 1 if delta == -1 else 1
+        if run_up >= length or run_down >= length:
+            return True
+    return False
+
+
+def enforce_no_easy_password(password: str, id_part: str | None = None) -> str:
+    """접근통제 제4조⑧-2: 추측하기 쉬운 비밀번호(연속·반복·아이디 유사)를 막는다."""
+    if re.search(r"(.)\1{3,}", password):
+        raise ValueError("같은 문자를 4자 이상 반복한 비밀번호는 사용할 수 없습니다")
+    if _has_sequential_run(password):
+        raise ValueError("연속된 숫자·문자(예: 1234, abcd)는 사용할 수 없습니다")
+    if id_part and len(id_part) >= 3 and id_part.lower() in password.lower():
+        raise ValueError("아이디(이메일)와 비슷한 비밀번호는 사용할 수 없습니다")
+    return password
+
+
 class HqAdminSignupRequest(BaseModel):
     """본사 관리자 셀프 회원가입 요청. 개인정보 최소 수집 원칙에 따라 필수 항목만 받는다."""
 
@@ -113,6 +138,12 @@ class HqAdminSignupRequest(BaseModel):
         if not value:
             raise ValueError("개인정보 수집·이용 동의가 필요합니다")
         return value
+
+    @model_validator(mode="after")
+    def check_easy_password(self) -> "HqAdminSignupRequest":
+        id_part = self.email.split("@", 1)[0] if self.email else None
+        enforce_no_easy_password(self.password, id_part)
+        return self
 
 
 class StoreInfo(BaseModel):

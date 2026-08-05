@@ -17,6 +17,24 @@ function passwordPolicyError(pw) {
   return '비밀번호는 영문·숫자·특수문자 중 2종류 이상 조합 시 10자리 이상, 3종류 이상 조합 시 8자리 이상이어야 합니다.'
 }
 
+// 접근통제 제4조⑧-2: 추측하기 쉬운 비밀번호(연속·반복·아이디 유사) 차단.
+function easyPasswordError(pw, idPart) {
+  if (/(.)\1{3,}/.test(pw)) return '같은 문자를 4자 이상 반복할 수 없습니다.'
+  const v = pw.toLowerCase()
+  let up = 1
+  let down = 1
+  for (let i = 1; i < v.length; i += 1) {
+    const delta = v.charCodeAt(i) - v.charCodeAt(i - 1)
+    up = delta === 1 ? up + 1 : 1
+    down = delta === -1 ? down + 1 : 1
+    if (up >= 4 || down >= 4) return '연속된 숫자·문자(예: 1234, abcd)는 사용할 수 없습니다.'
+  }
+  if (idPart && idPart.length >= 3 && v.includes(idPart)) {
+    return '아이디(이메일)와 비슷한 비밀번호는 사용할 수 없습니다.'
+  }
+  return ''
+}
+
 function BrandLogo({ className = '' }) {
   return (
     <span className={`signup-wordmark ${className}`}>
@@ -87,6 +105,8 @@ function HqSignupForm({ onLogin, onGoToLogin }) {
 
     const pwError = passwordPolicyError(password)
     if (pwError) return setErrorMessage(pwError)
+    const easyError = easyPasswordError(password, (email.split('@')[0] || '').trim().toLowerCase())
+    if (easyError) return setErrorMessage(easyError)
     if (password !== passwordConfirm) return setErrorMessage('비밀번호가 일치하지 않습니다.')
     if (!agreePrivacy) return setErrorMessage('개인정보 수집·이용에 동의해 주세요.')
     if (!recaptchaToken) return setErrorMessage('reCAPTCHA 인증을 완료해 주세요.')
@@ -209,6 +229,7 @@ function HqSignupForm({ onLogin, onGoToLogin }) {
           </div>
           <p className="pw-hint">
             영문·숫자·특수문자 중 2종류 이상은 10자리 이상, 3종류 이상은 8자리 이상으로 구성해 주세요.
+            연속·반복 문자(1234, aaaa)나 아이디와 비슷한 비밀번호는 사용할 수 없습니다.
           </p>
         </div>
 

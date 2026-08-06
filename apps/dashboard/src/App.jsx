@@ -23,6 +23,7 @@ import Sidebar from './components/Sidebar'
 import ProfileModal from './components/user/ProfileModal'
 import KosStoreManagementView from './components/store/KosStoreManagementView'
 import StoreOnboardingView from './components/onboarding/StoreOnboardingView'
+import LegalFooter from './components/legal/LegalFooter'
 
 import { useAuthContext } from './auth/AuthContext'
 import { ROLES, STORES } from './constants/auth'
@@ -57,6 +58,7 @@ function PublicShell() {
     handleGoToSignup,
     handleGoToLogin,
     handleLoginSuccess,
+    handleLogout,
   } = useAuthContext()
 
   const pathname = location.pathname
@@ -84,7 +86,8 @@ function PublicShell() {
     }
   }, [pathname, setAuthRole])
 
-  if (authReady && currentUser) {
+  // 로그인 상태여도 랜딩('/')은 볼 수 있게 하고, 로그인·회원가입 경로에서만 대시보드로 되돌린다.
+  if (authReady && currentUser && (isLogin || isSignup)) {
     return <Navigate to={homeForUser(currentUser)} replace />
   }
 
@@ -132,6 +135,9 @@ function PublicShell() {
         }}
         onLoginSuccess={handleLoginSuccess}
         onCredentialLogin={handleLogin}
+        currentUser={currentUser}
+        onGoToDashboard={() => navigate(homeForUser(currentUser))}
+        onLogout={handleLogout}
       />
 
       <Sidebar
@@ -205,6 +211,8 @@ function StoreShell() {
           }}
         />
       </section>
+
+      <LegalFooter className="app-footer" />
     </main>
   )
 }
@@ -237,6 +245,8 @@ function HqShell() {
       <section id="dashboard" className="dashboard-content">
         <Outlet />
       </section>
+
+      <LegalFooter className="app-footer" />
     </main>
   )
 }

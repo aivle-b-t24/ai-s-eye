@@ -13,6 +13,9 @@ function HeroSection({
   onSignup,
   onLoginSuccess,
   onCredentialLogin,
+  currentUser,
+  onGoToDashboard,
+  onLogout,
 }) {
   const [isStoreSubmenuOpen, setIsStoreSubmenuOpen] = useState(false)
   const [demoError, setDemoError] = useState('')
@@ -81,10 +84,7 @@ function HeroSection({
   }
   return (
     <>
-    <section className={`hero-section ${isAuthPage ? 'is-auth-page' : ''} ${isMainLanding ? 'main-landing-hero' : ''}`}>
-      <div className="hero-background" />
-      <div className="hero-gradient" />
-
+    {isMainLanding && (
       <header className="hero-header main-landing-header">
         <a className="hero-brand" href="#top">
           <span>
@@ -93,28 +93,53 @@ function HeroSection({
           </span>
         </a>
         <div className="landing-auth-buttons">
-          <button
-            type="button"
-            className="landing-login-btn"
-            onClick={onLogin}
-          >
-            로그인
-          </button>
-          <button
-            type="button"
-            className="landing-signup-btn"
-            onClick={onSignup}
-          >
-            회원가입
-          </button>
+          {currentUser ? (
+            <>
+              <button
+                type="button"
+                className="landing-login-btn"
+                onClick={onGoToDashboard}
+              >
+                {currentUser.role === ROLES.ADMIN ? '운영분석' : '매장현황'}
+              </button>
+              <button
+                type="button"
+                className="landing-signup-btn"
+                onClick={onLogout}
+              >
+                로그아웃
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="landing-login-btn"
+                onClick={onLogin}
+              >
+                로그인
+              </button>
+              <button
+                type="button"
+                className="landing-signup-btn"
+                onClick={onSignup}
+              >
+                회원가입
+              </button>
+            </>
+          )}
         </div>
       </header>
+    )}
+    <section className={`hero-section ${isAuthPage ? 'is-auth-page' : ''} ${isMainLanding ? 'main-landing-hero' : ''}`}>
+      <div className="hero-background" />
+      <div className="hero-gradient" />
 
       <div className="hero-layout main-landing-layout">
         <div className="hero-copy main-landing-copy">
           <p className="hero-kicker">INTELLIGENT STORE OPERATIONS</p>
           <h1 className="landing-main-title">
-            Al's eye
+            Al's Eye
           </h1>
           <p className="hero-korean-subtitle">
             AI기반 프랜차이즈 매장 운영 지원 플랫폼

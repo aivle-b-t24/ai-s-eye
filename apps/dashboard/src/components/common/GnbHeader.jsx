@@ -1,7 +1,6 @@
 import React from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 
-import { storeDisplayName } from '../../api/storeDirectory'
 import { ROUTES } from '../../constants/routes'
 
 const maskName = (name) => {
@@ -32,66 +31,46 @@ export default function GnbHeader({
   onOpenProfile,
 }) {
   const navigate = useNavigate()
-  const storeId = user?.storeId || page
-  const storeName = user?.storeName || storeDisplayName(storeId)
+
+  const navClass = ({ isActive }) => `store-nav-link${isActive ? ' is-active' : ''}`
 
   return (
     <header className="gnb-header">
-      
-      <button
-        type="button"
-        className="header-back-btn"
-        onClick={onLogout}
-        aria-label="뒤로가기 (로그인 화면으로 이동)"
-        title="로그인 화면으로 돌아가기"
+      <div
+        className="brand-zone brand-zone-clickable"
+        role="button"
+        tabIndex={0}
+        onClick={() => navigate(ROUTES.HOME)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') navigate(ROUTES.HOME)
+        }}
+        aria-label="메인 페이지로 이동"
+        title="메인 페이지로 이동"
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="19" y1="12" x2="5" y2="12" />
-          <polyline points="12 19 5 12 12 5" />
-        </svg>
-      </button>
-      
-      <div className="brand-zone">
         <span className="brand-badge">AI MONITORING SYSTEM</span>
         <h1 className="brand-title">AI&apos;s Eye</h1>
       </div>
 
-      
-      <NavLink
-        to={ROUTES.MENUS}
-        className={({ isActive }) =>
-          `tab-btn dark-pill-btn${isActive ? ' active' : ''}`
-        }
-      >
-        메뉴 & 정책
-      </NavLink>
-      
-
-      <nav className="store-tabs" aria-label="가맹점 정보">
-        {storeId?.startsWith('store') && (
-          <NavLink
-            to={needsOnboarding ? ROUTES.ONBOARDING : ROUTES.DASHBOARD}
-            className={({ isActive }) =>
-              `tab-btn${isActive || (needsOnboarding && page === 'onboarding') ? ' active' : ''}`
-            }
-          >
-            [점주] {storeName}
-          </NavLink>
-        )}
+      <nav className="store-nav" aria-label="매장 관리">
+        <NavLink
+          to={needsOnboarding ? ROUTES.ONBOARDING : ROUTES.DASHBOARD}
+          className={({ isActive }) =>
+            `store-nav-link${
+              isActive || (needsOnboarding && page === 'onboarding') ? ' is-active' : ''
+            }`
+          }
+        >
+          대시보드
+        </NavLink>
+        <NavLink to={ROUTES.MENUS} className={navClass}>
+          메뉴 &amp; 정책
+        </NavLink>
+        <NavLink to={ROUTES.SETTINGS} className={navClass}>
+          설정
+        </NavLink>
       </nav>
 
       <div className="header-actions">
-        <button
-          type="button"
-          className={`action-btn settings-btn ${
-            page === 'setting' ? 'active' : ''
-          }`}
-          onClick={() => navigate(ROUTES.SETTINGS)}
-        >
-          설정
-        </button>
-
-
         <div className="user-profile-badge">
           <span
             className="user-name clickable"
@@ -103,15 +82,10 @@ export default function GnbHeader({
         </div>
 
         <div className="user-profile-badge">
-          <button
-            type="button"
-            className="logout-btn"
-            onClick={onLogout}
-          >
+          <button type="button" className="logout-btn" onClick={onLogout}>
             로그아웃
           </button>
         </div>
-
       </div>
     </header>
   )

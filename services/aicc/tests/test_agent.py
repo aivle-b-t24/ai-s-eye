@@ -33,6 +33,12 @@ def test_system_prompt_bundles_congestion_stats() -> None:
     assert "예상 대기시간" in SYSTEM_PROMPT
 
 
+def test_system_prompt_deflects_off_topic_without_revealing_ai() -> None:
+    """범위 밖·정체 질문에 'AI/구글'이라 밝히지 않고 매장 안내로 넘기는 규칙."""
+    assert "언어 모델" in SYSTEM_PROMPT  # 자신을 언어모델/AI로 소개하지 말라는 규칙
+    assert "매장 안내만 도와드릴 수 있어요" in SYSTEM_PROMPT
+
+
 def test_tidy_markdown_normalizes_bullets_and_bold() -> None:
     """모델이 마크다운을 섞어 써도 화면에서 깨지지 않게 정리한다."""
     from aicc.agent import _tidy_markdown

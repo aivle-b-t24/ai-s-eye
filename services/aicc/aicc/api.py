@@ -99,11 +99,25 @@ class InsightsResponse(BaseModel):
     comparison: Comparison = Field(default_factory=Comparison)
 
 
+class ChatTurn(BaseModel):
+    """이전 대화 한 마디. role은 'user'(손님)/'model'(챗봇). 프론트의 'bot'도 허용한다."""
+
+    role: str = Field(description="user 또는 model(=bot)")
+    text: str = Field(max_length=500)
+
+
 class ChatRequest(BaseModel):
-    """챗봇 질문. question은 필수, 너무 긴 입력은 막는다(토큰 낭비 방지)."""
+    """챗봇 질문. question은 필수, 너무 긴 입력은 막는다(토큰 낭비 방지).
+
+    history를 주면 멀티턴(대화 기억)으로 동작한다. 프론트가 최근 대화 몇 개를 실어 보내면
+    챗봇이 맥락("그거·아까 그거")을 이어서 이해한다. 없으면 단일 질문으로 답한다.
+    """
 
     question: str = Field(min_length=1, max_length=500, description="고객 질문")
     store_id: str | None = Field(default=None, description="매장 ID. 없으면 기본 매장")
+    history: list[ChatTurn] = Field(
+        default_factory=list, description="이전 대화(맥락 유지용). 최근 것만 보내면 됨"
+    )
 
     @model_validator(mode="after")
     def _check_not_blank(self) -> "ChatRequest":
@@ -203,8 +217,9 @@ def create_chat(
     target_store_id = user.store_id if user.role != ADMIN_ROLE else req.store_id
     store = target_store_id or "-"
     logger.info("chat 질문 store=%s: %s", store, req.question)
+    history = [{"role": t.role, "text": t.text} for t in req.history]
     try:
-        result = app.state.agent.ask(req.question, target_store_id)
+        result = app.state.agent.ask(req.question, target_store_id, history=history)
     except Exception as exc:
         # ask()는 대개 내부에서 오류를 흡수하지만, 예상 밖 예외가 새도 500으로 터지지 않게 막는다.
         logger.warning("chat 실패 store=%s: %s", store, exc, exc_info=True)

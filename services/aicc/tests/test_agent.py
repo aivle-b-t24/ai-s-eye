@@ -211,6 +211,31 @@ def test_returns_gemini_answer() -> None:
     assert result["answer"] == "아메리카노는 4500원입니다."
 
 
+def test_ask_without_history_sends_plain_question() -> None:
+    """history 없으면(단일 질문) contents는 그냥 질문 문자열."""
+    capture: dict[str, Any] = {}
+    with agent_for(responder(200, menus_body())) as agent:
+        agent._client = FakeGemini(text="답변", capture=capture)
+        agent.ask("메뉴 알려줘")
+    assert capture["contents"] == "메뉴 알려줘"
+
+
+def test_ask_with_history_builds_multiturn_contents() -> None:
+    """history를 주면 이전 대화가 현재 질문 앞에 붙고, 'bot'은 'model'로 변환된다."""
+    capture: dict[str, Any] = {}
+    with agent_for(responder(200, menus_body())) as agent:
+        agent._client = FakeGemini(text="답변", capture=capture)
+        history = [
+            {"role": "user", "text": "아메리카노 얼마야?"},
+            {"role": "bot", "text": "4000원입니다."},
+        ]
+        agent.ask("그거 품절이야?", history=history)
+    contents = capture["contents"]
+    assert isinstance(contents, list)
+    assert [c.role for c in contents] == ["user", "model", "user"]  # bot→model
+    assert contents[-1].parts[0].text == "그거 품절이야?"  # 현재 질문이 마지막
+
+
 def test_ask_includes_suggestions() -> None:
     """응답에 이어서 물어볼 추천 질문(suggestions)이 담긴다."""
     with agent_for(responder(200, menus_body())) as agent:

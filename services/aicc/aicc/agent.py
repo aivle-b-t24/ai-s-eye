@@ -182,9 +182,14 @@ class StoreAgent:
     def __exit__(self, *_: object) -> None:
         self.close()
 
-    def ask(self, question: str, store_id: str | None = None) -> dict[str, Any]:
+    def ask(
+        self,
+        question: str,
+        store_id: str | None = None,
+        history: list[dict[str, str]] | None = None,
+    ) -> dict[str, Any]:
         try:
-            answer = self._ask_gemini(question, store_id)
+            answer = self._ask_gemini(question, store_id, history)
         except GeminiUnavailableError as exc:
             return self._fallback(question, store_id, str(exc))
         return {
@@ -194,7 +199,35 @@ class StoreAgent:
             "suggestions": suggest_questions(question),
         }
 
-    def _ask_gemini(self, question: str, store_id: str | None) -> str:
+    def _build_contents(self, question: str, history: list[dict[str, str]] | None) -> Any:
+        """이전 대화(history)를 Gemini 형식으로 바꿔 현재 질문 앞에 붙인다.
+
+        history는 [{"role": "user"|"model"|"bot", "text": "..."}] 형태. 프론트가 쓰는
+        'bot'은 'model'로 맞춘다. 토큰 낭비/악용을 막으려 최근 10개만 쓴다.
+        history가 없으면(단일 질문) 그냥 질문 문자열만 넘긴다.
+        """
+        from google.genai import types
+
+        turns = history or []
+        if not turns:
+            return question
+        contents: list[Any] = []
+        for turn in turns[-10:]:
+            role = turn.get("role")
+            if role in ("bot", "assistant"):
+                role = "model"
+            text = (turn.get("text") or "").strip()
+            if role in ("user", "model") and text:
+                contents.append(types.Content(role=role, parts=[types.Part(text=text)]))
+        contents.append(types.Content(role="user", parts=[types.Part(text=question)]))
+        return contents
+
+    def _ask_gemini(
+        self,
+        question: str,
+        store_id: str | None,
+        history: list[dict[str, str]] | None = None,
+    ) -> str:
         if self._client is None:
             raise GeminiUnavailableError("Gemini 클라이언트를 만들지 못했습니다.")
 
@@ -203,7 +236,7 @@ class StoreAgent:
         try:
             response = self._client.models.generate_content(
                 model=self._settings.gemini_model,
-                contents=question,
+                contents=self._build_contents(question, history),
                 config=types.GenerateContentConfig(
                     system_instruction=SYSTEM_PROMPT,
                     tools=self._tool_functions(store_id),

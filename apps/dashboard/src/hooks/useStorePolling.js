@@ -130,7 +130,7 @@ export function useStorePolling({ enabled, storeId, isHeadOffice = false }) {
       if (!document.hidden && enabled && isStoreId(targetStoreId)) {
         timerId = setInterval(() => {
           loadStateOnly(targetStoreId, false)
-        }, 2000)
+        }, 6000)
       }
     }
 

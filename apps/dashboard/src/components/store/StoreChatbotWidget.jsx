@@ -368,9 +368,11 @@ export default function StoreChatbotWidget({ page, storeName }) {
                   </div>
                 )}
                 <div className="message-content-group">
+                  
                   <div className="message-bubble-box">
                     {msg.sender === 'bot' ? renderBotText(msg.text) : msg.text}
                   </div>
+
                   <span className="message-time-stamp">{msg.time}</span>
                   {msg.suggestions?.length > 0 && (
                     <div className="chat-suggestions">

@@ -19,6 +19,7 @@ def test_system_prompt_has_answer_format_rules() -> None:
     assert "• " in SYSTEM_PROMPT  # 불릿 형식 안내
     assert "⚠️ 참고" in SYSTEM_PROMPT  # 참고 한 줄 안내
     assert "마크다운 기호는 쓰지 않는다" in SYSTEM_PROMPT  # 별표 등 화면에 깨지는 기호 금지
+    assert "요일별·휴무일은 안내되어 있지 않아" in SYSTEM_PROMPT  # 영업시간 참고 트리거(데이터 기반)
 
 
 def test_system_prompt_answers_only_what_is_asked() -> None:

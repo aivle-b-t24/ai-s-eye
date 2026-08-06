@@ -86,11 +86,25 @@ export default function StoreChatbotWidget({ page, storeName }) {
   }
 
   // 📍 5. 버튼 클릭 동작 (드래그 중일 때는 창이 열리지 않게 처리)
+  /* StoreChatbotWidget.jsx 89번 라인 handleToggleOpen 함수 수정 */
   const handleToggleOpen = (e) => {
     if (hasDragged.current) {
       e.preventDefault()
       e.stopPropagation()
       return
+    }
+    
+    // 📍 챗봇 창을 닫았다가 다시 열 때(!isOpen) 이전 대화를 싹 지우고 초기화!
+    if (!isOpen) {
+      setMessages([
+        {
+          id: Date.now(),
+          sender: 'bot',
+          text: '안녕하세요! AI 카페 매니저예요. 매장 운영시간, 품절 메뉴, 주차, 실시간 관제 등 궁금하신 점을 편하게 질문해 주세요.',
+          source: '',
+          time: getCurrentTime(),
+        },
+      ])
     }
     setIsOpen(!isOpen)
   }
@@ -187,61 +201,28 @@ export default function StoreChatbotWidget({ page, storeName }) {
     const targetEndpoint = `${CHATBOT_BASE_URL.replace(/\/$/, '')}/chat`
     const token = await currentIdToken()
 
-    const popupHtml = `
-      <!DOCTYPE html>
-      <html lang="ko">
-      <head>
-        <meta charset="UTF-8" />
-        <title>AI's Eye 카페 매니저 - 독립 창 (${activeStoreId})</title>
-        <style>
-          * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Pretendard', 'Noto Sans KR', sans-serif; }
-          body { background: #fdfbf7; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-          .header { background: #173f3a; color: white; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; font-weight: 700; border-bottom: 2px solid #316f68; }
-          .header-title { display: flex; align-items: center; gap: 8px; font-size: 16px; }
-          .hero-banner { background: #f4efe6; padding: 16px; text-align: center; border-bottom: 1px solid #e5ded3; }
-          .mascot { width: 56px; height: 56px; background: #173f3a; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-size: 28px; margin: 0 auto 8px; border: 2px solid #316f68; box-shadow: 0 4px 12px rgba(23, 63, 58, 0.2); }
-          .welcome-title { font-size: 15px; font-weight: 800; color: #173f3a; margin-bottom: 4px; }
-          .welcome-sub { font-size: 12px; color: #5c4b37; }
-          .faq-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
-          .faq-btn { background: white; border: 1px solid #e2d8c9; border-radius: 10px; padding: 10px 6px; font-size: 11px; font-weight: 700; color: #2c1e16; cursor: pointer; transition: all 0.2s; }
-          .faq-btn:hover { background: #173f3a; color: white; border-color: #173f3a; }
-          .chat-area { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: #faf8f5; }
-          .msg-row { display: flex; gap: 10px; align-items: flex-start; }
-          .msg-row.user { justify-content: flex-end; }
-          .avatar { width: 36px; height: 36px; background: #173f3a; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px; flex-shrink: 0; }
-          .msg-bubble { max-width: 78%; padding: 10px 14px; border-radius: 14px; font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
-          .msg-row.bot .msg-bubble { background: #eee9e0; color: #1f2937; border-top-left-radius: 2px; }
-          .msg-row.user .msg-bubble { background: #173f3a; color: white; border-top-right-radius: 2px; }
-          .input-area { background: white; padding: 12px 16px; border-top: 1px solid #e5ded3; display: flex; gap: 10px; align-items: center; }
-          .input-area input { flex: 1; border: 1px solid #d8cdbe; border-radius: 20px; padding: 10px 16px; font-size: 13px; outline: none; }
-          .send-btn { width: 38px; height: 38px; background: #173f3a; border: none; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <div class="header-title"><span>☕</span> AI Cafe 매니저 (${activeStoreId})</div>
-          <div><button onclick="window.close()" style="background:none;border:none;color:white;font-size:18px;cursor:pointer;">✕</button></div>
-        </div>
-        <div class="hero-banner">
-          <div class="mascot">☕</div>
-          <div class="welcome-title">안녕하세요! 저는 AI's Eye 카페 매니저예요!</div>
-          <div class="welcome-sub">매장 운영시간, 품절 메뉴, 주차, AI 관제 현황을 알려드릴게요.</div>
-        </div>
-        <div class="chat-area" id="chatArea">
-          <div class="msg-row bot">
-            <div class="avatar">☕</div>
+    /* const popupHtml 바로 위에 이 1줄 덩어리를 추가! */
+    const existingMessagesHtml = messages
+      .map((msg) => {
+        const isUser = msg.sender === 'user'
+        const textFormatted = (msg.text || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/\n/g, '<br />')
+
+        return `
+          <div class="msg-row ${isUser ? 'user' : 'bot'}">
+            ${!isUser ? '<div class="avatar">☕</div>' : ''}
             <div>
-              <div class="msg-bubble">안녕하세요! AI 카페 매니저예요. 궁금하신 내용을 질문해 주세요.</div>
+              <div class="msg-bubble">${textFormatted}</div>
             </div>
           </div>
-        </div>
-        <div class="input-area">
-          <input type="text" id="userInput" placeholder="질문을 입력하세요..." onkeydown="if(event.key==='Enter') sendMsg()" />
-          <button class="send-btn" onclick="sendMsg()">➤</button>
-        </div>
-      </body>
-      </html>
-    `
+        `
+      })
+      .join('')
+
+    
 
     const popup = window.open(
       '',
@@ -291,18 +272,6 @@ export default function StoreChatbotWidget({ page, storeName }) {
               </div>
             </div>
             <div className="chatbot-header-right">
-              <button
-                type="button"
-                className="chatbot-external-btn"
-                onClick={openExternalPopupWindow}
-                title="새 창으로 챗봇 열기"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                  <polyline points="15 3 21 3 21 9"></polyline>
-                  <line x1="10" y1="14" x2="21" y2="3"></line>
-                </svg>
-              </button>
               <button
                 type="button"
                 className="chatbot-close-btn"

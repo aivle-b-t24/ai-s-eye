@@ -7263,4 +7263,15 @@ body::before {
   line-height: 1.5;
 }
 
+/* 📍 [점주] 탭을 감싸는 부모 상자까지 100% 투명화 */
+.store-tabs,
+.gnb-header .store-tabs,
+.top-global-nav .store-tabs {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  padding: 0 !important;
+}
+
 

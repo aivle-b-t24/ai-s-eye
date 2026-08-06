@@ -6814,7 +6814,8 @@ body::before {
   font-size: clamp(48px, 6vw, 78px) !important;
   font-weight: 900 !important;
   letter-spacing: -1.5px !important;
-  color: #ffffff !important;
+  /* [시안: light] 다크 텍스트 */
+  color: #12332a !important;
   margin: 10px 0 10px !important;
   line-height: 1.02 !important;
 }
@@ -6830,15 +6831,16 @@ body::before {
 }
 .landing-hero-tagline .tagline-strong {
   display: block !important;
-  color: #ffffff !important;
+  color: #16352c !important;
 }
 .landing-hero-tagline .tagline-muted {
   display: block !important;
-  color: rgba(255, 255, 255, 0.6) !important;
+  color: #7b968b !important;
 }
 .hero-korean-subtitle {
   font-size: 17px !important;
-  color: #a7f3d0 !important;
+  /* teal 포인트 */
+  color: var(--accent-teal, #316f68) !important;
   font-weight: 700 !important;
   margin: 0 0 10px !important;
   letter-spacing: -0.3px !important;
@@ -6846,7 +6848,7 @@ body::before {
 .landing-hero-desc {
   font-size: 14px !important;
   line-height: 1.65 !important;
-  color: rgba(255, 255, 255, 0.62) !important;
+  color: #5c7a70 !important;
   max-width: 460px !important;
   margin: 0 auto 26px !important;
 }
@@ -7201,8 +7203,8 @@ body::before {
    메인 랜딩 전용 배경 및 고대비 헤더 보정
    ========================================================= */
 .is-main-landing {
-  background-color: #0b2a20 !important;
-  /* 히어로와 소개 배경을 동일한 단색으로 통일 */
+  background-color: #f5f7f8 !important;
+  /* [시안: light] 매장 페이지처럼 밝은 배경 (teal은 포인트로만) */
   background-image: none !important;
   min-height: 100vh !important;
   height: 100vh !important;       
@@ -7215,13 +7217,12 @@ body::before {
   display: none !important;
 }
 
-/* 어둡게 덮던 부분은 빼고, 글자 영역만 살짝 밝게 하는 teal 글로우만 남긴다.
-   (배경 단색은 유지 → 소개 영역과 톤 동일) */
+/* [시안: light] 밝은 배경에 맞춰 아주 옅은 teal 틴트만 */
 .is-main-landing .hero-gradient {
   display: block !important;
   background:
-    radial-gradient(circle at 28% 42%, rgba(52, 211, 153, 0.16), transparent 52%),
-    radial-gradient(circle at 68% 40%, rgba(38, 160, 111, 0.1), transparent 48%) !important;
+    radial-gradient(circle at 25% 40%, rgba(52, 211, 153, 0.07), transparent 55%),
+    radial-gradient(circle at 70% 42%, rgba(16, 185, 129, 0.05), transparent 50%) !important;
 }
 
 .is-main-landing .hero-section {
@@ -7633,3 +7634,92 @@ body::before {
 
 
 
+
+/* ==================== [시안: light] 메인 라이트 테마 오버라이드 ==================== */
+/* 헤더 / 내비 */
+.is-main-landing .hero-header {
+  background: #ffffff !important;
+  border: 1px solid #e4ede9 !important;
+  box-shadow: 0 8px 24px rgba(16, 45, 38, 0.08) !important;
+}
+.is-main-landing .hero-brand small { color: var(--accent-teal, #316f68) !important; }
+.is-main-landing .hero-brand strong { color: #12332a !important; }
+.is-main-landing .hero-kicker { color: var(--accent-teal, #316f68) !important; }
+.is-main-landing .landing-login-btn {
+  background: #ffffff !important;
+  border: 1px solid #cdddd6 !important;
+  color: #16352c !important;
+}
+.is-main-landing .landing-login-btn:hover {
+  border-color: var(--accent-teal, #316f68) !important;
+  color: var(--accent-teal, #316f68) !important;
+}
+.is-main-landing .landing-signup-btn {
+  background: var(--accent-teal, #316f68) !important;
+  border: none !important;
+  color: #ffffff !important;
+}
+.is-main-landing .landing-signup-btn:hover { filter: brightness(1.08) !important; }
+
+/* 데모 로그인 박스 (밝은 카드 + teal 포인트) */
+.is-main-landing .landing-demo-login-box {
+  background: #ffffff !important;
+  border: 1px solid #e4ede9 !important;
+  box-shadow: 0 14px 34px rgba(16, 45, 38, 0.1) !important;
+}
+.is-main-landing .landing-demo-login-box .demo-hint { color: var(--accent-teal, #316f68) !important; }
+.is-main-landing .landing-demo-login-box .demo-btn {
+  background: rgba(49, 111, 104, 0.1) !important;
+  border: 1px solid rgba(49, 111, 104, 0.4) !important;
+  color: #16352c !important;
+}
+.is-main-landing .landing-demo-login-box .demo-btn:hover {
+  background: rgba(49, 111, 104, 0.18) !important;
+  border-color: var(--accent-teal, #316f68) !important;
+  color: var(--accent-teal, #316f68) !important;
+}
+
+/* 푸터 */
+.is-main-landing .main-landing-footer {
+  color: #5c7a70 !important;
+  border-top: 1px solid #e4ede9 !important;
+}
+.is-main-landing .footer-legal-link { color: #5c7a70 !important; }
+.is-main-landing .footer-legal-link:hover { color: var(--accent-teal, #316f68) !important; }
+.is-main-landing .legal-sep { color: #c7d5cf !important; }
+
+/* 소개 섹션 (라이트 카드) */
+.landing-intro .intro-eyebrow {
+  border-color: rgba(49, 111, 104, 0.3) !important;
+  background: rgba(49, 111, 104, 0.08) !important;
+  color: var(--accent-teal, #316f68) !important;
+}
+.landing-intro .intro-heading { color: #12332a !important; }
+.landing-intro .intro-sub { color: #5c7a70 !important; }
+.landing-intro .intro-feature-card,
+.landing-intro .intro-value-card,
+.landing-intro .intro-value-card.is-featured,
+.landing-intro .intro-stat-band {
+  background: #ffffff !important;
+  border: 1px solid #e4ede9 !important;
+  box-shadow: 0 10px 28px rgba(16, 45, 38, 0.06) !important;
+}
+.landing-intro .intro-feature-card:hover {
+  border-color: rgba(49, 111, 104, 0.5) !important;
+  box-shadow: 0 16px 36px rgba(16, 45, 38, 0.12) !important;
+}
+.landing-intro .intro-feature-card h3,
+.landing-intro .intro-step h3 { color: #12332a !important; }
+.landing-intro .intro-value-tag {
+  background: rgba(49, 111, 104, 0.12) !important;
+  color: var(--accent-teal, #316f68) !important;
+}
+.landing-intro .intro-feature-card p,
+.landing-intro .intro-step p,
+.landing-intro .intro-value-card li,
+.landing-intro .intro-stat span { color: #5c7a70 !important; }
+.landing-intro .intro-value-card li::before {
+  background: rgba(49, 111, 104, 0.15) !important;
+  box-shadow: inset 0 0 0 1px rgba(49, 111, 104, 0.5) !important;
+}
+.landing-intro .intro-glow { opacity: 0.28 !important; }

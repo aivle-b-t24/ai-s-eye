@@ -6512,22 +6512,12 @@ html, body {
    ========================================================= */
 body {
   position: relative;
-  background-image: url("https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=2200&q=90") !important;
-  background-attachment: fixed !important;
-  background-position: center !important;
-  background-size: cover !important;
-  background-repeat: no-repeat !important;
+  /* 배경 카페 이미지 제거 → 브랜드 다크 단색 */
+  background: #f5f6f7 !important;
 }
 
 body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background: rgba(0, 0, 0, 0.2) !important;
-  backdrop-filter: blur(5px) !important;
-  -webkit-backdrop-filter: blur(5px) !important;
-  pointer-events: none;
+  display: none !important;
 }
 
 /* 2. [추천 방향 A] 상단 카페 배경 고정 & 콘텐츠 유연 높이(640px 잘림 방지) */
@@ -6715,20 +6705,46 @@ body::before {
 }
 
 .landing-main-title {
-  font-size: clamp(54px, 7vw, 84px) !important;
+  font-size: clamp(48px, 6vw, 78px) !important;
   font-weight: 900 !important;
   letter-spacing: -1.5px !important;
-  color: #ffffff !important;
-  margin: 12px 0 16px !important;
-  line-height: 1.05 !important;
+  /* [시안: light] 다크 텍스트 */
+  color: #12332a !important;
+  margin: 10px 0 10px !important;
+  line-height: 1.02 !important;
 }
 
+/* 태그라인은 브랜드(AI's eye) 아래 보조 헤드라인 */
+.landing-hero-tagline {
+  display: block !important;
+  font-size: clamp(18px, 2vw, 26px) !important;
+  font-weight: 700 !important;
+  line-height: 1.25 !important;
+  letter-spacing: -0.4px !important;
+  margin: 2px 0 20px !important;
+}
+.landing-hero-tagline .tagline-strong {
+  display: block !important;
+  color: #16352c !important;
+}
+.landing-hero-tagline .tagline-muted {
+  display: block !important;
+  color: #7b968b !important;
+}
 .hero-korean-subtitle {
-  font-size: 18px !important;
-  color: #a7f3d0 !important;
-  font-weight: 600 !important;
-  margin-bottom: 28px !important;
+  font-size: 17px !important;
+  /* teal 포인트 */
+  color: var(--accent-teal, #316f68) !important;
+  font-weight: 700 !important;
+  margin: 0 0 10px !important;
   letter-spacing: -0.3px !important;
+}
+.landing-hero-desc {
+  font-size: 14px !important;
+  line-height: 1.65 !important;
+  color: #5c7a70 !important;
+  max-width: 460px !important;
+  margin: 0 auto 26px !important;
 }
 
 /* =========================================================
@@ -6736,22 +6752,12 @@ body::before {
    ========================================================= */
 body {
   position: relative !important;
-  background-image: url("https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=2200&q=90") !important;
-  background-attachment: fixed !important;
-  background-position: center !important;
-  background-size: cover !important;
-  background-repeat: no-repeat !important;
+  /* 카페 배경 이미지 제거 → 브랜드 다크 단색 (중복 규칙 정리) */
+  background: #f5f6f7 !important;
 }
 
 body::before {
-  content: "" !important;
-  position: fixed !important;
-  inset: 0 !important;
-  z-index: -1 !important;
-  background: rgba(0, 0, 0, 0.2) !important;
-  backdrop-filter: blur(5px) !important;
-  -webkit-backdrop-filter: blur(5px) !important;
-  pointer-events: none !important;
+  display: none !important;
 }
 
 /* =========================================================
@@ -6855,19 +6861,41 @@ body::before {
    
 .landing-demo-login-box {
   margin-top: auto !important;
-  padding: 16px 20px !important;
-  background: rgba(8, 28, 23, 0.65) !important;
-  border: 1px solid rgba(52, 211, 153, 0.25) !important;
+  padding: 18px 22px !important;
+  background: rgba(10, 40, 31, 0.92) !important;
+  border: 1px solid rgba(52, 211, 153, 0.55) !important;
   border-radius: 16px !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.42), inset 0 0 0 1px rgba(52, 211, 153, 0.1) !important;
   backdrop-filter: blur(10px) !important;
   -webkit-backdrop-filter: blur(10px) !important;
 }
 
 .landing-demo-login-box .demo-hint {
   font-size: 12px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.02em !important;
+  color: #6ee7b7 !important;
+  margin: 0 0 12px 0 !important;
+}
+
+/* 원클릭 데모 버튼을 또렷한 알약형으로 → 가시성 향상 */
+.landing-demo-login-box .demo-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 10px 18px !important;
+  border: 1px solid rgba(52, 211, 153, 0.55) !important;
+  border-radius: 10px !important;
+  background: rgba(52, 211, 153, 0.14) !important;
+  color: #e6fff4 !important;
+  font-size: 0.86rem !important;
   font-weight: 700 !important;
-  color: #34d399 !important;
-  margin: 0 0 10px 0 !important;
+}
+.landing-demo-login-box .demo-btn:hover {
+  background: rgba(52, 211, 153, 0.26) !important;
+  border-color: rgba(52, 211, 153, 0.85) !important;
+  color: #ffffff !important;
+  text-decoration: none !important;
 }
 
 .landing-demo-login-box .demo-login-error {
@@ -6879,13 +6907,13 @@ body::before {
 
 .main-landing-footer {
   width: 100% !important;
-  max-width: 1360px !important;
-  margin: 32px auto 20px !important;
-  padding: 16px 0 !important;
+  max-width: 1160px !important;
+  margin: 0 auto !important;
+  padding: 28px 24px 34px !important;
   text-align: center !important;
-  font-size: 13px !important;
-  color: #94a3b8 !important;
-  border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+  font-size: 14px !important;
+  color: #cbe4da !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.14) !important;
 }
 
 .main-landing-footer span {
@@ -7069,7 +7097,8 @@ body::before {
    메인 랜딩 전용 배경 및 고대비 헤더 보정
    ========================================================= */
 .is-main-landing {
-  background: #051510 !important;
+  background-color: #f5f6f7 !important;
+  /* [시안: light] 매장 페이지 배경(#f5f6f7)과 동일 (teal은 포인트로만) */
   background-image: none !important;
   min-height: 100vh !important;
   height: 100vh !important;       
@@ -7082,8 +7111,17 @@ body::before {
   display: none !important;
 }
 
+/* [시안: light] 히어로 그라데이션(글로우) 제거 → 완전 평평한 밝은 배경 */
+.is-main-landing .hero-gradient {
+  display: none !important;
+}
+
 .is-main-landing .hero-section {
-  background: radial-gradient(circle at 75% 35%, rgba(14, 45, 36, 0.98), #051510 85%) !important;
+  /* 히어로를 배경 그라디언트에 완전히 녹여 카드 경계(박스)를 없앤다. */
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
   width: 100% !important;
   max-width: 100% !important;
   padding: 20px 40px 40px !important;
@@ -7094,9 +7132,300 @@ body::before {
   min-height: 100vh !important;
 }
 
+/* 히어로 콘텐츠를 남은 공간에서 세로 중앙 정렬 → 아래 빈 공간 축소 */
+.is-main-landing .hero-layout {
+  flex: 1 1 auto !important;
+  align-items: center !important;
+  padding-top: 24px !important;
+  padding-bottom: 24px !important;
+}
+
 /* 랜딩 푸터를 화면 맨 아래에 고정 */
 .is-main-landing .main-landing-footer {
   margin-top: auto !important;
+}
+
+/* 서비스 소개 추가 → 랜딩을 스크롤 가능하게(첫 화면 히어로 100vh 유지) */
+.page-shell.is-main-landing {
+  height: auto !important;
+  min-height: 100vh !important;
+  max-height: none !important;
+  overflow: visible !important;
+  /* 배경 그라디언트를 전체 폭으로 → 1440 패널 가장자리 박스 경계 제거.
+     콘텐츠는 내부(hero-layout·header·intro)의 max-width로 가운데 정렬 유지. */
+  max-width: none !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  /* 세로 컬럼 + 푸터 margin-top:auto → 푸터가 항상 화면 바닥에 붙어 아래 빈 공간 제거 */
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* ===== 서비스 소개 (브랜드 톤 통일 · 살짝 밝게) ===== */
+.landing-intro {
+  position: relative;
+  z-index: 1;
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 96px 24px 56px;
+  box-sizing: border-box;
+  text-align: center;
+}
+.intro-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.45;
+  pointer-events: none;
+  z-index: 0;
+}
+.intro-glow-a {
+  top: 20px;
+  left: -100px;
+  width: 340px;
+  height: 340px;
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.22), transparent 70%);
+}
+.intro-glow-b {
+  bottom: 120px;
+  right: -120px;
+  width: 380px;
+  height: 380px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.16), transparent 70%);
+}
+.intro-block {
+  position: relative;
+  z-index: 1;
+  margin-bottom: 84px;
+}
+.intro-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  border-radius: 999px;
+  background: rgba(52, 211, 153, 0.1);
+  color: #8ef0cb;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+.intro-heading {
+  color: #f2fbf7;
+  font-size: 2.1rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin: 18px 0 12px;
+}
+.intro-sub {
+  color: #b6d2c8;
+  font-size: 1rem;
+  line-height: 1.6;
+  max-width: 560px;
+  margin: 0 auto 40px;
+}
+.intro-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+  text-align: left;
+}
+.intro-feature-card {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
+  padding: 28px;
+  box-sizing: border-box;
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.intro-feature-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(52, 211, 153, 0.5);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.3);
+}
+.intro-feature-badge {
+  display: inline-grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #34d399, #0f9f6e);
+  color: #04160f;
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.35);
+  margin-bottom: 18px;
+}
+.intro-feature-card h3 {
+  color: #f2fbf7;
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin: 0 0 10px;
+}
+.intro-feature-card p {
+  color: #b6d2c8;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  margin: 0;
+}
+.intro-steps {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+.intro-steps-line {
+  position: absolute;
+  top: 26px;
+  left: 16%;
+  right: 16%;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(52, 211, 153, 0.5), rgba(52, 211, 153, 0.12));
+  z-index: 0;
+}
+.intro-step {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: 0 8px;
+}
+.intro-step-node {
+  display: inline-grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #34d399, #0f9f6e);
+  color: #04160f;
+  font-size: 0.95rem;
+  font-weight: 900;
+  box-shadow: 0 8px 22px rgba(16, 185, 129, 0.4);
+  margin-bottom: 18px;
+}
+.intro-step h3 {
+  color: #f2fbf7;
+  font-size: 1.02rem;
+  font-weight: 800;
+  margin: 0 0 8px;
+}
+.intro-step p {
+  color: #b6d2c8;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  margin: 0;
+}
+.intro-value-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  text-align: left;
+}
+.intro-value-card {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 30px;
+  box-sizing: border-box;
+}
+.intro-value-card.is-featured {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: none;
+}
+.intro-value-tag {
+  display: inline-block;
+  padding: 5px 16px;
+  border-radius: 999px;
+  background: rgba(52, 211, 153, 0.16);
+  color: #8ef0cb;
+  font-weight: 800;
+  font-size: 0.85rem;
+  margin-bottom: 18px;
+}
+.intro-value-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.intro-value-card li {
+  position: relative;
+  padding-left: 26px;
+  color: #cfe6dc;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+.intro-value-card li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(52, 211, 153, 0.2);
+  box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.5);
+}
+.intro-value-card li::after {
+  content: '✓';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  color: #34d399;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+.intro-stat-band {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 24px;
+  padding: 36px 28px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.04);
+  text-align: center;
+}
+.intro-stat strong {
+  display: block;
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  background: linear-gradient(120deg, #6ee7b7, #34d399);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.intro-stat span {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.84rem;
+  color: #b6d2c8;
+}
+.intro-stats-note {
+  text-align: center;
+  margin: 16px 0 0;
+  font-size: 0.74rem;
+  color: #7fa093;
+}
+@media (max-width: 720px) {
+  .landing-intro {
+    padding: 64px 18px 40px;
+  }
+  .intro-heading {
+    font-size: 1.6rem;
+  }
+  .intro-block {
+    margin-bottom: 60px;
+  }
+  .intro-steps {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .intro-steps-line {
+    display: none;
+  }
 }
 
 .is-main-landing .hero-header {
@@ -7275,3 +7604,471 @@ body::before {
 }
 
 
+
+/* ==================== [시안: light] 메인 라이트 테마 오버라이드 ==================== */
+/* 헤더 / 내비 — 풀폭 밴드(배경보다 살짝 하얗게) + 하단 구분선(깃허브 스타일) */
+.is-main-landing .hero-header {
+  max-width: none !important;
+  width: 100% !important;
+  background: #fafbfc !important;
+  border: none !important;
+  border-bottom: 1px solid #e2e8e5 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 14px max(24px, calc((100% - 1360px) / 2)) 16px !important;
+  margin: 0 0 28px !important;
+}
+.is-main-landing .hero-brand small { color: var(--accent-teal, #316f68) !important; }
+.is-main-landing .hero-brand strong { color: #12332a !important; }
+.is-main-landing .hero-kicker { color: var(--accent-teal, #316f68) !important; }
+.is-main-landing .landing-login-btn {
+  background: #ffffff !important;
+  border: 1px solid #cdddd6 !important;
+  color: #16352c !important;
+}
+.is-main-landing .landing-login-btn:hover {
+  border-color: var(--accent-teal, #316f68) !important;
+  color: var(--accent-teal, #316f68) !important;
+}
+.is-main-landing .landing-signup-btn {
+  background: var(--accent-teal, #316f68) !important;
+  border: none !important;
+  color: #ffffff !important;
+}
+.is-main-landing .landing-signup-btn:hover { filter: brightness(1.08) !important; }
+
+/* 데모 로그인 박스 (밝은 카드 + teal 포인트) */
+.is-main-landing .landing-demo-login-box {
+  background: #ffffff !important;
+  border: 1px solid #e4ede9 !important;
+  box-shadow: 0 14px 34px rgba(16, 45, 38, 0.1) !important;
+}
+.is-main-landing .landing-demo-login-box .demo-hint { color: var(--accent-teal, #316f68) !important; }
+.is-main-landing .landing-demo-login-box .demo-btn {
+  background: rgba(49, 111, 104, 0.1) !important;
+  border: 1px solid rgba(49, 111, 104, 0.4) !important;
+  color: #16352c !important;
+}
+.is-main-landing .landing-demo-login-box .demo-btn:hover {
+  background: rgba(49, 111, 104, 0.18) !important;
+  border-color: var(--accent-teal, #316f68) !important;
+  color: var(--accent-teal, #316f68) !important;
+}
+
+/* 푸터 */
+.is-main-landing .main-landing-footer {
+  max-width: none !important;
+  width: 100% !important;
+  margin: auto 0 0 !important;
+  padding: 26px max(24px, calc((100% - 1160px) / 2)) 30px !important;
+  background: #fafbfc !important;
+  color: #5c7a70 !important;
+  border-top: 1px solid #e2e8e5 !important;
+}
+.is-main-landing .footer-legal-link { color: #5c7a70 !important; }
+.is-main-landing .footer-legal-link:hover { color: var(--accent-teal, #316f68) !important; }
+.is-main-landing .legal-sep { color: #c7d5cf !important; }
+
+/* 소개 섹션 (라이트 카드) */
+.landing-intro .intro-eyebrow {
+  border-color: rgba(49, 111, 104, 0.3) !important;
+  background: rgba(49, 111, 104, 0.08) !important;
+  color: var(--accent-teal, #316f68) !important;
+}
+.landing-intro .intro-heading { color: #12332a !important; }
+.landing-intro .intro-sub { color: #5c7a70 !important; }
+.landing-intro .intro-feature-card,
+.landing-intro .intro-value-card,
+.landing-intro .intro-value-card.is-featured,
+.landing-intro .intro-stat-band {
+  background: #ffffff !important;
+  border: 1px solid #e4ede9 !important;
+  box-shadow: 0 10px 28px rgba(16, 45, 38, 0.06) !important;
+}
+.landing-intro .intro-feature-card:hover {
+  border-color: rgba(49, 111, 104, 0.5) !important;
+  box-shadow: 0 16px 36px rgba(16, 45, 38, 0.12) !important;
+}
+.landing-intro .intro-feature-card h3,
+.landing-intro .intro-step h3 { color: #12332a !important; }
+.landing-intro .intro-value-tag {
+  background: rgba(49, 111, 104, 0.12) !important;
+  color: var(--accent-teal, #316f68) !important;
+}
+.landing-intro .intro-feature-card p,
+.landing-intro .intro-step p,
+.landing-intro .intro-value-card li,
+.landing-intro .intro-stat span { color: #5c7a70 !important; }
+.landing-intro .intro-value-card li::before {
+  background: rgba(49, 111, 104, 0.15) !important;
+  box-shadow: inset 0 0 0 1px rgba(49, 111, 104, 0.5) !important;
+}
+.landing-intro .intro-glow { opacity: 0.28 !important; }
+
+/* ==================== [시안: light] 가독성 보정 ==================== */
+/* 헤더 로고 'Al's Eye' 다크 고정(높은 우선순위) */
+.is-main-landing .hero-header .hero-brand strong { color: #12332a !important; }
+.is-main-landing .hero-header .hero-brand small { color: var(--accent-teal, #316f68) !important; }
+
+/* 회원가입 버튼 hover 시 흰색으로 안 바뀌게(진한 teal 유지) */
+.is-main-landing .landing-signup-btn:hover {
+  background: #285d56 !important;
+  color: #ffffff !important;
+  transform: translateY(-1px) !important;
+  filter: none !important;
+}
+
+/* 수치 밴드 텍스트 진하게 */
+.is-main-landing .landing-intro .intro-stat strong {
+  background: linear-gradient(120deg, #0e7a63, #14a07e) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+}
+.is-main-landing .landing-intro .intro-stat span { color: #3d5a51 !important; }
+
+/* 매장 헤더 로고 클릭 → 메인 이동 */
+.gnb-header .brand-zone-clickable { cursor: pointer; }
+.gnb-header .brand-zone-clickable:hover { opacity: 0.82; }
+
+/* ==================== [헤더 통일] 매장·본사 헤더 = 랜딩 밝은 밴드 ==================== */
+.gnb-header,
+.head-office-header {
+  background: #fafbfc !important;
+  border: none !important;
+  border-bottom: 1px solid #e2e8e5 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+/* 본사 헤더(검정→밝게): 글자 다크로 */
+.head-office-header,
+.head-office-header a,
+.head-office-header span,
+.head-office-header strong,
+.head-office-header .head-office-user strong {
+  color: #12332a !important;
+}
+.head-office-header .head-office-brand strong { color: var(--accent-teal, #316f68) !important; }
+.head-office-header .head-office-navigation a { color: #5c7a70 !important; }
+.head-office-header .head-office-navigation a.is-active { color: var(--accent-teal, #316f68) !important; }
+/* 본사 뒤로가기 버튼 숨김 + 좌측 여백 정상화(매장과 통일) */
+.head-office-header .header-back-btn,
+.head-office-header .hq-back-btn { display: none !important; }
+.head-office-header-inner { padding-left: 32px !important; }
+
+/* ==================== [헤더 통일 보정] ==================== */
+/* 매장·본사 헤더 풀폭(내용은 1440 중앙 정렬) */
+.gnb-header,
+.head-office-header {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  margin-left: calc(50% - 50vw) !important;
+  margin-right: calc(50% - 50vw) !important;
+  padding-left: max(24px, calc((100vw - 1440px) / 2)) !important;
+  padding-right: max(24px, calc((100vw - 1440px) / 2)) !important;
+  box-sizing: border-box !important;
+}
+/* 본사 네비 hover: 검정 대비 완화 → teal 틴트 */
+.head-office-header .head-office-navigation a:hover {
+  background: rgba(49, 111, 104, 0.1) !important;
+  color: var(--accent-teal, #316f68) !important;
+}
+/* 랜딩 헤더 버튼: 박스 제거, 글자만 */
+.is-main-landing .landing-login-btn,
+.is-main-landing .landing-signup-btn {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 8px 10px !important;
+  color: #16352c !important;
+  font-weight: 700 !important;
+}
+.is-main-landing .landing-signup-btn { color: var(--accent-teal, #316f68) !important; }
+.is-main-landing .landing-login-btn:hover,
+.is-main-landing .landing-signup-btn:hover {
+  background: transparent !important;
+  color: var(--accent-teal, #316f68) !important;
+  text-decoration: underline !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+/* 매장관리 드롭다운 */
+.store-manage-wrapper { position: relative; display: inline-flex; }
+.gnb-header .manage-btn { display: inline-flex; align-items: center; gap: 6px; }
+.manage-caret { display: inline-flex; transition: transform 0.2s ease; }
+.manage-caret.open { transform: rotate(180deg); }
+.manage-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 168px;
+  background: #ffffff;
+  border: 1px solid #e4ede9;
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(16, 45, 38, 0.14);
+  padding: 6px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+}
+.manage-dropdown-menu button {
+  text-align: left;
+  padding: 10px 14px;
+  border: 0;
+  background: transparent;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #16352c;
+  cursor: pointer;
+}
+.manage-dropdown-menu button:hover {
+  background: rgba(49, 111, 104, 0.1);
+  color: var(--accent-teal, #316f68);
+}
+
+/* [헤더 통일] 로고 글씨체·크기를 매장 헤더 기준으로 (랜딩·본사) */
+.is-main-landing .hero-brand strong,
+.head-office-header .head-office-brand span {
+  font-size: 1.85rem !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+}
+.is-main-landing .hero-brand small,
+.head-office-header .head-office-brand strong {
+  font-size: 0.72rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.18em !important;
+}
+
+/* ==================== [헤더 통일 v2] 하나의 헤더 느낌 ==================== */
+/* 공통 레이아웃: 로고(좌) · 네비(중앙) · 액션(우), 동일 높이 */
+.gnb-header,
+.head-office-header .head-office-header-inner {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  min-height: 68px !important;
+}
+.is-main-landing .hero-header { min-height: 68px !important; align-items: center !important; }
+
+/* 로고(좌): 뱃지 위 · 타이틀 아래, 좌측 정렬, 남은 공간 확보 */
+.gnb-header .brand-zone,
+.head-office-header .head-office-brand {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 4px !important;
+  text-decoration: none !important;
+}
+
+/* 네비(중앙) */
+.gnb-header .store-nav,
+.head-office-header .head-office-navigation {
+  flex: 0 0 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  justify-content: center !important;
+}
+.store-nav-link,
+.head-office-header .head-office-navigation a {
+  padding: 8px 16px !important;
+  border-radius: 8px !important;
+  font-size: 0.95rem !important;
+  font-weight: 600 !important;
+  color: #5c7a70 !important;
+  text-decoration: none !important;
+  transition: color 0.2s, background 0.2s !important;
+}
+.store-nav-link:hover,
+.head-office-header .head-office-navigation a:hover {
+  background: rgba(49, 111, 104, 0.1) !important;
+  color: var(--accent-teal, #316f68) !important;
+}
+.store-nav-link.is-active,
+.head-office-header .head-office-navigation a.is-active {
+  color: var(--accent-teal, #316f68) !important;
+  background: rgba(49, 111, 104, 0.12) !important;
+  font-weight: 700 !important;
+}
+
+/* 액션(우) */
+.gnb-header .header-actions,
+.head-office-header .head-office-user {
+  flex: 1 1 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 12px !important;
+}
+
+/* ==================== [헤더 통일 v3 · 최종 강제] ==================== */
+/* 컨테이너: 동일 높이, 세로 중앙 정렬 */
+.gnb-header,
+.head-office-header .head-office-header-inner,
+.is-main-landing .hero-header {
+  min-height: 64px !important;
+  align-items: center !important;
+}
+
+/* 로고 타이틀(AI's Eye) 세 헤더 동일 */
+.gnb-header .brand-zone .brand-title,
+.is-main-landing .hero-header .hero-brand strong,
+.head-office-header .head-office-brand span {
+  font-size: 1.5rem !important;
+  font-weight: 800 !important;
+  line-height: 1.15 !important;
+  letter-spacing: -0.02em !important;
+  color: #12332a !important;
+}
+/* 로고 뱃지(상단 소문) 세 헤더 동일 */
+.gnb-header .brand-zone .brand-badge,
+.is-main-landing .hero-header .hero-brand small,
+.head-office-header .head-office-brand strong {
+  font-size: 0.7rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.16em !important;
+  color: var(--accent-teal, #316f68) !important;
+  margin: 0 0 3px !important;
+}
+
+/* 네비: 활성색 제거 + 둥근네모 제거 + 섹션 구분선(딱 떨어지게) */
+.gnb-header .store-nav,
+.head-office-header .head-office-navigation {
+  gap: 0 !important;
+}
+.store-nav-link,
+.head-office-header .head-office-navigation a {
+  background: transparent !important;
+  border-radius: 0 !important;
+  padding: 4px 20px !important;
+  font-size: 0.95rem !important;
+  font-weight: 600 !important;
+  color: #3d5a51 !important;
+}
+.store-nav-link.is-active,
+.head-office-header .head-office-navigation a.is-active {
+  background: transparent !important;
+  color: #3d5a51 !important;
+  font-weight: 600 !important;
+}
+.store-nav-link:hover,
+.head-office-header .head-office-navigation a:hover {
+  background: transparent !important;
+  color: var(--accent-teal, #316f68) !important;
+}
+/* 항목 사이 세로 구분선 */
+.store-nav-link + .store-nav-link,
+.head-office-header .head-office-navigation a + a {
+  border-left: 1px solid #dbe5e0 !important;
+}
+
+/* 상하 패딩 동일화 → 세 헤더 세로 폭 완전 통일 */
+.gnb-header,
+.head-office-header .head-office-header-inner,
+.is-main-landing .hero-header {
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+}
+
+/* ==================== [네비 정확한 중앙 정렬] ==================== */
+.gnb-header,
+.head-office-header .head-office-header-inner {
+  position: relative !important;
+}
+.gnb-header .store-nav,
+.head-office-header .head-office-navigation {
+  position: absolute !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+}
+
+/* ==================== [전 페이지 공통 푸터 밴드] ==================== */
+.app-footer {
+  width: 100vw !important;
+  margin-left: calc(50% - 50vw) !important;
+  margin-right: calc(50% - 50vw) !important;
+  margin-top: 48px !important;
+  padding: 26px max(24px, calc((100vw - 1160px) / 2)) 30px !important;
+  background: #fafbfc !important;
+  color: #5c7a70 !important;
+  border-top: 1px solid #e2e8e5 !important;
+  text-align: center !important;
+  font-size: 0.85rem !important;
+}
+.app-footer .footer-legal-link { color: #5c7a70 !important; }
+.app-footer .footer-legal-link:hover { color: var(--accent-teal, #316f68) !important; }
+.app-footer .legal-sep { color: #cbd5e1 !important; }
+
+/* ==================== [네비 구분선 위아래 꽉 차게] ==================== */
+/* 네비를 헤더 높이만큼 세로로 채움 → 세로 구분선이 상하 풀높이 */
+.gnb-header .store-nav,
+.head-office-header .head-office-navigation {
+  top: 0 !important;
+  bottom: 0 !important;
+  height: auto !important;
+  align-items: stretch !important;
+}
+.store-nav-link,
+.head-office-header .head-office-navigation a {
+  display: flex !important;
+  align-items: center !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+/* ==================== [네비 칸 통일 + 양끝 구분선 + 파란바 제거] ==================== */
+/* 칸 간격 통일 + 모든 항목 좌측 구분선(첫 항목 = 좌측 끝 구분선) */
+.store-nav-link,
+.head-office-header .head-office-navigation a {
+  padding: 0 22px !important;
+  border-left: 1px solid #dbe5e0 !important;
+}
+/* 마지막 항목 우측 구분선 = 우측 끝 구분선 */
+.store-nav .store-nav-link:last-child,
+.head-office-header .head-office-navigation a:last-child {
+  border-right: 1px solid #dbe5e0 !important;
+}
+/* 클릭/포커스 시 파란 하단 바·아웃라인·밑줄 전부 제거 (모든 상태) */
+.store-nav-link,
+.store-nav-link:focus,
+.store-nav-link:active,
+.store-nav-link:focus-visible,
+.head-office-header .head-office-navigation a,
+.head-office-header .head-office-navigation a:focus,
+.head-office-header .head-office-navigation a:active,
+.head-office-header .head-office-navigation a:focus-visible,
+.head-office-header .head-office-navigation a.is-active {
+  border-bottom: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  text-decoration: none !important;
+}
+.store-nav-link::after,
+.head-office-header .head-office-navigation a::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* ==================== [네비 칸 너비 완전 동일화] ==================== */
+/* 텍스트 길이와 무관하게 모든 칸을 같은 너비로 → 간격 완전 균일 */
+.store-nav-link,
+.head-office-header .head-office-navigation a {
+  min-width: 140px !important;
+  padding: 0 8px !important;
+  justify-content: center !important;
+  text-align: center !important;
+}
+
+/* ==================== [본사 헤더 파란색 강조] ==================== */
+/* 본사는 파란색이 메인 → HQ OPERATIONS 뱃지 + 네비 hover 파란 계열 */
+.head-office-header .head-office-brand strong {
+  color: #0f62fe !important;
+}
+.head-office-header .head-office-navigation a:hover {
+  color: #0f62fe !important;
+}

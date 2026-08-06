@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { ROLES } from '../../constants/auth';
 import { getDemoAccount, usesCredentialDemoLogin } from '../../auth/demoAccounts';
 import { IS_LOCAL_AUTH_MODE } from '../../auth/runtimeAuth';
+import AuthBrandPanel, { BrandLogo } from './AuthBrandPanel';
+import LegalFooter from '../legal/LegalFooter';
 
 const REMEMBERED_EMAIL_KEY = 'aicafe.rememberedEmail';
 const _DEMO_LOGIN_ENABLED = usesCredentialDemoLogin();
@@ -10,7 +12,7 @@ const _DEMO_LOGIN_ENABLED = usesCredentialDemoLogin();
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_DURATION_SECONDS = 60;
 
-export default function LoginPage({ onClose, onLogin, onPasswordReset, _onGoToSignup, initialRole = ROLES.STORE_MANAGER, initialError = '', onRoleChange }) {
+export default function LoginPage({ onClose, onLogin, onPasswordReset, onGoToSignup, initialRole = ROLES.STORE_MANAGER, initialError = '', onRoleChange }) {
   const [role, setRole] = useState(initialRole);
   const [userId, setUserId] = useState(() => localStorage.getItem(REMEMBERED_EMAIL_KEY) ?? '');
   const [password, setPassword] = useState('');
@@ -138,44 +140,48 @@ export default function LoginPage({ onClose, onLogin, onPasswordReset, _onGoToSi
   };
 
   return (
-    <div className="auth-wrapper">
-      <div className="auth-card">
+    <div className="signup-page">
+      <AuthBrandPanel />
+      <main className="signup-form-panel">
         {onClose && (
           <button
             type="button"
-            className="auth-modal-close-btn"
+            className="signup-home-link"
             onClick={onClose}
-            aria-label="취소 (메인 페이지로 이동)"
-            title="취소 (메인 페이지로 이동)"
+            aria-label="홈으로 이동"
+            title="홈으로 이동"
           >
-            ✕ 취소
+            홈으로 ✕
           </button>
         )}
 
-        <div className="auth-header">
-          <span className="auth-badge">AI MONITORING SYSTEM</span>
-          <h2 className="auth-title">AI's Eye 로그인</h2>
-          <p className="auth-subtitle">관제 시스템에 접속하기 위한 계정 정보를 입력하세요.</p>
-        </div>
+        <div className="signup-form-scroll">
+          <div className="signup-form-inner">
+            <BrandLogo className="signup-wordmark-mobile" />
 
-        <div className="role-switch-tabs">
-          <button
-            type="button"
-            className={`role-tab ${role === ROLES.STORE_MANAGER ? 'active' : ''}`}
-            onClick={() => handleTabSwitch(ROLES.STORE_MANAGER)}
-          >
-            점주 전용 로그인
-          </button>
-          <button
-            type="button"
-            className={`role-tab ${role === ROLES.ADMIN ? 'active' : ''}`}
-            onClick={() => handleTabSwitch(ROLES.ADMIN)}
-          >
-            본사 관리자 로그인
-          </button>
-        </div>
+            <div className="signup-form-head">
+              <h2 className="signup-form-title">AI&apos;s Eye 로그인</h2>
+              <p className="signup-form-sub">관제 시스템에 접속하기 위한 계정 정보를 입력하세요.</p>
+            </div>
 
-        <form onSubmit={handleSubmit} className="auth-form">
+            <div className="role-switch-tabs signup-tabs">
+              <button
+                type="button"
+                className={`role-tab ${role === ROLES.STORE_MANAGER ? 'active' : ''}`}
+                onClick={() => handleTabSwitch(ROLES.STORE_MANAGER)}
+              >
+                점주 전용 로그인
+              </button>
+              <button
+                type="button"
+                className={`role-tab ${role === ROLES.ADMIN ? 'active' : ''}`}
+                onClick={() => handleTabSwitch(ROLES.ADMIN)}
+              >
+                본사 관리자 로그인
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
             <label htmlFor="userId">
               {role === ROLES.STORE_MANAGER ? '점주 이메일' : '본사 관리자 이메일'}
@@ -280,10 +286,18 @@ export default function LoginPage({ onClose, onLogin, onPasswordReset, _onGoToSi
           </button>
         </form>
 
-        
-
-        
-      </div>
+            <button
+              type="button"
+              className="auth-link auth-link-button signup-to-login"
+              onClick={onGoToSignup}
+              disabled={isSubmitting}
+            >
+              계정이 없으신가요? 회원가입
+            </button>
+          </div>
+        </div>
+        <LegalFooter className="signup-footer" />
+      </main>
     </div>
   );
 }

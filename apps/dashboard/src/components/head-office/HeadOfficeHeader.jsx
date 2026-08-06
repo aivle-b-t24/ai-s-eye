@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 const NAVIGATION_ITEMS = [
   { id: 'hq-overview', label: '운영 개요' },
@@ -42,6 +43,7 @@ const maskName = (name) => {
 
 export default function HeadOfficeHeader({ user, onLogout, onOpenProfile }) {
 
+  const navigate = useNavigate()
   const [activeSection, setActiveSection] = useState(getSectionFromHash)
   const navigationTargetRef = useRef(null)
   const selectionTimerRef = useRef(null)
@@ -147,11 +149,15 @@ export default function HeadOfficeHeader({ user, onLogout, onOpenProfile }) {
       <div className="head-office-header-inner">
         <a
           className="head-office-brand"
-          href="#hq-overview"
-          onClick={() => holdActiveSection('hq-overview')}
+          href="/"
+          onClick={(e) => {
+            e.preventDefault()
+            navigate('/')
+          }}
+          aria-label="메인 페이지로 이동"
         >
-          <span>AI&apos;s Eye</span>
           <strong>HQ OPERATIONS</strong>
+          <span>AI&apos;s Eye</span>
         </a>
 
 

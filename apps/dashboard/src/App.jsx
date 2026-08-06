@@ -23,6 +23,7 @@ import Sidebar from './components/Sidebar'
 import ProfileModal from './components/user/ProfileModal'
 import KosStoreManagementView from './components/store/KosStoreManagementView'
 import StoreOnboardingView from './components/onboarding/StoreOnboardingView'
+import LegalFooter from './components/legal/LegalFooter'
 
 import { useAuthContext } from './auth/AuthContext'
 import { ROLES, STORES } from './constants/auth'
@@ -57,6 +58,7 @@ function PublicShell() {
     handleGoToSignup,
     handleGoToLogin,
     handleLoginSuccess,
+    handleLogout,
   } = useAuthContext()
 
   const pathname = location.pathname
@@ -84,11 +86,12 @@ function PublicShell() {
     }
   }, [pathname, setAuthRole])
 
-  if (authReady && currentUser) {
+  // 로그인 상태여도 랜딩('/')은 볼 수 있게 하고, 로그인·회원가입 경로에서만 대시보드로 되돌린다.
+  if (authReady && currentUser && (isLogin || isSignup)) {
     return <Navigate to={homeForUser(currentUser)} replace />
   }
 
-  // 회원가입은 모달이 아닌 전용 풀페이지로 렌더한다.
+  // 회원가입·로그인은 모달이 아닌 전용 풀페이지로 렌더한다.
   if (isSignup) {
     return (
       <SignupPage
@@ -96,6 +99,20 @@ function PublicShell() {
         onRoleChange={handleSignupRoleChange}
         onGoToLogin={handleGoToLogin}
         onLogin={handleLogin}
+        onClose={() => navigate(ROUTES.HOME)}
+      />
+    )
+  }
+
+  if (isLogin) {
+    return (
+      <LoginPage
+        initialRole={authRole}
+        onRoleChange={handleLoginRoleChange}
+        initialError={authError}
+        onLogin={handleLogin}
+        onPasswordReset={handlePasswordReset}
+        onGoToSignup={handleGoToSignup}
         onClose={() => navigate(ROUTES.HOME)}
       />
     )
@@ -118,6 +135,9 @@ function PublicShell() {
         }}
         onLoginSuccess={handleLoginSuccess}
         onCredentialLogin={handleLogin}
+        currentUser={currentUser}
+        onGoToDashboard={() => navigate(homeForUser(currentUser))}
+        onLogout={handleLogout}
       />
 
       <Sidebar
@@ -125,19 +145,6 @@ function PublicShell() {
         onClose={() => setIsSidebarOpen(false)}
       />
 
-      {isLogin && (
-        <div className="auth-modal-overlay">
-          <LoginPage
-            initialRole={authRole}
-            onRoleChange={handleLoginRoleChange}
-            initialError={authError}
-            onLogin={handleLogin}
-            onPasswordReset={handlePasswordReset}
-            onGoToSignup={handleGoToSignup}
-            onClose={() => navigate(ROUTES.HOME)}
-          />
-        </div>
-      )}
 
       <Outlet />
     </main>
@@ -204,6 +211,8 @@ function StoreShell() {
           }}
         />
       </section>
+
+      <LegalFooter className="app-footer" />
     </main>
   )
 }
@@ -236,6 +245,8 @@ function HqShell() {
       <section id="dashboard" className="dashboard-content">
         <Outlet />
       </section>
+
+      <LegalFooter className="app-footer" />
     </main>
   )
 }

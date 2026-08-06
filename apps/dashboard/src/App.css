@@ -2185,6 +2185,11 @@ width: min(1320px, calc(100% - 56px));
 margin-left: auto;
 margin-right: auto;
 }
+
+
+
+
+
 .dashboard-content .gnb-header,
 .dashboard-content .role-banner-container,
 .dashboard-content .panel,
@@ -3660,63 +3665,9 @@ border-radius: 0;
 background: transparent;
 }
 .dashboard-content .user-name {
-color: rgba(255, 255, 255, 0.86);
+  color: rgba(255, 255, 255, 0.86);
 }
-.dashboard-content .gnb-header .store-tabs {
-padding: 0 !important;
-gap: 8px !important;
-border: 0 !important;
-border-radius: 0 !important;
-background: transparent !important;
-box-shadow: none !important;
-}
-.dashboard-content .gnb-header .tab-btn {
-padding: 10px 14px !important;
-border: 0 !important;
-border-radius: 0 !important;
-color: rgba(255, 255, 255, 0.48) !important;
-background: transparent !important;
-box-shadow: none !important;
-}
-.dashboard-content .gnb-header .tab-btn:hover {
-color: rgba(255, 255, 255, 0.9) !important;
-background: transparent !important;
-}
-.dashboard-content .gnb-header .tab-btn.active,
-.dashboard-content .gnb-header .supervisor-tab.active {
-border: 0 !important;
-border-radius: 8px !important;
-color: #ffffff !important;
-background: rgba(85, 216, 157, 0.15) !important;
-box-shadow: none !important;
-}
-.dashboard-content .gnb-header .header-actions {
-gap: 12px !important;
-}
-.dashboard-content .gnb-header .action-btn {
-padding: 8px 4px !important;
-border: 0 !important;
-border-radius: 0 !important;
-color: rgba(255, 255, 255, 0.72) !important;
-background: transparent !important;
-box-shadow: none !important;
-}
-.dashboard-content .gnb-header .action-btn:hover {
-color: #ffffff !important;
-background: transparent !important;
-}
-.dashboard-content .gnb-header .settings-btn.active {
-color: var(--premium-accent) !important;
-background: transparent !important;
-}
-.dashboard-content .gnb-header .user-profile-badge {
-padding: 0 !important;
-gap: 10px !important;
-border: 0 !important;
-border-radius: 0 !important;
-background: transparent !important;
-box-shadow: none !important;
-}
+/* Removed legacy duplicate GNB rules */
 .dashboard-content {
 position: relative !important;
 overflow: hidden !important;
@@ -3880,15 +3831,7 @@ font-size: 13px !important;
   border-radius: 20px !important;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25) !important;
 }
-.dashboard-content .gnb-header .tab-btn.active,
-.dashboard-content .gnb-header .supervisor-tab.active,
-.gnb-header .tab-btn.active{
-
-    border:none!important;
-    border-radius:0!important;
-    background:transparent!important;
-    box-shadow:none!important;
-}
+/* Removed duplicate active override */
 .dashboard-content .role-banner,
 .role-banner-container .role-banner {
 border-radius: 8px !important;
@@ -4110,6 +4053,11 @@ font-size: 16px !important;
    SPACIOUS ENTERPRISE GNB
    ========================================================================== */
 
+/* ==========================================================================
+   UNIFIED ENTERPRISE GNB (최종 완결 통합 스타일)
+   ========================================================================== */
+
+/* 1. 상단바 전체 바깥 껍데기 패널 틀 (19번 라인) */
 .dashboard-content .gnb-header {
   min-height: 112px;
   padding: 22px 32px !important;
@@ -4118,122 +4066,68 @@ font-size: 16px !important;
   align-items: center;
   column-gap: 52px;
   border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25) !important;
 }
 
-.dashboard-content .gnb-header .brand-zone {
-  min-width: 170px;
+/* 2. 좌측 브랜드 로고 영역 (20~22번 라인) */
+.dashboard-content .gnb-header .brand-zone { min-width: 170px; }
+.dashboard-content .gnb-header .brand-badge { margin-bottom: 7px; font-size: 0.72rem; letter-spacing: 0.18em; }
+.dashboard-content .gnb-header .brand-title { font-size: 1.85rem; font-weight: 800; color: #173f3a; line-height: 1; }
+.dashboard-content .gnb-header .store-tabs { width: 100%; display: flex; align-items: center; justify-content: flex-start; gap: clamp(20px, 2.5vw, 42px) !important; white-space: nowrap; }
+.dashboard-content .gnb-header .header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 16px !important; white-space: nowrap; }
+
+/* 3. ✨ [통합 버튼 디자인] 평소엔 메뉴정책 글자만, 클릭/선택 시 설정 둥근 상자 노출 */
+.dashboard-content .gnb-header .tab-btn,
+.dashboard-content .gnb-header .action-btn,
+.dashboard-content .gnb-header .logout-btn,
+.gnb-interactive-btn {
+  appearance: none !important;
+  background: transparent !important;       /* 👈 평소엔 글자만 투명하게 표시 */
+  border: none !important;                  /* 👈 평소 테두리 제거 */
+  box-shadow: none !important;
+  outline: none !important;
+  color: #173f3a !important;                /* 시그니처 다크 그린 */
+  font-size: 0.95rem !important;
+  font-weight: 700 !important;
+  padding: 8px 16px !important;
+  border-radius: 10px !important;
+  cursor: pointer !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
-.dashboard-content .gnb-header .brand-badge {
-  margin-bottom: 7px;
-  font-size: 0.72rem;
-  letter-spacing: 0.18em;
-}
-
-.dashboard-content .gnb-header .brand-title {
-  font-size: 1.85rem;
-  line-height: 1;
-}
-
-.dashboard-content .gnb-header .store-tabs {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: clamp(28px, 3vw, 58px) !important;
-  white-space: nowrap;
-}
-
-.dashboard-content .gnb-header .tab-btn {
-  position: relative;
-  padding: 15px 2px !important;
-  border-radius: 0 !important;
-  font-size: 0.98rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-.dashboard-content .gnb-header .tab-btn::after {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 4px;
-  height: 2px;
-  content: "";
-  background: var(--premium-accent);
-  transform: scaleX(0);
-  transform-origin: center;
-  transition: transform 0.2s ease;
-}
-
-.dashboard-content .gnb-header .tab-btn:hover::after,
-.dashboard-content .gnb-header .tab-btn.active::after,
-.dashboard-content .gnb-header .supervisor-tab.active::after {
-  transform: scaleX(1);
-}
-
+/* 4. ✨ 마우스 클릭 시 (:active) & 선택된 탭/설정일 때 (.active): 둥근 상자/테두리 짠! */
+.dashboard-content .gnb-header .tab-btn:active,
 .dashboard-content .gnb-header .tab-btn.active,
-.dashboard-content .gnb-header .supervisor-tab.active {
-  border-radius: 0 !important;
-  color: #ffffff !important;
-  background: transparent !important;
+.dashboard-content .gnb-header .action-btn:active,
+.dashboard-content .gnb-header .action-btn.active,
+.dashboard-content .gnb-header .logout-btn:active,
+.gnb-interactive-btn:active,
+.gnb-interactive-btn.active {
+  background: #eef5f2 !important;           /* 👈 설정 버튼의 은은한 민트 상자 배경 */
+  border: 2px solid #173f3a !important;      /* 👈 둥근 선명 테두리 */
+  box-shadow: 0 4px 12px rgba(23, 63, 58, 0.12) !important;
+  color: #0f382c !important;
 }
 
-.dashboard-content .gnb-header .header-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 24px !important;
-  white-space: nowrap;
-}
-
-.dashboard-content .gnb-header .action-btn {
-  position: relative;
-  padding: 13px 0 !important;
-  font-size: 0.92rem;
-  font-weight: 700;
-}
-
-.dashboard-content .gnb-header .action-btn::after {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 5px;
-  height: 1px;
-  content: "";
-  background: rgba(255, 255, 255, 0.72);
-  transform: scaleX(0);
-  transition: transform 0.2s ease;
-}
-
-.dashboard-content .gnb-header .action-btn:hover::after,
-.dashboard-content .gnb-header .settings-btn.active::after {
-  transform: scaleX(1);
-}
-
+/* 5. 점주 뱃지 및 앞 초록색 점 아이콘 포인트 (37번 & 46번 라인) */
 .dashboard-content .gnb-header .user-profile-badge {
   display: flex;
   align-items: center;
-  gap: 16px !important;
+  gap: 10px !important;
 }
 
 .dashboard-content .gnb-header .user-profile-badge::before {
-  width: 1px;
-  height: 18px;
   content: "";
-  background: rgba(255, 255, 255, 0.16);
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  margin-right: 4px;
 }
 
-.dashboard-content .gnb-header .user-name,
-.dashboard-content .gnb-header .logout-btn {
-  font-size: 0.9rem;
-  font-weight: 700;
-}
-
-.dashboard-content .gnb-header .logout-btn {
-  padding: 13px 0 !important;
-}
-
+/* 6. 모바일/태블릿 반응형 처리 (41~45번 라인) */
 @media (max-width: 1180px) {
   .dashboard-content .gnb-header {
     grid-template-columns: 1fr;

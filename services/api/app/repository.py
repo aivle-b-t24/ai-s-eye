@@ -1,3 +1,4 @@
+from collections import deque
 from threading import RLock
 from datetime import datetime, timedelta, timezone
 import re
@@ -51,6 +52,8 @@ class InMemoryRepository:
             for store_id, name in _DEFAULT_STORE_NAMES.items()
         }
         self._store_states: dict[str, StoreState] = {}
+        # 최근 프레임 이력(매장별). 트윈 프레임과 동일한 frame_id로 대기/예상을 조회하기 위함.
+        self._store_state_history: dict[str, deque[StoreState]] = {}
         self._store_settings: dict[str, StoreSettings] = {}
         self._order_events: dict[str, OrderEvent] = {}
         self._roi_configs: dict[tuple[str, str], list[CameraRoiConfig]] = {}
@@ -64,11 +67,31 @@ class InMemoryRepository:
     def save_store_state(self, state: StoreState) -> StoreState:
         with self._lock:
             self._store_states[state.store_id] = state
+            if state.frame_id:
+                history = self._store_state_history.setdefault(
+                    state.store_id, deque(maxlen=600)
+                )
+                history.append(state)
         return state
 
     def get_store_state(self, store_id: str) -> StoreState | None:
         with self._lock:
             return self._store_states.get(store_id)
+
+    def get_store_state_by_frame_id(
+        self, store_id: str, frame_id: str
+    ) -> StoreState | None:
+        """디지털 트윈이 보여주는 그 프레임(frame_id)의 상태를 최근 이력에서 조회한다."""
+        with self._lock:
+            history = self._store_state_history.get(store_id)
+            if history:
+                for state in reversed(history):
+                    if state.frame_id == frame_id:
+                        return state
+            latest = self._store_states.get(store_id)
+            if latest is not None and latest.frame_id == frame_id:
+                return latest
+            return None
 
     def list_stores(self) -> list[StoreInfo]:
         with self._lock:

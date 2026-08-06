@@ -211,6 +211,31 @@ def test_returns_gemini_answer() -> None:
     assert result["answer"] == "아메리카노는 4500원입니다."
 
 
+def test_ask_without_history_sends_plain_question() -> None:
+    """history 없으면(단일 질문) contents는 그냥 질문 문자열."""
+    capture: dict[str, Any] = {}
+    with agent_for(responder(200, menus_body())) as agent:
+        agent._client = FakeGemini(text="답변", capture=capture)
+        agent.ask("메뉴 알려줘")
+    assert capture["contents"] == "메뉴 알려줘"
+
+
+def test_ask_with_history_builds_multiturn_contents() -> None:
+    """history를 주면 이전 대화가 현재 질문 앞에 붙고, 'bot'은 'model'로 변환된다."""
+    capture: dict[str, Any] = {}
+    with agent_for(responder(200, menus_body())) as agent:
+        agent._client = FakeGemini(text="답변", capture=capture)
+        history = [
+            {"role": "user", "text": "아메리카노 얼마야?"},
+            {"role": "bot", "text": "4000원입니다."},
+        ]
+        agent.ask("그거 품절이야?", history=history)
+    contents = capture["contents"]
+    assert isinstance(contents, list)
+    assert [c.role for c in contents] == ["user", "model", "user"]  # bot→model
+    assert contents[-1].parts[0].text == "그거 품절이야?"  # 현재 질문이 마지막
+
+
 def test_ask_includes_suggestions() -> None:
     """응답에 이어서 물어볼 추천 질문(suggestions)이 담긴다."""
     with agent_for(responder(200, menus_body())) as agent:
@@ -224,13 +249,19 @@ def test_suggest_questions_by_type() -> None:
     """추천 질문은 질문 종류에 맞게, 우리가 답할 수 있는 것으로 나온다."""
     from aicc.agent import suggest_questions
 
-    # 메뉴를 물으면 메뉴 추천은 빼고 다른 종류를 권한다(중복 방지)
-    s = suggest_questions("메뉴 알려줘")
+    # 메뉴 가격을 물으면 관련(품절·혼잡) 추천, 자기 자신은 빼고
+    s = suggest_questions("메뉴 가격 알려줘")
     assert isinstance(s, list) and 1 <= len(s) <= 3
     assert "메뉴 가격 알려줘" not in s
+    # 품절을 물으면 품절 맞춤 추천(전체 메뉴·대기시간)
+    assert suggest_questions("품절 메뉴 있어?") == ["전체 메뉴 알려줘", "예상 대기시간 얼마야?"]
+    # 혼잡도를 물으면 대기시간·영업시간 추천
+    assert suggest_questions("지금 붐벼?") == ["예상 대기시간 얼마야?", "영업시간 언제까지야?"]
     # 영업시간(정책)을 물으면 영업시간을 다시 추천하지 않는다
     assert "영업시간 언제까지야?" not in suggest_questions("영업시간 언제까지야?")
-    # 분류 안 되는 질문은 기본(앞 두 종류) 추천으로
+    # 주차를 물으면 주차를 다시 추천하지 않는다(같은 주제 중복 방지)
+    assert "주차 되나요?" not in suggest_questions("주차 되나요?")
+    # 분류 안 되는 질문은 기본 추천으로
     assert suggest_questions("사장님 성함이 뭐예요") == ["메뉴 가격 알려줘", "지금 매장 붐벼?"]
 
 

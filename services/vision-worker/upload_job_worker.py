@@ -784,7 +784,7 @@ def main() -> int:
                     play_interval=args.play_interval,
                 )
                 if replay_manager is not None:
-                    replay_manager.start_store(store_id)
+                    replay_manager.resume_cached_stores()
             except Exception as exc:  # noqa: BLE001
                 print(f"job failed: {exc}")
                 patch_job(args.api, args.api_key, claim["job"]["id"], "failed", str(exc))

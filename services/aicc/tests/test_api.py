@@ -264,8 +264,13 @@ class FakeAgent:
         self._reply = reply
         self.seen: dict[str, Any] = {}
 
-    def ask(self, question: str, store_id: str | None = None) -> dict[str, Any]:
-        self.seen = {"question": question, "store_id": store_id}
+    def ask(
+        self,
+        question: str,
+        store_id: str | None = None,
+        history: list[dict[str, str]] | None = None,
+    ) -> dict[str, Any]:
+        self.seen = {"question": question, "store_id": store_id, "history": history}
         return self._reply
 
 
@@ -278,7 +283,7 @@ def test_chat_ok() -> None:
     data = r.json()
     assert data["answer"] == "현재 5명 있습니다."
     assert data["source"] == "gemini"
-    assert agent.seen == {"question": "지금 붐벼?", "store_id": "store-001"}
+    assert agent.seen == {"question": "지금 붐벼?", "store_id": "store-001", "history": []}
 
 
 def test_chat_fallback_source() -> None:
@@ -313,7 +318,12 @@ def test_chat_blank_question_returns_422() -> None:
 
 
 class RaisingAgent:
-    def ask(self, question: str, store_id: str | None = None) -> dict[str, Any]:
+    def ask(
+        self,
+        question: str,
+        store_id: str | None = None,
+        history: list[dict[str, str]] | None = None,
+    ) -> dict[str, Any]:
         raise RuntimeError("예상 밖 오류")
 
 

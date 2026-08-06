@@ -6090,6 +6090,9 @@ font-size: 16px !important;
 }
 
 .chatbot-header-title {
+  position: absolute;          
+  left: 50%;                   
+  transform: translateX(-50%); 
   display: flex;
   align-items: center;
   gap: 8px;

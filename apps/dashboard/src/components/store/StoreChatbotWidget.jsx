@@ -137,10 +137,18 @@ export default function StoreChatbotWidget({ page, storeName }) {
 
     try {
       const endpoint = `${CHATBOT_BASE_URL.replace(/\/$/, '')}/chat`
+      // 📍 [추가 위치 1] API 호출 직전에 대화 히스토리 가공
+      const history = messages
+        .filter((m) => m.id !== 1 && m.text) // 초기 인사 제외
+        .slice(-6)                          // 최근 6개(3턴)만
+        .map((m) => ({ 
+          role: m.sender === 'user' ? 'user' : 'model', 
+          text: m.text 
+        }))
       const response = await authenticatedFetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: query, store_id: activeStoreId }),
+        body: JSON.stringify({ question: query, store_id: activeStoreId, history }),
       })
 
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
@@ -277,9 +285,6 @@ export default function StoreChatbotWidget({ page, storeName }) {
         <div className="store-chatbot-panel">
           <div className="chatbot-header">
             <div className="chatbot-header-left">
-              <button type="button" className="chatbot-menu-btn" title="메뉴">
-                ☰
-              </button>
               <div className="chatbot-header-title">
                 <span className="header-icon">☕</span>
                 <span>AI Cafe 매니저 ({resolvedStoreName})</span>
@@ -422,7 +427,7 @@ export default function StoreChatbotWidget({ page, storeName }) {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleSend()
                 }}
-                disabled={isLoading}
+                // disabled={isLoading}
               />
               <button type="button" className="chat-bubble-mini-btn" title="자주 쓰는 표현">
                 💬
@@ -432,7 +437,7 @@ export default function StoreChatbotWidget({ page, storeName }) {
               type="button"
               className="chatbot-send-btn"
               onClick={() => handleSend()}
-              disabled={isLoading || !inputValue.trim()}
+              disabled={!inputValue.trim()}
               title="전송"
             >
               ➤

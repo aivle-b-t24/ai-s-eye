@@ -7203,8 +7203,8 @@ body::before {
    메인 랜딩 전용 배경 및 고대비 헤더 보정
    ========================================================= */
 .is-main-landing {
-  background-color: #f5f7f8 !important;
-  /* [시안: light] 매장 페이지처럼 밝은 배경 (teal은 포인트로만) */
+  background-color: #f5f6f7 !important;
+  /* [시안: light] 매장 페이지 배경(#f5f6f7)과 동일 (teal은 포인트로만) */
   background-image: none !important;
   min-height: 100vh !important;
   height: 100vh !important;       
@@ -7217,12 +7217,9 @@ body::before {
   display: none !important;
 }
 
-/* [시안: light] 밝은 배경에 맞춰 아주 옅은 teal 틴트만 */
+/* [시안: light] 히어로 그라데이션(글로우) 제거 → 완전 평평한 밝은 배경 */
 .is-main-landing .hero-gradient {
-  display: block !important;
-  background:
-    radial-gradient(circle at 25% 40%, rgba(52, 211, 153, 0.07), transparent 55%),
-    radial-gradient(circle at 70% 42%, rgba(16, 185, 129, 0.05), transparent 50%) !important;
+  display: none !important;
 }
 
 .is-main-landing .hero-section {
@@ -7636,11 +7633,12 @@ body::before {
 
 
 /* ==================== [시안: light] 메인 라이트 테마 오버라이드 ==================== */
-/* 헤더 / 내비 */
+/* 헤더 / 내비 — 박스 제거(투명) */
 .is-main-landing .hero-header {
-  background: #ffffff !important;
-  border: 1px solid #e4ede9 !important;
-  box-shadow: 0 8px 24px rgba(16, 45, 38, 0.08) !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 .is-main-landing .hero-brand small { color: var(--accent-teal, #316f68) !important; }
 .is-main-landing .hero-brand strong { color: #12332a !important; }
@@ -7723,3 +7721,25 @@ body::before {
   box-shadow: inset 0 0 0 1px rgba(49, 111, 104, 0.5) !important;
 }
 .landing-intro .intro-glow { opacity: 0.28 !important; }
+
+/* ==================== [시안: light] 가독성 보정 ==================== */
+/* 헤더 로고 'Al's Eye' 다크 고정(높은 우선순위) */
+.is-main-landing .hero-header .hero-brand strong { color: #12332a !important; }
+.is-main-landing .hero-header .hero-brand small { color: var(--accent-teal, #316f68) !important; }
+
+/* 회원가입 버튼 hover 시 흰색으로 안 바뀌게(진한 teal 유지) */
+.is-main-landing .landing-signup-btn:hover {
+  background: #285d56 !important;
+  color: #ffffff !important;
+  transform: translateY(-1px) !important;
+  filter: none !important;
+}
+
+/* 수치 밴드 텍스트 진하게 */
+.is-main-landing .landing-intro .intro-stat strong {
+  background: linear-gradient(120deg, #0e7a63, #14a07e) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+}
+.is-main-landing .landing-intro .intro-stat span { color: #3d5a51 !important; }

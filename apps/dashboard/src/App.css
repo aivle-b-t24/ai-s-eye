@@ -7193,31 +7193,33 @@ body::before {
 }
 
 /* ==========================================================================
-   ✨ [최우선 적용] 상단바 통합 버튼 스타일 (.top-global-nav 오버라이드 포함)
+   ✨ [상단바 버튼 디자인] 배경상자 100% 투명 + 테두리 100% 제거 (글자만 돋보이게)
    ========================================================================== */
 
-/* 1. 평소 기본 상태: 방해 코드를 무력화하고 글자만 투명하게 표시 */
+/* 1. 모든 버튼 및 뱃지의 배경 상자 & 테두리 100% 제거 (완전 투명) */
 .gnb-header .tab-btn,
 .gnb-header .action-btn,
 .gnb-header .logout-btn,
+.gnb-header .user-profile-badge,
 .top-global-nav .tab-btn,
 .top-global-nav .action-btn,
-.top-global-nav .logout-btn {
+.top-global-nav .logout-btn,
+.top-global-nav .user-profile-badge {
   appearance: none !important;
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  outline: none !important;
-  color: #173f3a !important;
+  background: transparent !important;       /* 👈 박스 배경 100% 투명 */
+  border: none !important;                  /* 👈 테두리 100% 제거 */
+  box-shadow: none !important;              /* 👈 그림자 제거 */
+  outline: none !important;                 /* 👈 외곽선 제거 */
+  color: #173f3a !important;                /* 시그니처 다크 그린 텍스트 */
   font-size: 0.95rem !important;
   font-weight: 700 !important;
-  padding: 8px 16px !important;
-  border-radius: 10px !important;
+  padding: 8px 14px !important;
+  border-radius: 8px !important;
   cursor: pointer !important;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition: all 0.2s ease !important;
 }
 
-/* 2. 클릭 시 (:active) & 선택 시 (.active): 둥근 민트 상자와 선명한 테두리 짠! */
+/* 2. 메뉴정책 및 버튼 클릭/선택 시에도 박스/테두리 없이 깔끔 글씨만 유지 */
 .gnb-header .tab-btn:active,
 .gnb-header .tab-btn.active,
 .gnb-header .action-btn:active,
@@ -7228,13 +7230,37 @@ body::before {
 .top-global-nav .action-btn:active,
 .top-global-nav .action-btn.active,
 .top-global-nav .logout-btn:active {
-  background: #eef5f2 !important;
-  border: 2px solid #173f3a !important;
-  box-shadow: 0 4px 12px rgba(23, 63, 58, 0.12) !important;
-  color: #0f382c !important;
+  background: transparent !important;       /* 👈 선택 시에도 박스 없음 */
+  border: none !important;                  /* 👈 검은 테두리 100% 안 보임 */
+  box-shadow: none !important;
+  outline: none !important;
+  color: #0f382c !important;                /* 선택 시 선명한 다크 그린 글씨 */
+  font-weight: 800 !important;
 }
 
 
+.chat-line { 
+  line-height: 1.55; 
+}
 
+.chat-bullet { 
+  line-height: 1.7; 
+  padding-left: 2px; 
+}
+
+.chat-gap { 
+  height: 6px; 
+}
+
+.chat-note {
+  margin-top: 8px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #9a3412;
+  line-height: 1.5;
+}
 
 

@@ -37,6 +37,7 @@ export default function GnbHeader({
 
   return (
     <header className="gnb-header">
+      
       <button
         type="button"
         className="header-back-btn"
@@ -49,31 +50,22 @@ export default function GnbHeader({
           <polyline points="12 19 5 12 12 5" />
         </svg>
       </button>
-
+      
       <div className="brand-zone">
         <span className="brand-badge">AI MONITORING SYSTEM</span>
         <h1 className="brand-title">AI&apos;s Eye</h1>
       </div>
 
-      {needsOnboarding ? (
-        <NavLink
-          to={ROUTES.ONBOARDING}
-          className={({ isActive }) =>
-            `tab-btn dark-pill-btn${isActive ? ' active' : ''}`
-          }
-        >
-          매장 온보딩
-        </NavLink>
-      ) : (
-        <NavLink
-          to={ROUTES.MENUS}
-          className={({ isActive }) =>
-            `tab-btn dark-pill-btn${isActive ? ' active' : ''}`
-          }
-        >
-          메뉴 & 정책
-        </NavLink>
-      )}
+      
+      <NavLink
+        to={ROUTES.MENUS}
+        className={({ isActive }) =>
+          `tab-btn dark-pill-btn${isActive ? ' active' : ''}`
+        }
+      >
+        메뉴 & 정책
+      </NavLink>
+      
 
       <nav className="store-tabs" aria-label="가맹점 정보">
         {storeId?.startsWith('store') && (
@@ -89,16 +81,6 @@ export default function GnbHeader({
       </nav>
 
       <div className="header-actions">
-        {needsOnboarding && (
-          <NavLink
-            to={ROUTES.ONBOARDING}
-            className={({ isActive }) =>
-              `action-btn settings-btn${isActive || page === 'onboarding' ? ' active' : ''}`
-            }
-          >
-            온보딩 시작
-          </NavLink>
-        )}
         <button
           type="button"
           className={`action-btn settings-btn ${
@@ -109,24 +91,27 @@ export default function GnbHeader({
           설정
         </button>
 
-        {user && (
-          <div className="user-profile-badge">
-            <span
-              className="user-name clickable"
-              onClick={onOpenProfile}
-              title="프로필 상세정보 보기"
-            >
-              {maskName(user.name)}
-            </span>
-            <button
-              type="button"
-              className="logout-btn"
-              onClick={onLogout}
-            >
-              로그아웃
-            </button>
-          </div>
-        )}
+
+        <div className="user-profile-badge">
+          <span
+            className="user-name clickable"
+            onClick={onOpenProfile}
+            title="프로필 상세정보 보기"
+          >
+            {maskName(user.name)}
+          </span>
+        </div>
+
+        <div className="user-profile-badge">
+          <button
+            type="button"
+            className="logout-btn"
+            onClick={onLogout}
+          >
+            로그아웃
+          </button>
+        </div>
+
       </div>
     </header>
   )

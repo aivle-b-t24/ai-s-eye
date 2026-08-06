@@ -44,6 +44,7 @@ export default function KosStoreManagementView({
   }, [currentStoreId])
 
   return (
+    <>
     <section className="store-dashboard-view kos-management-view">
       <RoleBanner
         page={page}
@@ -80,16 +81,17 @@ export default function KosStoreManagementView({
             menus={menus}
             setMenus={setMenus}
             soldOutCount={computedSoldOutCount}
-            soldOutCount={computedSoldOutCount}
             isExpanded={isMenuExpanded}
             onToggleExpand={() => setIsMenuExpanded((prev) => !prev)}
           />
         </div>
       </section>
 
-      {isChatbotEnabled !== false && (
-        <StoreChatbotWidget page={currentStoreId} storeName={storeName} />
-      )}
+      
     </section>
+    {isChatbotEnabled !== false && (
+      <StoreChatbotWidget page={currentStoreId} storeName={storeName} />
+    )}
+    </>
   )
 }

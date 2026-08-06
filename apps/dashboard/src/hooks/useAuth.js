@@ -56,7 +56,15 @@ function loadLocalSession() {
   )
   if (!serialized) return null
   try {
-    return JSON.parse(serialized)
+    const profile = JSON.parse(serialized)
+    if (profile && !profile.storeName) {
+      profile.storeName = profile.storeId === 'store-001'
+        ? '동명점'
+        : profile.storeId === 'store-002'
+          ? '수완점'
+          : profile.storeId
+    }
+    return profile
   } catch {
     window.sessionStorage.removeItem(LOCAL_SESSION_KEY)
     window.localStorage.removeItem(LOCAL_SESSION_KEY)
@@ -86,18 +94,45 @@ export function useAuth() {
   const [authError, setAuthError] = useState('')
 
   useEffect(() => {
+    /* useAuth.js 97번 ~ 108번 라인 - 기존 우회 방식 싹 지우고 백엔드 REST API (GET /api/auth/me) 2,3단계 직접 통신 적용! */
+
     if (IS_LOCAL_AUTH_MODE) {
-      const profile = loadLocalSession()
-      if (profile) {
-        setCurrentUser(profile)
-        setAuthRole(profile.role)
-        setAuthMode('dashboard')
+      const savedProfile = loadLocalSession()
+      if (savedProfile) {
+        // 2,3단계: 백엔드 API (GET /api/auth/me) 를 직접 호출하여 DB 마스터의 최신 storeName 을 실시간 수신!
+        loadProfile()
+          .then((remoteProfile) => {
+            const merged = { ...savedProfile, ...remoteProfile }
+            setCurrentUser(merged)
+            saveLocalSession(merged, true)
+            setAuthRole(merged.role)
+            setAuthMode('dashboard')
+          })
+          .catch(() => {
+            // 서버 연결 불가 시에만 폴백 적용
+            setCurrentUser(savedProfile)
+            setAuthRole(savedProfile.role)
+            setAuthMode('dashboard')
+          })
+          .finally(() => setAuthReady(true))
       } else {
         setAuthMode('main')
+        setAuthReady(true)
       }
-      setAuthReady(true)
       return undefined
     }
+    // if (IS_LOCAL_AUTH_MODE) {
+    //   const profile = loadLocalSession()
+    //   if (profile) {
+    //     setCurrentUser(profile)
+    //     setAuthRole(profile.role)
+    //     setAuthMode('dashboard')
+    //   } else {
+    //     setAuthMode('main')
+    //   }
+    //   setAuthReady(true)
+    //   return undefined
+    // }
 
     return onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
       if (!firebaseUser) {
@@ -115,7 +150,7 @@ export function useAuth() {
         setAuthError('')
       } catch (error) {
         setCurrentUser(null)
-        setAuthMode('login')
+        setAuthMode('main')
         setAuthError(error.message)
         await signOut(firebaseAuth)
       } finally {
@@ -146,7 +181,7 @@ export function useAuth() {
   }
 
   const handleGoToLogin = () => {
-    setAuthMode('login')
+    setAuthMode('main')
     navigate(
       authRole === ROLES.STORE_MANAGER ? ENDPOINTS.STORE_LOGIN : ENDPOINTS.HQ_LOGIN,
     )

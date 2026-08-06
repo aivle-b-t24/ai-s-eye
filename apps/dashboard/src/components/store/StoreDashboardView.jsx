@@ -32,7 +32,7 @@ export default function StoreDashboardView({
   }, [isAnyExpanded])
 
   return (
-
+    <>
     <section className="store-dashboard-view">
       <RoleBanner
         page={page}
@@ -84,11 +84,14 @@ export default function StoreDashboardView({
         </div>
       </section>
 
-      {/* JBNU Inspired Store Chatbot Widget */}
+      
+
+    </section>
+
+    
       {isChatbotEnabled !== false && (
         <StoreChatbotWidget page={page} storeName={storeName} />
       )}
-
-    </section>
+    </>
   )
 }

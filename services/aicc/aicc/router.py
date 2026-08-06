@@ -53,6 +53,8 @@ KEYWORDS: dict[QuestionType, tuple[str, ...]] = {
         "인원",
         "혼잡",
         "붐비",
+        "붐벼",
+        "붐볐",
         "사람",
         "자리",
         "몇명",

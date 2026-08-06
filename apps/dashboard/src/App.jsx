@@ -395,7 +395,7 @@ function App() {
 
         <Route
           element={(
-            <RequireAuth roles={[ROLES.STORE_MANAGER]} loginPath={ROUTES.STORE_LOGIN}>
+            <RequireAuth roles={[ROLES.STORE_MANAGER]} loginPath={ROUTES.HOME}>
               <StoreShell />
             </RequireAuth>
           )}
@@ -411,7 +411,7 @@ function App() {
 
         <Route
           element={(
-            <RequireAuth roles={[ROLES.ADMIN]} loginPath={ROUTES.HQ_LOGIN}>
+            <RequireAuth roles={[ROLES.ADMIN]} loginPath={ROUTES.HOME}>
               <HqShell />
             </RequireAuth>
           )}

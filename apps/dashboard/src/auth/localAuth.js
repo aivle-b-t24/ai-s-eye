@@ -11,9 +11,10 @@ export const LOCAL_DEMO_ACCOUNTS = Object.freeze({
       uid: 'local-owner-001',
       id: 'owner01',
       email: 'owner01@local.test',
-      name: '동명점 로컬 점주',
+      name: '동명점 점주',
       role: ROLES.STORE_MANAGER,
       storeId: STORES.DONGMYEONG,
+      storeName: '동명점',
     }),
   }),
   [STORES.SUWAN]: Object.freeze({
@@ -24,9 +25,10 @@ export const LOCAL_DEMO_ACCOUNTS = Object.freeze({
       uid: 'local-owner-002',
       id: 'owner02',
       email: 'owner02@local.test',
-      name: '수완점 로컬 점주',
+      name: '수완점 점주',
       role: ROLES.STORE_MANAGER,
       storeId: STORES.SUWAN,
+      storeName: '수완점',
     }),
   }),
   [STORES.HEAD_OFFICE]: Object.freeze({
@@ -40,6 +42,7 @@ export const LOCAL_DEMO_ACCOUNTS = Object.freeze({
       name: '로컬 본사 관리자',
       role: ROLES.ADMIN,
       storeId: STORES.HEAD_OFFICE,
+      storeName: '본사',
     }),
   }),
   // 비밀번호 유효기간(180일) 만료 프롬프트 확인용 데모 계정.
@@ -76,5 +79,14 @@ export function authenticateLocalAccount(email, password, requestedRole) {
         : '점주 권한이 없는 계정입니다.',
     )
   }
-  return { ...account.profile }
+
+  const profile = { ...account.profile }
+  if (!profile.storeName) {
+    profile.storeName = profile.storeId === STORES.DONGMYEONG
+      ? '동명점'
+      : profile.storeId === STORES.SUWAN
+        ? '수완점'
+        : profile.storeId
+  }
+  return profile
 }

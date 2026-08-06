@@ -84,32 +84,32 @@ function HeroSection({
     <section className={`hero-section ${isAuthPage ? 'is-auth-page' : ''} ${isMainLanding ? 'main-landing-hero' : ''}`}>
       <div className="hero-background" />
       <div className="hero-gradient" />
-      {isMainLanding && (
-        <header className="hero-header main-landing-header">
-          <a className="hero-brand" href="#top">
-            <span>
-              <small>AI MONITORING SYSTEM</small>
-              <strong>Al's Eye</strong>
-            </span>
-          </a>
-          <div className="landing-auth-buttons">
-            <button
-              type="button"
-              className="landing-login-btn"
-              onClick={onLogin}
-            >
-              로그인
-            </button>
-            <button
-              type="button"
-              className="landing-signup-btn"
-              onClick={onSignup}
-            >
-              회원가입
-            </button>
-          </div>
-        </header>
-      )}
+
+      <header className="hero-header main-landing-header">
+        <a className="hero-brand" href="#top">
+          <span>
+            <small>AI MONITORING SYSTEM</small>
+            <strong>Al's Eye</strong>
+          </span>
+        </a>
+        <div className="landing-auth-buttons">
+          <button
+            type="button"
+            className="landing-login-btn"
+            onClick={onLogin}
+          >
+            로그인
+          </button>
+          <button
+            type="button"
+            className="landing-signup-btn"
+            onClick={onSignup}
+          >
+            회원가입
+          </button>
+        </div>
+      </header>
+
       <div className="hero-layout main-landing-layout">
         <div className="hero-copy main-landing-copy">
           <p className="hero-kicker">INTELLIGENT STORE OPERATIONS</p>

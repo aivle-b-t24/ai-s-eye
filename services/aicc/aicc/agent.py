@@ -80,28 +80,47 @@ SYSTEM_PROMPT = """너는 카페 매장의 안내 직원이다.
 
 FALLBACK_NOTICE = "AI 응답에 실패해 키워드 기준으로 안내합니다."
 
-# '이어서 물어보세요'용 추천 질문. 종류별 대표 질문 하나씩 두고,
-# 방금 물어본 종류는 빼서 같은 질문을 다시 권하는 어색함을 막는다. 모두 우리가 답할 수 있는 것.
-# 화면(완태)에서 버튼으로 그려 누르면 그대로 재질문된다.
-_TOPIC_QUESTION: dict[QuestionType, str] = {
-    QuestionType.MENU: "메뉴 가격 알려줘",
-    QuestionType.STATE: "지금 매장 붐벼?",
-    QuestionType.ETA: "예상 대기시간 얼마야?",
-    QuestionType.POLICY: "영업시간 언제까지야?",
+# '이어서 물어보세요'용 추천 질문. 질문 종류에 맞는 관련 질문을 권한다.
+# (모두 우리가 답할 수 있는 것만) 화면(완태)에서 버튼으로 그려 누르면 그대로 재질문된다.
+# 풀에서 '방금 물어본 것과 같은 주제'는 빼고 앞에서 limit개를 쓴다(같은 질문 재추천 방지).
+_SUGGESTIONS: dict[str, list[str]] = {
+    "menu": ["지금 품절된 메뉴 있어?", "지금 매장 붐벼?", "영업시간 언제까지야?"],
+    "soldout": ["전체 메뉴 알려줘", "예상 대기시간 얼마야?", "지금 매장 붐벼?"],
+    "state": ["예상 대기시간 얼마야?", "영업시간 언제까지야?", "메뉴 가격 알려줘"],
+    "eta": ["지금 매장 붐벼?", "메뉴 가격 알려줘", "영업시간 언제까지야?"],
+    "policy": ["주차 되나요?", "와이파이 있어?", "메뉴 가격 알려줘", "영업시간 언제까지야?"],
+    "order": ["예상 대기시간 얼마야?", "메뉴 가격 알려줘", "지금 매장 붐벼?"],
+    "unknown": ["메뉴 가격 알려줘", "지금 매장 붐벼?", "영업시간 언제까지야?"],
 }
-_TOPIC_ORDER: tuple[QuestionType, ...] = (
-    QuestionType.MENU,
-    QuestionType.STATE,
-    QuestionType.ETA,
-    QuestionType.POLICY,
-)
+# 메뉴 질문 중 '품절/재고'를 물으면 메뉴 가격이 아니라 품절 맞춤 추천을 준다.
+_SOLDOUT_WORDS = ("품절", "재고", "솔드아웃", "매진", "다팔")
+_TYPE_KEY: dict[QuestionType, str] = {
+    QuestionType.MENU: "menu",
+    QuestionType.STATE: "state",
+    QuestionType.ETA: "eta",
+    QuestionType.POLICY: "policy",
+    QuestionType.ORDER: "order",
+}
+# 질문과 추천이 같은 주제인지 판단할 키워드(겹치면 그 추천은 뺀다).
+_TOPIC_WORDS = ("주차", "와이파이", "영업", "품절", "대기", "붐", "혼잡", "주문", "화장실", "결제", "반려", "예약")
+
+
+def _same_topic(q_norm: str, suggestion: str) -> bool:
+    s = suggestion.replace(" ", "")
+    return any(w in s and w in q_norm for w in _TOPIC_WORDS)
 
 
 def suggest_questions(question: str, limit: int = 2) -> list[str]:
-    """이어서 물어볼 추천 질문. 방금 물어본 종류는 빼고 다른 종류를 권한다."""
-    asked = classify(question)
-    picks = [q for t, q in ((t, _TOPIC_QUESTION[t]) for t in _TOPIC_ORDER) if t != asked]
-    return picks[:limit]
+    """이어서 물어볼 추천 질문. 질문 종류에 맞고, 방금 물어본 주제는 뺀다."""
+    qtype = classify(question)
+    q_norm = (question or "").replace(" ", "")
+    if qtype is QuestionType.MENU and any(w in q_norm for w in _SOLDOUT_WORDS):
+        key = "soldout"
+    else:
+        key = _TYPE_KEY.get(qtype, "unknown")
+    pool = _SUGGESTIONS[key]
+    picks = [s for s in pool if not _same_topic(q_norm, s)]
+    return (picks or pool)[:limit]
 
 # 무한루프 방지: 질문 하나에 도구를 이 횟수까지만 자동 호출한다.
 # 우리 챗봇은 질문당 도구 1~2번이면 충분하므로 5로 제한한다(SDK 기본값은 10).

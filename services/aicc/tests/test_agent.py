@@ -224,13 +224,19 @@ def test_suggest_questions_by_type() -> None:
     """추천 질문은 질문 종류에 맞게, 우리가 답할 수 있는 것으로 나온다."""
     from aicc.agent import suggest_questions
 
-    # 메뉴를 물으면 메뉴 추천은 빼고 다른 종류를 권한다(중복 방지)
-    s = suggest_questions("메뉴 알려줘")
+    # 메뉴 가격을 물으면 관련(품절·혼잡) 추천, 자기 자신은 빼고
+    s = suggest_questions("메뉴 가격 알려줘")
     assert isinstance(s, list) and 1 <= len(s) <= 3
     assert "메뉴 가격 알려줘" not in s
+    # 품절을 물으면 품절 맞춤 추천(전체 메뉴·대기시간)
+    assert suggest_questions("품절 메뉴 있어?") == ["전체 메뉴 알려줘", "예상 대기시간 얼마야?"]
+    # 혼잡도를 물으면 대기시간·영업시간 추천
+    assert suggest_questions("지금 붐벼?") == ["예상 대기시간 얼마야?", "영업시간 언제까지야?"]
     # 영업시간(정책)을 물으면 영업시간을 다시 추천하지 않는다
     assert "영업시간 언제까지야?" not in suggest_questions("영업시간 언제까지야?")
-    # 분류 안 되는 질문은 기본(앞 두 종류) 추천으로
+    # 주차를 물으면 주차를 다시 추천하지 않는다(같은 주제 중복 방지)
+    assert "주차 되나요?" not in suggest_questions("주차 되나요?")
+    # 분류 안 되는 질문은 기본 추천으로
     assert suggest_questions("사장님 성함이 뭐예요") == ["메뉴 가격 알려줘", "지금 매장 붐벼?"]
 
 

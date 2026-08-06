@@ -3,6 +3,16 @@ import { authenticatedFetch, currentIdToken } from '../../api/authenticatedFetch
 import { storeDisplayName } from '../../api/storeDirectory'
 import { CHATBOT_BASE_URL } from '../../constants/env'
 
+function renderBotText(text) {
+  return (text || '').split('\n').map((line, i) => {
+    const t = line.trim()
+    if (t.startsWith('⚠️')) return <div key={i} className="chat-note">{t}</div>
+    if (t.startsWith('•')) return <div key={i} className="chat-bullet">{t}</div>
+    if (t === '') return <div key={i} className="chat-gap" />
+    return <div key={i} className="chat-line">{line}</div>
+  })
+}
+
 export default function StoreChatbotWidget({ page, storeName }) {
   const resolvedStoreName = storeName || storeDisplayName(page)
   const [isOpen, setIsOpen] = useState(false)
@@ -358,7 +368,9 @@ export default function StoreChatbotWidget({ page, storeName }) {
                   </div>
                 )}
                 <div className="message-content-group">
-                  <div className="message-bubble-box">{msg.text}</div>
+                  <div className="message-bubble-box">
+                    {msg.sender === 'bot' ? renderBotText(msg.text) : msg.text}
+                  </div>
                   <span className="message-time-stamp">{msg.time}</span>
                   {msg.suggestions?.length > 0 && (
                     <div className="chat-suggestions">

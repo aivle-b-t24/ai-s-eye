@@ -14,8 +14,17 @@ export async function fetchStoreState(storeId) {
   return response.json()
 }
 
-export async function fetchStoreEta(storeId) {
-  const response = await authenticatedFetch(`${API_BASE_URL}/api/stores/${storeId}/eta`)
+// frameId를 주면 그 프레임(트윈 이미지)의 대기/예상 값을 콕 집어 조회한다.
+export async function fetchStoreEta(storeId, frameId) {
+  const query = frameId ? `?frame_id=${encodeURIComponent(frameId)}` : ''
+  const response = await authenticatedFetch(`${API_BASE_URL}/api/stores/${storeId}/eta${query}`)
+  if (!response.ok) return null
+  return response.json()
+}
+
+// 디지털 트윈과 동일한 occupancy(최신 분석 프레임). 프레임 동기화·현재 고객 수 통일에 사용.
+export async function fetchStoreOccupancy(storeId) {
+  const response = await authenticatedFetch(`${API_BASE_URL}/api/stores/${storeId}/occupancy/latest`)
   if (!response.ok) return null
   return response.json()
 }

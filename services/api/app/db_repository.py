@@ -106,6 +106,30 @@ class DatabaseRepository:
                 return None
             return _store_state_from_record(record)
 
+    def get_store_state_by_frame_id(
+        self, store_id: str, frame_id: str
+    ) -> StoreState | None:
+        """특정 frame_id(디지털 트윈이 보여주는 그 프레임)의 상태를 원본 이력에서 조회한다.
+
+        트윈 이미지와 운영 현황 숫자를 동일 프레임으로 맞추기 위해 사용한다.
+        원본 이력은 7일 보관되며 frame_id는 고유하다.
+        """
+        statement = (
+            select(StoreStateRecord)
+            .where(
+                StoreStateRecord.store_id == store_id,
+                StoreStateRecord.frame_id == frame_id,
+            )
+            .order_by(StoreStateRecord.captured_at.desc())
+            .limit(1)
+        )
+
+        with self._session_factory() as session:
+            record = session.scalar(statement)
+            if record is None:
+                return None
+            return _store_state_from_record(record)
+
     def list_stores(self) -> list[StoreInfo]:
         """등록된 매장 마스터 목록을 반환한다."""
         statement = select(StoreRecord).order_by(StoreRecord.id)

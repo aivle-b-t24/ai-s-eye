@@ -1021,8 +1021,14 @@ def get_store_state(store_id: str) -> StoreState:
     tags=["stores"],
     dependencies=[Depends(require_store_access)],
 )
-def get_store_eta(store_id: str) -> EtaResponse:
-    state_value = repository.get_store_state(store_id)
+def get_store_eta(store_id: str, frame_id: str | None = None) -> EtaResponse:
+    # 디지털 트윈이 보여주는 프레임과 동일한 값을 보장하려면, 그 프레임의 frame_id로
+    # 해당 프레임의 상태를 조회한다. frame_id가 없거나 못 찾으면 최신 상태로 대체한다.
+    state_value = None
+    if frame_id:
+        state_value = repository.get_store_state_by_frame_id(store_id, frame_id)
+    if state_value is None:
+        state_value = repository.get_store_state(store_id)
     if state_value is None:
         if repository.store_exists(store_id):
             return EtaResponse(

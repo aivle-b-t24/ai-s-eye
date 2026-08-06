@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { getDemoAccount, usesCredentialDemoLogin } from '../auth/demoAccounts'
 import { ROLES, STORES, DEMO_CREDENTIALS } from '../constants/auth'
 import LegalFooter from './legal/LegalFooter'
+import ServiceIntro from './ServiceIntro'
 
 function HeroSection({
   page,
@@ -79,6 +80,7 @@ function HeroSection({
     enterWithDemoProfile(selectedRole, targetStoreId)
   }
   return (
+    <>
     <section className={`hero-section ${isAuthPage ? 'is-auth-page' : ''} ${isMainLanding ? 'main-landing-hero' : ''}`}>
       <div className="hero-background" />
       <div className="hero-gradient" />
@@ -114,8 +116,15 @@ function HeroSection({
           <h1 className="landing-main-title">
             Al's eye
           </h1>
+          <p className="landing-hero-tagline">
+            <span className="tagline-strong">Know your store,</span>
+            <span className="tagline-muted">before your customers do.</span>
+          </p>
           <p className="hero-korean-subtitle">
-            AI기반 프랜차이즈 매장 운영 지원 플랫폼
+            AI가 매장의 현재를 분석하고 더 나은 운영을 제안합니다.
+          </p>
+          <p className="landing-hero-desc">
+            실시간 CCTV 분석과 매장 데이터를 결합해 혼잡도·대기시간·고객 흐름을 한눈에 확인하세요.
           </p>
           <div className="landing-demo-login-box">
             <p className="demo-hint">[빠른 체험용 원클릭 로그인]</p>
@@ -197,8 +206,11 @@ function HeroSection({
           </div>
         </div>
       </div>
-      <LegalFooter className="main-landing-footer" />
+      {!isMainLanding && <LegalFooter className="main-landing-footer" />}
     </section>
+    {isMainLanding && <ServiceIntro />}
+    {isMainLanding && <LegalFooter className="main-landing-footer" />}
+    </>
   )
 }
 export default HeroSection

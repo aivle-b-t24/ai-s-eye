@@ -4,6 +4,7 @@ import { API_BASE_URL } from '../../constants/env'
 import { PrivacyPolicyBody } from '../legal/PrivacyPolicyModal'
 import ReCaptcha from '../legal/ReCaptcha'
 import LegalFooter from '../legal/LegalFooter'
+import AuthBrandPanel, { BrandLogo } from './AuthBrandPanel'
 
 // 개인정보 보호 가이드(접근통제 제4조⑧) 비밀번호 작성규칙과 동일한 클라이언트 검증.
 function passwordPolicyError(pw) {
@@ -33,18 +34,6 @@ function easyPasswordError(pw, idPart) {
     return '아이디(이메일)와 비슷한 비밀번호는 사용할 수 없습니다.'
   }
   return ''
-}
-
-function BrandLogo({ className = '' }) {
-  return (
-    <span className={`signup-wordmark ${className}`}>
-      <svg className="signup-logo-mark" width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 3 L21 20 H3 Z" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round" />
-        <circle cx="12" cy="14" r="2.4" fill="currentColor" />
-      </svg>
-      AI&apos;s Eye
-    </span>
-  )
 }
 
 function StoreManagerGuide({ onGoToLogin }) {
@@ -348,23 +337,7 @@ export default function SignupPage({
 
   return (
     <div className="signup-page">
-      <aside className="signup-brand">
-        <div className="signup-brand-top">
-          <BrandLogo />
-        </div>
-        <div className="signup-brand-body">
-          <h1 className="signup-brand-title">매장을 한눈에,<br />본사는 가볍게.</h1>
-          <p className="signup-brand-sub">
-            프랜차이즈 관제 시스템 관리자 계정을 만들어 지금 바로 시작하세요.
-          </p>
-          <ul className="signup-brand-features">
-            <li>실시간 혼잡도·대기 관제</li>
-            <li>매장별 메뉴·정책 온보딩</li>
-            <li>카카오 챗봇 고객 응대</li>
-          </ul>
-        </div>
-        <div className="signup-brand-foot">© AI&apos;s Eye · AIVLE 24조</div>
-      </aside>
+      <AuthBrandPanel />
 
       <main className="signup-form-panel">
         {onClose && (

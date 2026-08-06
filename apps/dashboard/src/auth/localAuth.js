@@ -42,6 +42,22 @@ export const LOCAL_DEMO_ACCOUNTS = Object.freeze({
       storeId: STORES.HEAD_OFFICE,
     }),
   }),
+  // 비밀번호 유효기간(180일) 만료 프롬프트 확인용 데모 계정.
+  // passwordChangedAt을 190일 전으로 두어 로그인 시 변경 안내가 뜬다.
+  'head-office-expired': Object.freeze({
+    email: 'admin-old@local.test',
+    password: '1234',
+    role: ROLES.ADMIN,
+    profile: Object.freeze({
+      uid: 'local-admin-expired',
+      id: 'admin-old',
+      email: 'admin-old@local.test',
+      name: '본사 관리자(비번 만료 데모)',
+      role: ROLES.ADMIN,
+      storeId: STORES.HEAD_OFFICE,
+      passwordChangedAt: new Date(Date.now() - 190 * 24 * 60 * 60 * 1000).toISOString(),
+    }),
+  }),
 })
 
 export function authenticateLocalAccount(email, password, requestedRole) {

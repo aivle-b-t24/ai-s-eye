@@ -88,7 +88,7 @@ function PublicShell() {
     return <Navigate to={homeForUser(currentUser)} replace />
   }
 
-  // 회원가입은 모달이 아닌 전용 풀페이지로 렌더한다.
+  // 회원가입·로그인은 모달이 아닌 전용 풀페이지로 렌더한다.
   if (isSignup) {
     return (
       <SignupPage
@@ -96,6 +96,20 @@ function PublicShell() {
         onRoleChange={handleSignupRoleChange}
         onGoToLogin={handleGoToLogin}
         onLogin={handleLogin}
+        onClose={() => navigate(ROUTES.HOME)}
+      />
+    )
+  }
+
+  if (isLogin) {
+    return (
+      <LoginPage
+        initialRole={authRole}
+        onRoleChange={handleLoginRoleChange}
+        initialError={authError}
+        onLogin={handleLogin}
+        onPasswordReset={handlePasswordReset}
+        onGoToSignup={handleGoToSignup}
         onClose={() => navigate(ROUTES.HOME)}
       />
     )
@@ -125,19 +139,6 @@ function PublicShell() {
         onClose={() => setIsSidebarOpen(false)}
       />
 
-      {isLogin && (
-        <div className="auth-modal-overlay">
-          <LoginPage
-            initialRole={authRole}
-            onRoleChange={handleLoginRoleChange}
-            initialError={authError}
-            onLogin={handleLogin}
-            onPasswordReset={handlePasswordReset}
-            onGoToSignup={handleGoToSignup}
-            onClose={() => navigate(ROUTES.HOME)}
-          />
-        </div>
-      )}
 
       <Outlet />
     </main>

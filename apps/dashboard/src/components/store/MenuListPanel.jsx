@@ -322,7 +322,7 @@ export default function MenuListPanel({ storeId = 'store-001', menus = [], setMe
               border: '1px solid rgba(255, 255, 255, 0.18)',
               borderRadius: '20px',
               padding: '7px 20px',
-              color: '#f8fafc',
+              color: '#0b0b0b',
               fontSize: '13px',
               fontWeight: '600',
               cursor: 'pointer',

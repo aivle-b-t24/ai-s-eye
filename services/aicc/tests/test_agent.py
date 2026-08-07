@@ -157,7 +157,7 @@ def test_fallback_answer_is_readable_sentence_by_tool() -> None:
 
     # 매장 상태
     s = _fallback_answer({"tool": "state", "result": {"ok": True, "visible_person_count": 5, "queue_count_estimate": 2}})
-    assert "5명" in s and "2명" in s
+    assert "5명" in s and "2건" in s
     # 대기시간
     e = _fallback_answer({"tool": "eta", "result": {"ok": True, "estimated_wait_minutes": 6}})
     assert "6분" in e

@@ -106,6 +106,24 @@ def test_eta_returns_minutes() -> None:
     assert result["ok"] is True
     assert result["estimated_wait_minutes"] == 6
     assert result["data_source"] == "mock_rule"
+    # 응답에 waiting_order_count가 없으면 결과에도 넣지 않는다(그래도 ok=True).
+    assert "waiting_order_count" not in result
+
+
+def test_eta_includes_waiting_order_count_when_present() -> None:
+    """사이트 '대기 주문'과 같은 값(waiting_order_count)이 응답에 있으면 그대로 담는다."""
+    body = {
+        "store_id": "store-001",
+        "estimated_wait_minutes": 6,
+        "data_source": "mock_rule",
+        "waiting_order_count": 3,
+    }
+
+    with tools_for(responder(200, body)) as tools:
+        result = tools.get_eta()
+
+    assert result["ok"] is True
+    assert result["waiting_order_count"] == 3
 
 
 def test_menus_return_all_items_when_no_name_given() -> None:

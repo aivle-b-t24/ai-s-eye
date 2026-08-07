@@ -78,6 +78,10 @@ class StoreTools:
         try:
             body = self._client.get_eta(target)
             data = _fields(body, "estimated_wait_minutes", "data_source")
+            # 대기 주문 수는 사이트 '현재 매장 운영 현황'의 "대기 주문"과 같은 값.
+            # 응답에 있을 때만 담는다(구버전/부분 응답이면 없을 수 있음).
+            if isinstance(body, dict) and body.get("waiting_order_count") is not None:
+                data["waiting_order_count"] = body["waiting_order_count"]
         except ToolError as exc:
             return _failure(exc)
         return {"ok": True, "store_id": target, **data}

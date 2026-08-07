@@ -7501,6 +7501,34 @@ body::before {
 }
 
 /* 📍 [3번 코드 적용 위치] 챗봇 추천 질문 버튼 스타일 */
+/* 카카오식 틀: 둥근 박스 하나 안에 3칸, 사이에 구분선 (색은 채팅색 유지) */
+.chat-quick-row {
+  display: flex;
+  margin: 8px 16px;
+  background: #faf8f5;
+  border: 1px solid #e5ded3;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.chat-quick-row .chat-suggestion-chip {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-right: 1px solid #e5ded3;
+  border-radius: 0;
+  color: #173f3a;
+  padding: 12px 4px;
+  font-size: 13px;
+}
+.chat-quick-row .chat-suggestion-chip:last-child {
+  border-right: none;
+}
+.chat-quick-row .chat-suggestion-chip:hover {
+  background: #eee9e0;
+  color: #173f3a;
+}
+
 .chat-suggestions {
   display: flex;
   flex-wrap: wrap;

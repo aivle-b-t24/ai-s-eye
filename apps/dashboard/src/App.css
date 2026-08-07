@@ -6293,6 +6293,8 @@ font-size: 16px !important;
   background: #eee9e0;
   color: #1f2937;
   border-top-left-radius: 2px;
+  /* 글씨 길이에 맞게 말풍선이 줄어들게(칸을 꽉 채우지 않음). 최대 270px는 유지. */
+  align-self: flex-start;
 }
 
 .chat-message-row.is-user .message-bubble-box {

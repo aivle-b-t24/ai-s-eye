@@ -34,11 +34,20 @@ def policies() -> list[dict[str, Any]]:
     ]
 
 
-def test_retrieve_picks_relevant_top_k() -> None:
+def test_retrieve_keeps_only_clearly_relevant() -> None:
+    """단일 주제 질문이면 최고 점수와 margin 이상 벌어진 정책은 걸러 낸다."""
     r = PolicyRetriever(embed=fake_embed, top_k=2)
     result = r.retrieve(policies(), "주차 되나요?", "store-001")
-    assert len(result) == 2
-    assert result[0]["title"] == "주차"  # 가장 관련된 정책이 맨 앞
+    # 주차만 뚜렷이 관련(코사인 1.0), 나머지는 훨씬 낮아 margin 밖 → 주차 1개만
+    assert [p["title"] for p in result] == ["주차"]
+
+
+def test_retrieve_keeps_multiple_when_scores_close() -> None:
+    """점수가 margin 이내로 가까우면(여러 주제/유사 정책) top_k까지 남긴다."""
+    same = lambda texts: [[1.0, 0.0, 0.0] for _ in texts]  # 전부 동점(코사인 1.0)
+    r = PolicyRetriever(embed=same, top_k=2)
+    result = r.retrieve(policies(), "주차랑 와이파이 돼?", "store-001")
+    assert len(result) == 2  # 동점이라 top_k(2)까지 유지
 
 
 def test_retrieve_returns_all_when_no_embedder() -> None:

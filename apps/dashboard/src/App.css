@@ -6047,7 +6047,7 @@ font-size: 16px !important;
   right: 30px !important;
   width: 410px !important;
   max-width: calc(100vw - 40px) !important;
-  height: 620px !important;
+  height: var(--chat-h, 620px) !important;
   max-height: calc(100vh - 60px) !important;
   z-index: 99999 !important;
   
@@ -6057,6 +6057,32 @@ font-size: 16px !important;
   overflow: hidden !important;
   display: flex !important;
   flex-direction: column !important;
+}
+
+/* 위쪽 가장자리 드래그 손잡이 — 위로 끌면 커지고 아래로 끌면 작아짐 */
+.chatbot-resize-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 12px;
+  cursor: ns-resize;
+  z-index: 10;
+}
+.chatbot-resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 44px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.45);
+  transition: background 0.15s;
+}
+.chatbot-resize-handle:hover::after {
+  background: rgba(255, 255, 255, 0.8);
 }
 
 @keyframes chatbotSlideUp {
@@ -8098,4 +8124,34 @@ body::before {
 }
 .head-office-header .head-office-navigation a:hover {
   color: #0f62fe !important;
+}
+
+/* ==================== [본사 헤더 좁은 화면 겹침 방지] ==================== */
+/* 데스크탑은 그대로. 1024px 이하로 좁아지면 가운데 절대고정된 메뉴가
+   왼쪽 로고를 덮으므로, 절대고정을 풀고 메뉴를 아랫줄(전체폭)로 내린다. */
+@media (max-width: 1024px) {
+  .head-office-header .head-office-header-inner {
+    flex-wrap: wrap !important;
+    justify-content: space-between !important;
+    row-gap: 6px !important;
+  }
+  .head-office-header .head-office-navigation {
+    position: static !important;
+    transform: none !important;
+    left: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+    order: 3 !important;
+    flex: 1 1 100% !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+  }
+  .head-office-header .head-office-brand,
+  .head-office-header .head-office-user {
+    flex: 0 0 auto !important;
+  }
+  .head-office-header .head-office-navigation a {
+    min-width: 0 !important;
+    padding: 6px 12px !important;
+  }
 }

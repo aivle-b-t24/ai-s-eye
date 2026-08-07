@@ -69,9 +69,17 @@ class PolicyRetriever:
     실패해도 챗봇은 멈추지 않고, 최악의 경우 기존처럼 전체를 넘길 뿐이다.
     """
 
-    def __init__(self, embed: Embedder | None = None, top_k: int = 3) -> None:
+    def __init__(
+        self,
+        embed: Embedder | None = None,
+        top_k: int = 3,
+        margin: float = 0.05,
+    ) -> None:
         self._embed = embed
         self._top_k = top_k
+        # 최고 점수와의 차이가 margin 이내인 정책만 남긴다. 질문과 딱 하나 관련되면
+        # 1개만, 여러 주제(예: "주차랑 와이파이")면 비슷한 점수라 여러 개가 남는다.
+        self._margin = margin
         # 정책 벡터 캐시: store_id -> (정책 텍스트 튜플, 벡터 목록).
         # 정책 내용이 그대로면 다시 임베딩하지 않는다(매 질문마다 재계산 방지).
         self._cache: dict[str, tuple[tuple[str, ...], list[list[float]]]] = {}
@@ -99,12 +107,17 @@ class PolicyRetriever:
             )
             policy_vectors = self._policy_vectors(store_id, texts)
             query_vector = self._embed([query])[0]
-            ranked = sorted(
-                range(len(policies)),
-                key=lambda i: _cosine(query_vector, policy_vectors[i]),
-                reverse=True,
+            scores = [_cosine(query_vector, v) for v in policy_vectors]
+            order = sorted(range(len(policies)), key=lambda i: scores[i], reverse=True)
+            best = scores[order[0]]
+            # 상위 top_k 중, 최고 점수와 margin 이내인 것만 남긴다(관련 낮은 건 버림).
+            kept = [i for i in order[: self._top_k] if scores[i] >= best - self._margin]
+            logger.info(
+                "정책 RAG '%s': %s",
+                query,
+                [(policies[i].get("title"), round(scores[i], 3)) for i in order[: self._top_k]],
             )
-            return [policies[i] for i in ranked[: self._top_k]]
+            return [policies[i] for i in kept]
         except Exception:
             # 검색 실패는 대화를 끊을 이유가 안 된다. 전체를 그대로 넘긴다.
             logger.warning("정책 RAG 검색 실패, 전체 정책 반환", exc_info=True)

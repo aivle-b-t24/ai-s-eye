@@ -6,7 +6,7 @@ import { CHATBOT_BASE_URL } from '../../constants/env'
 function renderBotText(text) {
   return (text || '').split('\n').map((line, i) => {
     const t = line.trim()
-    if (t.startsWith('⚠️')) return <div key={i} className="chat-note">{t}</div>
+    if (t.startsWith('⚠️')) return <div key={i} className="chat-note">{t.replace(/^⚠️\s*/, '')}</div>
     if (t.startsWith('•')) return <div key={i} className="chat-bullet">{t}</div>
     if (t === '') return <div key={i} className="chat-gap" />
     return <div key={i} className="chat-line">{line}</div>
@@ -17,6 +17,36 @@ export default function StoreChatbotWidget({ page, storeName }) {
   const resolvedStoreName = storeName || storeDisplayName(page)
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+
+  // 📍 채팅 패널 높이(위쪽 가장자리 드래그로 조절). 아래가 고정이라 위로 끌면 커진다.
+  const [panelHeight, setPanelHeight] = useState(620)
+  const isResizing = useRef(false)
+  const resizeStart = useRef({ y: 0, h: 620 })
+
+  const handleResizeStart = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    isResizing.current = true
+    resizeStart.current = { y: e.clientY, h: panelHeight }
+    window.addEventListener('mousemove', handleResizeMove)
+    window.addEventListener('mouseup', handleResizeEnd)
+  }
+
+  const handleResizeMove = (e) => {
+    if (!isResizing.current) return
+    // 위로 드래그(clientY 감소) = 높이 증가
+    const delta = resizeStart.current.y - e.clientY
+    const maxH = window.innerHeight - 60
+    // 최소 = 처음(기본) 높이 620px. 그보다 작게는 안 줄고 더 크게만 조절된다.
+    const next = Math.min(maxH, Math.max(620, resizeStart.current.h + delta))
+    setPanelHeight(next)
+  }
+
+  const handleResizeEnd = () => {
+    isResizing.current = false
+    window.removeEventListener('mousemove', handleResizeMove)
+    window.removeEventListener('mouseup', handleResizeEnd)
+  }
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -267,7 +297,12 @@ export default function StoreChatbotWidget({ page, storeName }) {
 
       {/* 챗봇 대화 패널 */}
       {isOpen && (
-        <div className="store-chatbot-panel">
+        <div className="store-chatbot-panel" style={{ '--chat-h': `${panelHeight}px` }}>
+          <div
+            className="chatbot-resize-handle"
+            onMouseDown={handleResizeStart}
+            title="드래그해서 채팅 높이 조절"
+          />
           <div className="chatbot-header">
             <div className="chatbot-header-left">
               <div className="chatbot-header-title">

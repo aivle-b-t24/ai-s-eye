@@ -21,7 +21,7 @@ export default function StoreChatbotWidget({ page, storeName }) {
     {
       id: 1,
       sender: 'bot',
-      text: '안녕하세요! AI 카페 매니저예요. 매장 운영시간, 품절 메뉴, 주차, 실시간 관제 등 궁금하신 점을 편하게 질문해 주세요.',
+      text: '안녕하세요! AI 카페 매니저예요. 매장 운영시간, 품절 메뉴, 주차, 매장 현황 등 궁금하신 점을 편하게 질문해 주세요.',
       source: '',
       time: getCurrentTime(),
     },
@@ -93,20 +93,22 @@ export default function StoreChatbotWidget({ page, storeName }) {
       e.stopPropagation()
       return
     }
-    
-    // 📍 챗봇 창을 닫았다가 다시 열 때(!isOpen) 이전 대화를 싹 지우고 초기화!
-    if (!isOpen) {
-      setMessages([
-        {
-          id: Date.now(),
-          sender: 'bot',
-          text: '안녕하세요! AI 카페 매니저예요. 매장 운영시간, 품절 메뉴, 주차, 실시간 관제 등 궁금하신 점을 편하게 질문해 주세요.',
-          source: '',
-          time: getCurrentTime(),
-        },
-      ])
-    }
+    // 최소화(—)로 닫았다가 다시 열면 이전 대화를 그대로 유지한다(초기화 안 함).
     setIsOpen(!isOpen)
+  }
+
+  // 닫기(✕): 대화를 초기화하고 닫는다(다음에 열면 새 대화).
+  const handleCloseReset = () => {
+    setMessages([
+      {
+        id: Date.now(),
+        sender: 'bot',
+        text: '안녕하세요! AI 카페 매니저예요. 매장 운영시간, 품절 메뉴, 주차, 매장 현황 등 궁금하신 점을 편하게 질문해 주세요.',
+        source: '',
+        time: getCurrentTime(),
+      },
+    ])
+    setIsOpen(false)
   }
 
   const [inputValue, setInputValue] = useState('')
@@ -134,7 +136,7 @@ export default function StoreChatbotWidget({ page, storeName }) {
 
   const handleSend = async (textToSend) => {
     const query = textToSend || inputValue
-    if (!query.trim() || isLoading) return
+    if (!query.trim()) return
 
     const activeStoreId = (page === 'store-002' || page === 'suwan' || page === 'sangmu') ? 'store-002' : 'store-001'
 
@@ -238,7 +240,8 @@ export default function StoreChatbotWidget({ page, storeName }) {
 
   return (
     <>
-      {/* 📍 마우스 드래그가 가능한 플로팅 챗봇 트리거 버튼 */}
+      {/* 📍 플로팅 챗봇 트리거 버튼 — 패널이 열리면 숨긴다(추천버튼 위 겹침 클릭 방지) */}
+      {!isOpen && (
       <div
         className="store-chatbot-trigger-container"
         onMouseDown={handleMouseDown}
@@ -260,6 +263,7 @@ export default function StoreChatbotWidget({ page, storeName }) {
           <span className="chatbot-btn-text">카페 매니저</span>
         </button>
       </div>
+      )}
 
       {/* 챗봇 대화 패널 */}
       {isOpen && (
@@ -276,54 +280,17 @@ export default function StoreChatbotWidget({ page, storeName }) {
                 type="button"
                 className="chatbot-close-btn"
                 onClick={() => setIsOpen(false)}
+                title="최소화"
+              >
+                —
+              </button>
+              <button
+                type="button"
+                className="chatbot-close-btn"
+                onClick={handleCloseReset}
                 title="닫기"
               >
                 ✕
-              </button>
-            </div>
-          </div>
-
-          <div className="chatbot-hero-banner">
-            <div className="mascot-circle">
-              <span>☕</span>
-            </div>
-            <h4 className="hero-greeting">
-              안녕하세요!<br />
-              저는 AI's Eye <strong>카페 매니저</strong>예요!
-            </h4>
-            <p className="hero-subtext">
-              매장 영업시간, 품절 메뉴, 주차, AI 관제 현황을 알려드릴게요.
-            </p>
-
-            <div className="faq-quick-grid">
-              <button
-                type="button"
-                className="faq-quick-card"
-                onClick={() => handleSend('매장 운영 안내')}
-                disabled={isLoading}
-              >
-                <span className="faq-icon">📅</span>
-                <span className="faq-label">매장 운영<br />안내</span>
-              </button>
-
-              <button
-                type="button"
-                className="faq-quick-card"
-                onClick={() => handleSend('품절 및 재고 안내')}
-                disabled={isLoading}
-              >
-                <span className="faq-icon">☕</span>
-                <span className="faq-label">품절 재고<br />안내</span>
-              </button>
-
-              <button
-                type="button"
-                className="faq-quick-card"
-                onClick={() => handleSend('AI 카메라 관제 가이드')}
-                disabled={isLoading}
-              >
-                <span className="faq-icon">🤖</span>
-                <span className="faq-label">AI 관제<br />가이드</span>
               </button>
             </div>
           </div>
@@ -356,7 +323,6 @@ export default function StoreChatbotWidget({ page, storeName }) {
                           type="button"
                           className="chat-suggestion-chip"
                           onClick={() => handleSend(s)}
-                          disabled={isLoading}
                         >
                           {s}
                         </button>
@@ -385,6 +351,12 @@ export default function StoreChatbotWidget({ page, storeName }) {
             <div ref={messagesEndRef} />
           </div>
 
+          <div className="chat-quick-row">
+            <button type="button" className="chat-suggestion-chip" onClick={() => handleSend('매장 운영 안내')}>매장 운영</button>
+            <button type="button" className="chat-suggestion-chip" onClick={() => handleSend('품절 및 재고 안내')}>품절 재고</button>
+            <button type="button" className="chat-suggestion-chip" onClick={() => handleSend('지금 매장 붐벼?')}>매장 현황</button>
+          </div>
+
           <div className="chatbot-input-footer">
             <div className="input-box-wrapper">
               <input
@@ -398,9 +370,6 @@ export default function StoreChatbotWidget({ page, storeName }) {
                 }}
                 // disabled={isLoading}
               />
-              <button type="button" className="chat-bubble-mini-btn" title="자주 쓰는 표현">
-                💬
-              </button>
             </div>
             <button
               type="button"

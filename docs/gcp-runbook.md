@@ -69,3 +69,26 @@ Compose volume 이름은 프로젝트 디렉터리가 바뀌어도 동일하게 
 docker compose --env-file .env.gcp -f compose.gcp.yml ps
 systemctl status cloudflared --no-pager
 ```
+
+## 5. main 자동 배포
+
+GCP 운영 서버는 `main` 브랜치만 배포한다. `main` 병합 시
+`.github/workflows/deploy-gcp.yml`이 GitHub OIDC와 GCP Workload Identity Federation으로
+단기 인증하고, IAP와 OS Login을 통해 `ai-s-eye-prod`에 접속한다. 서비스 계정 JSON 키와
+장기 SSH 개인키는 사용하지 않는다.
+
+배포 서버에서는 `scripts/deploy-gcp.sh`가 다음 순서로 실행된다.
+
+1. 운영 저장소의 추적 파일 변경 여부 확인
+2. PostgreSQL custom-format 백업 생성
+3. API·AICC·Dashboard 이미지 빌드
+4. Alembic 마이그레이션
+5. 컨테이너 갱신
+6. 로컬 및 Cloudflare 공개 주소 헬스체크
+
+GitHub 저장소 Variable에는 프로젝트, Workload Identity Provider, 배포 서비스 계정,
+인스턴스·Zone과 서버 경로만 둔다. 실제 운영 비밀값은 계속 GCP VM의 `.env.gcp`와
+`/etc/cloudflared`에만 보관한다.
+
+SSH는 `35.235.240.0/20`의 IAP 주소에서만 허용한다. 기본 `0.0.0.0/0` SSH·RDP 규칙은
+비활성화하고, 애플리케이션 80·8000·8100 포트도 인터넷에 직접 공개하지 않는다.

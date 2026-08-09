@@ -1,6 +1,7 @@
 .env
 .env.*
 !.env.example
+!.env.gcp.example
 sgis_keys.txt
 backups/
 .venv/

@@ -39,8 +39,17 @@ curl -fsS http://127.0.0.1:8100/healthz
 curl -fsS http://127.0.0.1/
 ```
 
-외부에는 Dashboard와 필요한 API 주소만 노출한다. 실제 HTTPS와 도메인은 GCP 방화벽,
-Cloudflare 또는 별도 reverse proxy에서 연결한다.
+외부에는 Cloudflare Tunnel의 HTTPS 주소만 노출한다. 현재 운영 호스트 매핑은 다음과
+같고, GCP 방화벽에서 80/8000/8100 인바운드는 열지 않는다.
+
+- `aiseye.ldhcloud.com` → `http://127.0.0.1:80`
+- `aiseye-api.ldhcloud.com` → `http://127.0.0.1:8000`
+- `aiseye-ai.ldhcloud.com` → `http://127.0.0.1:8100`
+
+Tunnel credential JSON은 저장소에 넣지 않고 `/etc/cloudflared`에 권한 `0600`으로 둔다.
+GCP 커넥터의 HTTPS 검증이 끝난 뒤 이전 서버의 커넥터를 중지한다. 이전 커넥터를 다시
+시작하면 즉시 롤백할 수 있으므로, GCP 검증 전에는 기존 애플리케이션과 DB를 삭제하지
+않는다.
 
 ## 4. 데이터와 종료
 
@@ -52,3 +61,11 @@ Compose volume 이름은 프로젝트 디렉터리가 바뀌어도 동일하게 
 
 일반 배포에서는 `docker compose down`까지만 사용한다. `down -v`는 PostgreSQL과 업로드
 파일을 삭제하므로 DB를 완전히 폐기할 때만 사용한다.
+
+발표가 끝나 장시간 사용하지 않을 때는 Compute Engine VM을 중지한다. VM을 다시 시작한
+뒤에는 Docker와 `cloudflared`가 자동 시작되며, 아래 명령으로 상태를 확인한다.
+
+```bash
+docker compose --env-file .env.gcp -f compose.gcp.yml ps
+systemctl status cloudflared --no-pager
+```

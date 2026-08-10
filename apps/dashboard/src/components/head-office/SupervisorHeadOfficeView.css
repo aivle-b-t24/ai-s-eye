@@ -199,8 +199,25 @@
 
 #hq-stores,
 #hq-simulation,
-#hq-ai {
+#hq-ai,
+#hq-accounts {
   scroll-margin-top: 84px;
+}
+
+.supervisor-view-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  min-width: 0;
+}
+
+.supervisor-view-panel[hidden],
+.supervisor-dashboard [hidden] {
+  display: none !important;
+}
+
+.supervisor-account-view {
+  min-height: 520px;
 }
 
 .supervisor-dashboard button,

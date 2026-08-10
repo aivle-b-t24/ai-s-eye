@@ -230,19 +230,10 @@ export default function LoginPage({ onClose, onLogin, onPasswordReset, onGoToSig
               </button>
             </div>
 
-            {/* 비밀번호 아래 텍스트만 표시되는 오류 메시지 & X 닫기 버튼 */}
+            {/* 비밀번호 아래 텍스트만 표시되는 오류 메시지 */}
             {errorMessage && (
               <div className="auth-error-alert inline-single-line clean-text-only">
                 <span>{errorMessage}</span>
-                <button
-                  type="button"
-                  className="error-dismiss-btn"
-                  onClick={() => setErrorMessage('')}
-                  aria-label="알림 지우기"
-                  title="알림 지우기"
-                >
-                  ✕
-                </button>
               </div>
             )}
             {successMessage && (

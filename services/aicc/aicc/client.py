@@ -82,6 +82,25 @@ class StoreApiClient:
         params = {k: v for k, v in (("start_at", start_at), ("end_at", end_at)) if v}
         return self._get("/api/stores/summary", params=params or None)
 
+    def get_store_timeline(
+        self,
+        store_id: str,
+        start_at: str,
+        end_at: str,
+        interval: str = "1h",
+    ) -> Any:
+        return self._get(
+            f"/api/stores/{quote(store_id)}/timeline",
+            params={
+                "start_at": start_at,
+                "end_at": end_at,
+                "interval": interval,
+            },
+        )
+
+    def compare_operations(self, payload: dict[str, Any]) -> Any:
+        return self._post("/api/simulations/operations/compare", payload)
+
     def _get(
         self,
         path: str,
@@ -101,6 +120,22 @@ class StoreApiClient:
         if response.status_code >= 400:
             raise UnexpectedResponseError()
 
+        try:
+            return response.json()
+        except ValueError as exc:
+            raise UnexpectedResponseError() from exc
+
+    def _post(self, path: str, payload: dict[str, Any]) -> Any:
+        try:
+            response = self._client.post(path, json=payload)
+        except httpx.RequestError as exc:
+            raise ApiUnavailableError() from exc
+
+        error = STATUS_ERRORS.get(response.status_code)
+        if error is not None:
+            raise error()
+        if response.status_code >= 400:
+            raise UnexpectedResponseError()
         try:
             return response.json()
         except ValueError as exc:

@@ -1,9 +1,11 @@
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
-from app.scenario_loader import load_scenario_file, send_scenario
+from app import scenario_loader
+from app.scenario_loader import get_json, load_scenario_file, send_scenario
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -78,3 +80,24 @@ def test_invalid_scenario_is_rejected_before_sending(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="states 목록"):
         load_scenario_file(invalid_path)
+
+
+def test_get_json_uses_internal_service_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, Any] = {}
+
+    def fake_request(request, timeout: float) -> dict[str, Any]:
+        captured["request"] = request
+        captured["timeout"] = timeout
+        return {"ok": True}
+
+    monkeypatch.setattr(
+        scenario_loader,
+        "get_settings",
+        lambda: SimpleNamespace(internal_api_key="internal-test-key"),
+    )
+    monkeypatch.setattr(scenario_loader, "_request_json", fake_request)
+
+    assert get_json("http://api.test/protected", 3.0) == {"ok": True}
+    request = captured["request"]
+    assert request.get_header("X-internal-api-key") == "internal-test-key"
+    assert captured["timeout"] == 3.0

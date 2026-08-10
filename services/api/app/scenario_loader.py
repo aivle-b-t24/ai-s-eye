@@ -112,9 +112,7 @@ def load_scenario_file(path: Path) -> FranchiseScenario:
 def post_json(url: str, payload: JsonObject, timeout: float) -> JsonObject:
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     headers = {"Content-Type": "application/json"}
-    internal_api_key = get_settings().internal_api_key
-    if internal_api_key:
-        headers["X-Internal-API-Key"] = internal_api_key
+    headers.update(_internal_auth_headers())
     request = urllib.request.Request(
         url,
         data=body,
@@ -125,7 +123,19 @@ def post_json(url: str, payload: JsonObject, timeout: float) -> JsonObject:
 
 
 def get_json(url: str, timeout: float) -> JsonObject:
-    return _request_json(urllib.request.Request(url, method="GET"), timeout)
+    request = urllib.request.Request(
+        url,
+        headers=_internal_auth_headers(),
+        method="GET",
+    )
+    return _request_json(request, timeout)
+
+
+def _internal_auth_headers() -> dict[str, str]:
+    internal_api_key = get_settings().internal_api_key
+    if not internal_api_key:
+        return {}
+    return {"X-Internal-API-Key": internal_api_key}
 
 
 def _request_json(

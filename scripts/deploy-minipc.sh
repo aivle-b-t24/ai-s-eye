@@ -17,6 +17,19 @@ compose() {
   docker compose --env-file "$ENV_FILE" "$@"
 }
 
+remove_stateless_service_containers() {
+  local service
+  local -a container_ids
+
+  for service in api aicc dashboard store-state-cleanup; do
+    mapfile -t container_ids < <(compose ps -aq "$service")
+    if (( ${#container_ids[@]} > 0 )); then
+      echo "[deploy-minipc] replacing $service containers: ${container_ids[*]}"
+      docker rm -f "${container_ids[@]}"
+    fi
+  done
+}
+
 diagnose() {
   local exit_code=$?
   if (( exit_code != 0 )); then
@@ -76,6 +89,7 @@ echo "[deploy-minipc] database backup: $backup_path"
 
 compose build api aicc dashboard store-state-cleanup
 compose run --rm --no-deps api alembic upgrade head
+remove_stateless_service_containers
 compose up -d --no-build db api aicc dashboard store-state-cleanup
 
 api_address=$(compose port api 8000)

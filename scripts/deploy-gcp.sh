@@ -18,6 +18,19 @@ compose() {
   docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"
 }
 
+remove_stateless_service_containers() {
+  local service
+  local -a container_ids
+
+  for service in api aicc dashboard store-state-cleanup; do
+    mapfile -t container_ids < <(compose ps -aq "$service")
+    if (( ${#container_ids[@]} > 0 )); then
+      echo "[deploy-gcp] replacing $service containers: ${container_ids[*]}"
+      docker rm -f "${container_ids[@]}"
+    fi
+  done
+}
+
 diagnose() {
   local exit_code=$?
   if (( exit_code != 0 )); then
@@ -77,6 +90,7 @@ echo "[deploy-gcp] database backup: $backup_path"
 
 compose build api aicc dashboard store-state-cleanup migrate
 compose --profile tools run --rm migrate
+remove_stateless_service_containers
 compose up -d --no-build --remove-orphans
 
 wait_for_url "local API" "http://127.0.0.1:8000/health"

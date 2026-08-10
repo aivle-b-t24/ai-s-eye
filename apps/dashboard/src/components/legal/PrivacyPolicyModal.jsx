@@ -1,4 +1,5 @@
 import React from 'react'
+import { createPortal } from 'react-dom'
 
 // 개인정보 처리방침 전문 — 회원가입 폼과 공개 링크가 같은 내용을 공유한다(단일 출처).
 export function PrivacyPolicyBody() {
@@ -46,7 +47,7 @@ export function PrivacyPolicyBody() {
 
 export default function PrivacyPolicyModal({ open, onClose }) {
   if (!open) return null
-  return (
+  return createPortal(
     <div
       className="legal-modal-overlay"
       role="dialog"
@@ -69,6 +70,7 @@ export default function PrivacyPolicyModal({ open, onClose }) {
         </div>
         <PrivacyPolicyBody />
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

@@ -22,7 +22,7 @@ remove_stateless_service_containers() {
   local service
   local -a container_ids
 
-  for service in api aicc dashboard store-state-cleanup; do
+  for service in order-simulator api aicc dashboard store-state-cleanup; do
     mapfile -t container_ids < <(compose ps -aq "$service")
     if (( ${#container_ids[@]} > 0 )); then
       echo "[deploy-gcp] replacing $service containers: ${container_ids[*]}"
@@ -36,7 +36,7 @@ diagnose() {
   if (( exit_code != 0 )); then
     echo "[deploy-gcp] deployment failed (exit=$exit_code)" >&2
     compose ps >&2 || true
-    compose logs --tail=100 api aicc dashboard >&2 || true
+    compose --profile demo logs --tail=100 api aicc dashboard order-simulator >&2 || true
   fi
   exit "$exit_code"
 }
@@ -88,10 +88,10 @@ compose exec -T db sh -lc \
 chmod 600 "$backup_path"
 echo "[deploy-gcp] database backup: $backup_path"
 
-compose build api aicc dashboard store-state-cleanup migrate
+compose --profile demo build api aicc dashboard store-state-cleanup order-simulator migrate
 compose --profile tools run --rm migrate
 remove_stateless_service_containers
-compose up -d --no-build --remove-orphans
+compose --profile demo up -d --no-build --remove-orphans
 
 wait_for_url "local API" "http://127.0.0.1:8000/health"
 wait_for_url "local AICC" "http://127.0.0.1:8100/healthz"
@@ -100,6 +100,6 @@ wait_for_url "public API" "https://aiseye-api.ldhcloud.com/health"
 wait_for_url "public AICC" "https://aiseye-ai.ldhcloud.com/healthz"
 wait_for_url "public Dashboard" "https://aiseye.ldhcloud.com/"
 
-compose ps
+compose --profile demo ps
 printf '%s\n' "$deployed_sha" >.deployed-gcp-sha
 echo "[deploy-gcp] completed $deployed_sha"

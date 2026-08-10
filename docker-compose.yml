@@ -300,6 +300,33 @@ services:
       api:
         condition: service_healthy
 
+  order-simulator:
+    build:
+      context: ./services/api
+    restart: unless-stopped
+    profiles:
+      - demo
+    environment:
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
+      ORDER_SIM_API_BASE_URL: http://api:8000
+      ORDER_SIM_STORE_IDS: ${ORDER_SIM_STORE_IDS:-store-001,store-002}
+      ORDER_SIM_MODE: ${ORDER_SIM_MODE:-live}
+      ORDER_SIM_SCENARIO: ${ORDER_SIM_SCENARIO:-normal}
+      ORDER_SIM_SPEED: ${ORDER_SIM_SPEED:-1}
+      ORDER_SIM_SEED: ${ORDER_SIM_SEED:-20260730}
+      ORDER_SIM_RUN_ID: ${ORDER_SIM_RUN_ID:-}
+      ORDER_SIM_REQUEST_TIMEOUT_SECONDS: ${ORDER_SIM_REQUEST_TIMEOUT_SECONDS:-5}
+      ORDER_SIM_MAX_ATTEMPTS: ${ORDER_SIM_MAX_ATTEMPTS:-6}
+      ORDER_SIM_STOP_GRACE_SECONDS: ${ORDER_SIM_STOP_GRACE_SECONDS:-30}
+    command:
+      - python
+      - -m
+      - app.order_simulator
+    stop_grace_period: 35s
+    depends_on:
+      api:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   dashboard_node_modules:

@@ -105,7 +105,7 @@ docker compose down
 | 영상 분석 결과 받기 | StoreState JSON과 매장별 최신 분석 이미지 업로드·조회 API 준비 |
 | 카메라 ROI 설정 | 점주가 CCTV 화면에서 구역을 직접 설정하고 PostgreSQL에 버전별 저장 |
 | CCTV 디지털 트윈 | 구역 현황에서 CCTV 시점 가상 매장에 ROI·사람 위치·이동 궤적 표시(V2 기능 플래그) |
-| 주문 이벤트 받기 | 주문 시스템이 나중에 보낼 JSON 형식만 준비 |
+| 주문 이벤트 받기 | 주문 상태 저장·조회 API와 실시간·과거 합성 데모 주문 생성기 준비 |
 | What-if 운영 시뮬레이션 | 슈퍼바이저 화면에서 직원 수·방문객·제조시간·좌석·행사 조건 비교 및 디지털 트윈 재생 |
 | 슈퍼바이저 AI 인사이트 | 두 매장 집계 결과를 Vertex AI로 분석하는 API 준비 |
 
@@ -294,6 +294,51 @@ SimPy가 방문, 대기, 주문·제조, 대기 포기, 착석, 퇴장을 이산
 장면 설정에는 카메라별 원거리·근거리 기준과 좌석 앵커가 포함된다. 기존 장면은
 마이그레이션 기본값과 테이블 기반 자동 좌석 배치를 사용하며, 설정 화면에서 다시
 보정해 새 버전으로 저장할 수 있다.
+
+## 합성 데모 주문 생성
+
+POS/KDS 화면이 없어도 주문 흐름을 확인할 수 있도록 별도 데모 워커가 준비되어
+있습니다. 워커는 두 매장의 판매 가능 메뉴를 읽어 주문을 만든 뒤 기존 주문
+API로 접수, 제조 중, 수령 가능, 완료 이벤트를 차례로 보냅니다.
+
+실시간 시연은 다음 명령으로 시작합니다.
+
+```bash
+docker compose up -d db api
+docker compose exec api alembic upgrade head
+docker compose --profile demo up -d --build order-simulator
+docker compose logs -f order-simulator
+```
+
+중지할 때는 진행 중 주문을 최대 30초 동안 마무리한 뒤 종료합니다.
+
+```bash
+docker compose stop order-simulator
+```
+
+슈퍼바이저의 7일·30일 분석용 과거 주문은 먼저 저장하지 않고 생성 건수만
+확인할 수 있습니다.
+
+```bash
+docker compose --profile demo run --rm order-simulator \
+  python -m app.order_simulator seed --days 7 --seed 20260730
+```
+
+확인한 결과를 데모 DB에 실제 적재할 때만 `--apply`를 추가합니다.
+
+```bash
+docker compose --profile demo run --rm order-simulator \
+  python -m app.order_simulator seed --days 7 --seed 20260730 --apply
+```
+
+생성 주문은 ID가 `sim-`으로 시작하지만 현재 본사 집계에서는 실제 주문과 함께
+계산됩니다. 운영 DB에는 적재하지 않습니다. 이 기능은 주문 이벤트 생성기이며
+직원 수·제조 자원·대기열·좌석·포기를 계산하는 What-if 시뮬레이터는 아닙니다.
+
+시뮬레이터는 `demo` 프로필에 포함된다. 로컬에서는 명시적으로 프로필을 켜야 하며,
+미니PC와 GCP 데모 배포 스크립트는 대시보드 지표를 위해 이 프로필을 자동으로
+실행한다. 상세 설정은 [`services/api/README.md`](services/api/README.md)에서
+확인한다.
 
 ## 테스트
 

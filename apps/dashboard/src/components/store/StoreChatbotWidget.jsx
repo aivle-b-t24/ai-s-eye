@@ -167,6 +167,7 @@ export default function StoreChatbotWidget({ page, storeName }) {
   const handleSend = async (textToSend) => {
     const query = textToSend || inputValue
     if (!query.trim()) return
+    if (isLoading) return  // 답변 오는 중엔 새 질문 못 보냄(연타 방지)
 
     const activeStoreId = (page === 'store-002' || page === 'suwan' || page === 'sangmu') ? 'store-002' : 'store-001'
 
@@ -358,6 +359,7 @@ export default function StoreChatbotWidget({ page, storeName }) {
                           type="button"
                           className="chat-suggestion-chip"
                           onClick={() => handleSend(s)}
+                          disabled={isLoading}
                         >
                           {s}
                         </button>
@@ -387,9 +389,9 @@ export default function StoreChatbotWidget({ page, storeName }) {
           </div>
 
           <div className="chat-quick-row">
-            <button type="button" className="chat-suggestion-chip" onClick={() => handleSend('매장 운영 안내')}>매장 운영</button>
-            <button type="button" className="chat-suggestion-chip" onClick={() => handleSend('품절 및 재고 안내')}>품절 재고</button>
-            <button type="button" className="chat-suggestion-chip" onClick={() => handleSend('지금 매장 붐벼?')}>매장 현황</button>
+            <button type="button" className="chat-suggestion-chip" onClick={() => handleSend('매장 운영 안내')} disabled={isLoading}>매장 운영</button>
+            <button type="button" className="chat-suggestion-chip" onClick={() => handleSend('품절 및 재고 안내')} disabled={isLoading}>품절 재고</button>
+            <button type="button" className="chat-suggestion-chip" onClick={() => handleSend('지금 매장 붐벼?')} disabled={isLoading}>매장 현황</button>
           </div>
 
           <div className="chatbot-input-footer">
@@ -397,20 +399,20 @@ export default function StoreChatbotWidget({ page, storeName }) {
               <input
                 type="text"
                 className="chatbot-text-input"
-                placeholder="질문을 입력하세요."
+                placeholder={isLoading ? '답변을 기다리는 중…' : '질문을 입력하세요.'}
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleSend()
                 }}
-                // disabled={isLoading}
+                disabled={isLoading}
               />
             </div>
             <button
               type="button"
               className="chatbot-send-btn"
               onClick={() => handleSend()}
-              disabled={!inputValue.trim()}
+              disabled={!inputValue.trim() || isLoading}
               title="전송"
             >
               ➤

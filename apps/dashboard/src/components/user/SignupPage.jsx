@@ -283,15 +283,6 @@ function HqSignupForm({ onLogin, onGoToLogin }) {
         {errorMessage && (
           <div className="auth-error-alert inline-single-line clean-text-only">
             <span>{errorMessage}</span>
-            <button
-              type="button"
-              className="error-dismiss-btn"
-              onClick={() => setErrorMessage('')}
-              aria-label="알림 지우기"
-              title="알림 지우기"
-            >
-              ✕
-            </button>
           </div>
         )}
         {successMessage && (

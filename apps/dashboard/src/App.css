@@ -922,14 +922,15 @@ font-weight: 700;
   font-size: 0.82rem;
   color: #e11d48 !important;
   font-weight: 600;
-  white-space: nowrap;
+  white-space: normal;
+  line-height: 1.45;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
   width: 100%;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .error-dismiss-btn {

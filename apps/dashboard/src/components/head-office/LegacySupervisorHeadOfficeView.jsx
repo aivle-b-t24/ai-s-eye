@@ -48,7 +48,7 @@ export default function LegacySupervisorHeadOfficeView({ storesData }) {
       <div className="head-office-grid">
         <article className="panel store-compare-card">
           <div className="card-header">
-            <h3>🏢 매장 1 (강남점)</h3>
+            <h3>🏢 store-001</h3>
             <span className="status available">🟢 실시간 연동 중</span>
           </div>
           <div className="card-metrics">
@@ -69,7 +69,7 @@ export default function LegacySupervisorHeadOfficeView({ storesData }) {
 
         <article className="panel store-compare-card">
           <div className="card-header">
-            <h3>🏢 매장 2 (홍대점)</h3>
+            <h3>🏢 store-002</h3>
             <span className="status available">🟢 실시간 연동 중</span>
           </div>
           <div className="card-metrics">
@@ -99,11 +99,11 @@ export default function LegacySupervisorHeadOfficeView({ storesData }) {
           </div>
           <div className="policy-list">
             <div className="policy-item">
-              <strong>🏢 매장 1 (강남점) 실시간 연동 중</strong>
+              <strong>🏢 store-001 실시간 연동 중</strong>
               <p>실시간 관제 인원 <strong>{store1State?.visible_person_count ?? 0}명</strong> (대기열 {store1State?.queue_count_estimate ?? 0}명, ETA {store1Eta?.estimated_wait_minutes ?? 0}분) 본사 모니터링 수신 중.</p>
             </div>
             <div className="policy-item">
-              <strong>🏢 매장 2 (홍대점) 실시간 연동 중</strong>
+              <strong>🏢 store-002 실시간 연동 중</strong>
               <p>실시간 관제 인원 <strong>{store2State?.visible_person_count ?? 0}명</strong> (대기열 {store2State?.queue_count_estimate ?? 0}명, ETA {store2Eta?.estimated_wait_minutes ?? 0}분) 본사 모니터링 수신 중.</p>
             </div>
           </div>
@@ -118,7 +118,7 @@ export default function LegacySupervisorHeadOfficeView({ storesData }) {
           </div>
           <div className="policy-list">
             <div className="policy-item">
-              <strong>🟢 강남점 & 홍대점 실시간 동기화 완료</strong>
+              <strong>🟢 가맹점 실시간 동기화 완료</strong>
               <p>매장 실시간 관제 화면과 본사 대시보드가 실시간 연동되어 수용 인원 및 대기열 변동이 바로 체크됩니다.</p>
             </div>
             <div className="policy-item">

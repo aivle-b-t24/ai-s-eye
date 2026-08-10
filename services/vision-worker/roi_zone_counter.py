@@ -1,6 +1,6 @@
 """ROI 구역별 인원 집계 파이프라인 (비전 파트 / 역할 B).
 
-흐름: YOLO11s 사람 탐지 -> 발 위치(bbox 아래 중앙)로 구역 판정
+흐름: YOLO11s 사람 탐지 -> 발 위치와 bbox 하단 중첩으로 구역 판정
       -> 구역별 인원 집계 + 혼잡도 -> 시각화 + 클라우드 전송 JSON(store_state) 생성.
 
 전송 JSON은 packages/contracts/store_state.schema.json 계약을 따른다.
@@ -29,7 +29,7 @@ OUT_DIR = Path(__file__).resolve().parent / "outputs"  # .gitignore의 outputs/ 
 
 # --- 구역 이름(한글) -> 전송 스키마용 영문 키 -----------------------------
 ZONE_KEY = {"좌석": "seating", "카운터": "counter", "통로": "aisle",
-            "직원": "staff", "대기": "waiting"}
+            "직원": "staff", "대기": "waiting", "입구": "entrance"}
 # 대기 인원(queue): 대기 구역이 있으면 그걸, 없으면 카운터(주문)로 근사
 QUEUE_KEY_PRIORITY = ["waiting", "counter"]
 STAFF_KO = "직원"          # 직원 구역(고객 집계에서 제외)
@@ -41,15 +41,14 @@ ZONE_COLOR = {
     "aisle": (0, 200, 0),       # 초록
     "staff": (200, 0, 200),     # 보라(직원)
     "waiting": (0, 80, 255),    # 빨강 계열(대기 줄)
+    "entrance": (180, 180, 0),  # 청록(출입구)
     "unknown": (150, 150, 150),  # 회색(미배정)
 }
 KST = timezone(timedelta(hours=9))
 
 
-def load_zones(path: Path):
-    """zones JSON 로드. AI Hub 계열 JSON은 BOM이 있어 utf-8-sig로 읽는다."""
-    with open(path, encoding="utf-8-sig") as f:
-        data = json.load(f)
+def parse_zones(data):
+    """구역 데이터 객체를 OpenCV 폴리곤 형식으로 변환한다."""
     zones = []
     seq: dict[str, int] = {}
     for z in data.get("zones", []):
@@ -64,6 +63,13 @@ def load_zones(path: Path):
     return data, zones
 
 
+def load_zones(path: Path):
+    """zones JSON 로드. AI Hub 계열 JSON은 BOM이 있어 utf-8-sig로 읽는다."""
+    with open(path, encoding="utf-8-sig") as f:
+        data = json.load(f)
+    return parse_zones(data)
+
+
 def foot_point(box) -> tuple[int, int]:
     """bbox(x1,y1,x2,y2) -> 발 위치(아래 중앙)."""
     x1, y1, x2, y2 = box
@@ -76,6 +82,42 @@ def assign_zone(pt, zones):
         if cv2.pointPolygonTest(z["polygon"], (float(pt[0]), float(pt[1])), False) >= 0:
             return z
     return None
+
+
+def bbox_zone_overlap_ratio(box, zones, *, columns: int = 5, rows: int = 5) -> float:
+    """bbox 중앙~하단의 표본점 중 ROI 안에 들어가는 비율을 반환한다.
+
+    실제 polygon clipping보다 훨씬 단순하지만 카운터에 가려진 사람의 상체/하체 bbox가
+    직원 ROI에 걸치는지 판정하기에는 충분하다.
+    """
+    if not zones or columns <= 0 or rows <= 0:
+        return 0.0
+    x1, y1, x2, y2 = map(float, box)
+    if x2 <= x1 or y2 <= y1:
+        return 0.0
+    # 머리만 ROI에 걸친 경우를 제외하고 몸통 아래 65%만 사용한다.
+    sample_y1 = y1 + (y2 - y1) * 0.35
+    xs = np.linspace(x1, x2, columns + 2)[1:-1]
+    ys = np.linspace(sample_y1, y2, rows + 2)[1:-1]
+    inside = 0
+    total = columns * rows
+    for x in xs:
+        for y in ys:
+            if assign_zone((x, y), zones) is not None:
+                inside += 1
+    return inside / total
+
+
+def staff_zone_evidence(box, zones, *, overlap_threshold: float = 0.30) -> dict:
+    """발 또는 bbox 중첩으로 직원 후보 여부와 근거를 반환한다."""
+    staff_zones = [zone for zone in zones if zone["key"] == "staff"]
+    foot_inside = assign_zone(foot_point(box), staff_zones) is not None
+    overlap_ratio = bbox_zone_overlap_ratio(box, staff_zones)
+    return {
+        "candidate": foot_inside or overlap_ratio >= overlap_threshold,
+        "foot_inside": foot_inside,
+        "overlap_ratio": overlap_ratio,
+    }
 
 
 def congestion_level(count: int) -> str:

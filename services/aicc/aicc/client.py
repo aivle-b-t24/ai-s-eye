@@ -26,10 +26,16 @@ class StoreApiClient:
 
     def __init__(self, transport: httpx.BaseTransport | None = None) -> None:
         settings = get_settings()
+        headers = (
+            {"X-Internal-API-Key": settings.internal_api_key}
+            if settings.internal_api_key
+            else None
+        )
         self._client = httpx.Client(
             base_url=settings.api_base_url,
             timeout=settings.request_timeout_seconds,
             transport=transport,
+            headers=headers,
         )
 
     def close(self) -> None:
@@ -40,6 +46,10 @@ class StoreApiClient:
 
     def __exit__(self, *_: object) -> None:
         self.close()
+
+    def list_stores(self) -> Any:
+        """상태가 등록된 매장 목록. 공용 채널 챗봇의 매장 선택지를 자동 구성하는 데 쓴다."""
+        return self._get("/internal/stores")
 
     def get_store_state(self, store_id: str) -> Any:
         return self._get(f"/api/stores/{quote(store_id)}/state")

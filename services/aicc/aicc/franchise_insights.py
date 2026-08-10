@@ -10,11 +10,14 @@
 """
 
 import json
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from .config import get_settings
+from .store_context import StoreContextProvider, build_sgis_client
 
+logger = logging.getLogger(__name__)
 
 KST = timezone(timedelta(hours=9))
 
@@ -27,10 +30,16 @@ SYSTEM_PROMPT = """너는 프랜차이즈 본사의 운영 분석가다.
 
 규칙:
 - 아래 '집계 데이터'에 있는 숫자만 근거로 분석한다. 데이터에 없는 사실·수치는 절대 지어내지 않는다.
+- 매장을 문장에서 부를 때는 store_id(예: store-001) 또는 상권 정보에 나온 '동 이름'(예: 동명동)만 쓴다.
+  '강남점'·'홍대점'처럼 주어지지 않은 지점명은 절대 지어내지 않는다.
+- 동 이름은 그 매장의 '상권' 줄에 적힌 이름을 글자 그대로만 쓴다. 다른 동네 이름(예: 신림동)으로 바꾸거나
+  추측하지 않는다. 상권 줄이 없으면 동 이름을 아예 쓰지 않고 store_id로만 부른다.
 - 모든 시간은 한국시간(KST) 기준이다.
 - 각 매장에서 가장 두드러진 특이사항 하나를 찾는다. 점심(11~14시) 인원·대기 급증은 congestion,
   오후(14~17시) 방문·주문 증가는 afternoon_demand, 영상 이상은 video_issue로 분류한다.
-- 근거(evidence)에는 판단에 쓴 실제 숫자(피크 인원·대기, 피크 시각, 주문 수 등)를 담는다.
+- 근거(evidence)에는 판단에 쓴 실제 숫자(피크 인원·대기, 피크 시각, 주문 수 등)만 담는다.
+  상권 정보·동 이름·설명 같은 텍스트는 evidence에 넣지 않는다(상권은 probable_cause에서만 다룬다).
+- 주문 데이터 출처가 synthetic_order_simulator이면 합성 데모 수치로 취급하고 실제 POS 실적이라고 표현하지 않는다.
 - 두 매장의 차이를 비교하고, 운영자가 참고할 권장사항을 매장별·비교별로 만든다.
 - 반드시 아래 JSON 형식만 출력한다. 다른 말은 하지 않는다.
 
@@ -44,6 +53,16 @@ SYSTEM_PROMPT = """너는 프랜차이즈 본사의 운영 분석가다.
 - recommendation은 '언제, 무엇을' 하라는 구체적 행동으로 쓴다.
 - 예시) 나쁨: "인원이 많았습니다" / 좋음: "점심 피크(12시) 대기 9명으로 평균(3명)의 3배였습니다"
 
+추정 원인(probable_cause) 규칙 — 이 특이사항이 왜 생겼는지에 대한 '가설'을 쓴다:
+- 근거는 '시간대'·집계 숫자, 그리고 매장에 '상권' 정보가 주어지면 그 상권 통계(SGIS 인구·상권 지수)다.
+  상권 통계가 있으면 그 연령 구성·직장인구/거주인구·아파트 비율을 근거로 "어떤 손님이 왜 오는지"를 추정한다.
+- 상권 통계에 없는 구체 사실(특정 회사명·건물명 등)은 지어내지 않는다. 통계로 뒷받침되는 범위에서만 추정한다.
+- 반드시 "추정"이라는 단어를 넣고, "~로 추정됩니다 / ~일 가능성이 있습니다" 같은 가설 어투로만 쓴다.
+- 시간대 의미 + 상권을 함께 본다: 점심(11~14시)/오후(14~17시)/저녁(17시~) 급증에, 상권의 연령·직장/거주 특성을 더한다.
+  상권 통계가 없으면 시간대만으로 추정한다. 특이 시간대가 아니면 무리해서 이유를 만들지 않는다.
+- 예시) 좋음: "동명동은 20대·직장인구 비중이 높은 도심 상권으로, 점심(12시) 급증은 인근 직장인 점심 수요일 가능성이 있습니다(추정)."
+        나쁨: "옆 건물 대기업 직원들이 옵니다."(상권 통계에 없는 특정 사실 → 지어냄, 금지)
+
 출력 JSON 형식:
 {
   "insights": [
@@ -52,6 +71,7 @@ SYSTEM_PROMPT = """너는 프랜차이즈 본사의 운영 분석가다.
       "insight_type": "congestion | afternoon_demand | video_issue",
       "severity": "high | medium | low | info",
       "summary": "한국어 한두 문장",
+      "probable_cause": "왜 그런지에 대한 추정(가설). 시간대·숫자 근거로만, '추정' 표기 필수",
       "evidence": { "근거 필드": 숫자 },
       "recommendation": "한국어 권장사항"
     }
@@ -89,18 +109,22 @@ def build_client() -> Any | None:
                 location=settings.vertex_location,
             )
         except Exception:
+            # 연결 실패해도 호출한 쪽이 오류 응답으로 처리한다. 원인은 로그로 남긴다.
+            logger.warning("Vertex Gemini 클라이언트 생성 실패", exc_info=True)
             return None
     if not settings.gemini_api_key:
         return None
     return genai.Client(api_key=settings.gemini_api_key)
 
 
-def build_prompt(summary: Any) -> str:
+def build_prompt(summary: Any, profiles: dict[str, str] | None = None) -> str:
     """집계 데이터를 사람이 읽는 숫자 목록으로 바꿔 프롬프트를 만든다.
 
+    profiles로 매장별 상권 프로필(SGIS)을 주면 각 매장 아래에 함께 넣는다.
     시각은 KST로 환산한다. expected_insights 같은 정답 필드는 넣지 않는다
     (애초에 집계 데이터에 없다).
     """
+    profiles = profiles or {}
     lines: list[str] = ["집계 데이터 (기간별, 시간은 KST):"]
     for store in summary.get("stores", []):
         sid = store.get("store_id")
@@ -121,6 +145,9 @@ def build_prompt(summary: Any) -> str:
         lines.append(
             f"  주문: 총 {o.get('total_order_count')}건, 상태 {o.get('latest_status_counts')}"
         )
+        data_sources = o.get("data_sources") or []
+        if data_sources:
+            lines.append(f"  주문 데이터 출처: {', '.join(data_sources)}")
         tops = ", ".join(
             f"{m.get('name')}x{m.get('quantity')}" for m in o.get("top_menu_items", [])[:5]
         )
@@ -129,6 +156,9 @@ def build_prompt(summary: Any) -> str:
         lines.append(
             f"  영상: {v.get('latest_quality_status')}, 이상 {v.get('quality_issue_count')}건"
         )
+        prof = profiles.get(sid)
+        if prof:
+            lines.append(f"  상권: {prof}")
     return "\n".join(lines)
 
 
@@ -154,8 +184,15 @@ def _insight_display_text(insight: dict[str, Any], store_name: str | None = None
     header = f"{emoji} {store} — {type_label}"
     if sev_label:
         header += f" ({sev_label})"
+    # summary(무슨 일) → probable_cause(왜, 추정) → recommendation(그래서 무엇을) 순으로 읽히게 잇는다.
     body = " ".join(
-        part for part in (insight.get("summary"), insight.get("recommendation")) if part
+        part
+        for part in (
+            insight.get("summary"),
+            insight.get("probable_cause"),
+            insight.get("recommendation"),
+        )
+        if part
     )
     return f"{header}\n{body}" if body else header
 
@@ -186,9 +223,15 @@ def attach_display_text(
     return result
 
 
-def generate_insights(summary: Any, client: Any | None = None) -> dict[str, Any]:
+def generate_insights(
+    summary: Any,
+    client: Any | None = None,
+    context_provider: StoreContextProvider | None = None,
+) -> dict[str, Any]:
     """집계 데이터를 Gemini로 분석해 인사이트를 돌려준다.
 
+    context_provider가 있으면(또는 SGIS 키가 설정돼 있으면) 매장별 상권 프로필을 함께 넣어
+    추정 원인을 상권 통계로 뒷받침한다. 상권을 못 구하면 시간대만으로 추정한다.
     반환: {"insights": [...], "comparison": {...}}. 각 항목에 사람이 읽는 display_text 포함.
     집계 형식이 이상하거나 Gemini를 못 쓰면 InsightsUnavailableError를 던진다.
     """
@@ -197,13 +240,30 @@ def generate_insights(summary: Any, client: Any | None = None) -> dict[str, Any]
     if not isinstance(summary, dict) or not isinstance(summary.get("stores"), list):
         raise InsightsUnavailableError("집계 응답 형식이 올바르지 않습니다(stores 목록 없음).")
 
+    # 데이터가 아예 없으면(예: 선택 기간에 집계된 매장 0개) Gemini를 부르지 않는다.
+    # 빈 입력으로 부르면 모델이 매장·수치·상권을 통째로 지어내므로, 명확히 '데이터 없음'을 알린다.
+    if not summary.get("stores"):
+        raise InsightsUnavailableError(
+            "선택한 기간에 분석할 매장 데이터가 없습니다. 다른 기간(최근 7일·30일)을 선택해 주세요."
+        )
+
     client = client if client is not None else build_client()
     if client is None:
         raise InsightsUnavailableError("Gemini 클라이언트를 만들지 못했습니다.")
 
     from google.genai import types
 
-    prompt = build_prompt(summary)
+    # 매장별 상권 프로필(SGIS). 실패/미설정이면 빈 dict → 상권 없이 진행.
+    provider = context_provider or StoreContextProvider(build_sgis_client(get_settings()))
+    profiles: dict[str, str] = {}
+    for store in summary.get("stores", []):
+        sid = store.get("store_id")
+        if sid:
+            text = provider.profile_text(sid)
+            if text:
+                profiles[sid] = text
+
+    prompt = build_prompt(summary, profiles)
     try:
         response = client.models.generate_content(
             model=get_settings().gemini_model,

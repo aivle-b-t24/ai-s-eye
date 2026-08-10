@@ -1,83 +1,92 @@
-import React from "react";
+import React from 'react'
+import { NavLink, useNavigate } from 'react-router-dom'
+
+import { ROUTES } from '../../constants/routes'
+
+const maskName = (name) => {
+  if (!name) return ''
+  const parts = name.split(' ')
+  if (parts.length > 0 && parts[0].length >= 2) {
+    const mainName = parts[0]
+    let masked = ''
+    if (mainName.length === 2) {
+      masked = `${mainName[0]}*`
+    } else {
+      const mid = Math.floor(mainName.length / 2)
+      masked = `${mainName.slice(0, mid)}*${mainName.slice(mid + 1)}`
+    }
+    parts[0] = masked
+    return parts.join(' ')
+  }
+  return name
+}
 
 export default function GnbHeader({
   page,
-  setPage,
-  loadStateOnly,
-  loading,
+  _loadStateOnly,
+  _loading,
   user,
+  needsOnboarding = false,
   onLogout,
+  onOpenProfile,
 }) {
+  const navigate = useNavigate()
+
+  const navClass = ({ isActive }) => `store-nav-link${isActive ? ' is-active' : ''}`
+
   return (
     <header className="gnb-header">
-      <div className="brand-zone">
+      <div
+        className="brand-zone brand-zone-clickable"
+        role="button"
+        tabIndex={0}
+        onClick={() => navigate(ROUTES.HOME)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') navigate(ROUTES.HOME)
+        }}
+        aria-label="메인 페이지로 이동"
+        title="메인 페이지로 이동"
+      >
         <span className="brand-badge">AI MONITORING SYSTEM</span>
         <h1 className="brand-title">AI&apos;s Eye</h1>
       </div>
 
-      <nav className="store-tabs" aria-label="역할별 화면 전환">
-        <button
-          type="button"
-          className={`tab-btn ${page === "store-001" ? "active" : ""}`}
-          onClick={() => setPage("store-001")}
+      <nav className="store-nav" aria-label="매장 관리">
+        <NavLink
+          to={needsOnboarding ? ROUTES.ONBOARDING : ROUTES.DASHBOARD}
+          className={({ isActive }) =>
+            `store-nav-link${
+              isActive || (needsOnboarding && page === 'onboarding') ? ' is-active' : ''
+            }`
+          }
         >
-          [점주] 매장 1
-        </button>
-
-        <button
-          type="button"
-          className={`tab-btn ${page === "store-002" ? "active" : ""}`}
-          onClick={() => setPage("store-002")}
-        >
-          [점주] 매장 2
-        </button>
-
-        <button
-          type="button"
-          className={`tab-btn supervisor-tab ${
-            page === "head-office" ? "active" : ""
-          }`}
-          onClick={() => setPage("head-office")}
-        >
-          [슈퍼바이저] 본사
-        </button>
+          대시보드
+        </NavLink>
+        <NavLink to={ROUTES.MENUS} className={navClass}>
+          메뉴 &amp; 정책
+        </NavLink>
+        <NavLink to={ROUTES.SETTINGS} className={navClass}>
+          설정
+        </NavLink>
       </nav>
 
       <div className="header-actions">
-        <button
-          type="button"
-          className="action-btn refresh-btn"
-          onClick={() =>
-            loadStateOnly(page.startsWith("store") ? page : "store-001", true)
-          }
-          disabled={loading}
-        >
-          {loading ? "갱신 중..." : "새로고침"}
-        </button>
+        <div className="user-profile-badge">
+          <span
+            className="user-name clickable"
+            onClick={onOpenProfile}
+            title="프로필 상세정보 보기"
+          >
+            {maskName(user.name)}
+          </span>
+        </div>
 
-        <button
-          type="button"
-          className={`action-btn settings-btn ${
-            page === "setting" ? "active" : ""
-          }`}
-          onClick={() => setPage("setting")}
-        >
-          설정
-        </button>
-
-        {user && (
-          <div className="user-profile-badge">
-            <span className="user-name">{user.name}</span>
-            <button
-              type="button"
-              className="logout-btn"
-              onClick={onLogout}
-            >
-              로그아웃
-            </button>
-          </div>
-        )}
+        <div className="user-profile-badge">
+          <button type="button" className="logout-btn" onClick={onLogout}>
+            로그아웃
+          </button>
+        </div>
       </div>
     </header>
-  );
+  )
 }

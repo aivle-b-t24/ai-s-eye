@@ -1,0 +1,3202 @@
+{
+"store-001-0000": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0001": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0002": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0003": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0004": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0005": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0006": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0007": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0008": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0009": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0010": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0011": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0012": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0013": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0014": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0015": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0016": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0017": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0018": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0019": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0020": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0021": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0022": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0023": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0024": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0025": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0026": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-001-0027": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-001-0028": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-001-0029": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-001-0030": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-001-0031": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-001-0032": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-001-0033": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-001-0034": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-001-0035": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-001-0036": {
+"waiting": 4,
+"wait_minutes": 9
+},
+"store-001-0037": {
+"waiting": 4,
+"wait_minutes": 9
+},
+"store-001-0038": {
+"waiting": 6,
+"wait_minutes": 13
+},
+"store-001-0039": {
+"waiting": 8,
+"wait_minutes": 17
+},
+"store-001-0040": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-001-0041": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-001-0042": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-001-0043": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-001-0044": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-001-0045": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-001-0046": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-001-0047": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-001-0048": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-001-0049": {
+"waiting": 8,
+"wait_minutes": 15
+},
+"store-001-0050": {
+"waiting": 8,
+"wait_minutes": 15
+},
+"store-001-0051": {
+"waiting": 8,
+"wait_minutes": 15
+},
+"store-001-0052": {
+"waiting": 8,
+"wait_minutes": 15
+},
+"store-001-0053": {
+"waiting": 8,
+"wait_minutes": 15
+},
+"store-001-0054": {
+"waiting": 7,
+"wait_minutes": 15
+},
+"store-001-0055": {
+"waiting": 9,
+"wait_minutes": 19
+},
+"store-001-0056": {
+"waiting": 9,
+"wait_minutes": 19
+},
+"store-001-0057": {
+"waiting": 9,
+"wait_minutes": 19
+},
+"store-001-0058": {
+"waiting": 9,
+"wait_minutes": 19
+},
+"store-001-0059": {
+"waiting": 9,
+"wait_minutes": 18
+},
+"store-001-0060": {
+"waiting": 9,
+"wait_minutes": 18
+},
+"store-001-0061": {
+"waiting": 9,
+"wait_minutes": 18
+},
+"store-001-0062": {
+"waiting": 9,
+"wait_minutes": 18
+},
+"store-001-0063": {
+"waiting": 9,
+"wait_minutes": 18
+},
+"store-001-0064": {
+"waiting": 9,
+"wait_minutes": 18
+},
+"store-001-0065": {
+"waiting": 9,
+"wait_minutes": 18
+},
+"store-001-0066": {
+"waiting": 9,
+"wait_minutes": 18
+},
+"store-001-0067": {
+"waiting": 9,
+"wait_minutes": 18
+},
+"store-001-0068": {
+"waiting": 9,
+"wait_minutes": 17
+},
+"store-001-0069": {
+"waiting": 9,
+"wait_minutes": 17
+},
+"store-001-0070": {
+"waiting": 9,
+"wait_minutes": 17
+},
+"store-001-0071": {
+"waiting": 9,
+"wait_minutes": 17
+},
+"store-001-0072": {
+"waiting": 10,
+"wait_minutes": 21
+},
+"store-001-0073": {
+"waiting": 10,
+"wait_minutes": 21
+},
+"store-001-0074": {
+"waiting": 10,
+"wait_minutes": 21
+},
+"store-001-0075": {
+"waiting": 10,
+"wait_minutes": 21
+},
+"store-001-0076": {
+"waiting": 10,
+"wait_minutes": 21
+},
+"store-001-0077": {
+"waiting": 10,
+"wait_minutes": 20
+},
+"store-001-0078": {
+"waiting": 10,
+"wait_minutes": 20
+},
+"store-001-0079": {
+"waiting": 10,
+"wait_minutes": 20
+},
+"store-001-0080": {
+"waiting": 10,
+"wait_minutes": 20
+},
+"store-001-0081": {
+"waiting": 10,
+"wait_minutes": 20
+},
+"store-001-0082": {
+"waiting": 10,
+"wait_minutes": 20
+},
+"store-001-0083": {
+"waiting": 10,
+"wait_minutes": 20
+},
+"store-001-0084": {
+"waiting": 10,
+"wait_minutes": 20
+},
+"store-001-0085": {
+"waiting": 10,
+"wait_minutes": 20
+},
+"store-001-0086": {
+"waiting": 10,
+"wait_minutes": 19
+},
+"store-001-0087": {
+"waiting": 10,
+"wait_minutes": 19
+},
+"store-001-0088": {
+"waiting": 10,
+"wait_minutes": 19
+},
+"store-001-0089": {
+"waiting": 10,
+"wait_minutes": 19
+},
+"store-001-0090": {
+"waiting": 10,
+"wait_minutes": 19
+},
+"store-001-0091": {
+"waiting": 9,
+"wait_minutes": 19
+},
+"store-001-0092": {
+"waiting": 9,
+"wait_minutes": 19
+},
+"store-001-0093": {
+"waiting": 9,
+"wait_minutes": 19
+},
+"store-001-0094": {
+"waiting": 9,
+"wait_minutes": 19
+},
+"store-001-0095": {
+"waiting": 9,
+"wait_minutes": 18
+},
+"store-001-0096": {
+"waiting": 9,
+"wait_minutes": 18
+},
+"store-001-0097": {
+"waiting": 9,
+"wait_minutes": 18
+},
+"store-001-0098": {
+"waiting": 9,
+"wait_minutes": 18
+},
+"store-001-0099": {
+"waiting": 9,
+"wait_minutes": 18
+},
+"store-001-0100": {
+"waiting": 9,
+"wait_minutes": 18
+},
+"store-001-0101": {
+"waiting": 9,
+"wait_minutes": 18
+},
+"store-001-0102": {
+"waiting": 9,
+"wait_minutes": 18
+},
+"store-001-0103": {
+"waiting": 9,
+"wait_minutes": 18
+},
+"store-001-0104": {
+"waiting": 9,
+"wait_minutes": 17
+},
+"store-001-0105": {
+"waiting": 9,
+"wait_minutes": 17
+},
+"store-001-0106": {
+"waiting": 9,
+"wait_minutes": 17
+},
+"store-001-0107": {
+"waiting": 9,
+"wait_minutes": 17
+},
+"store-001-0108": {
+"waiting": 9,
+"wait_minutes": 17
+},
+"store-001-0109": {
+"waiting": 8,
+"wait_minutes": 17
+},
+"store-001-0110": {
+"waiting": 8,
+"wait_minutes": 17
+},
+"store-001-0111": {
+"waiting": 8,
+"wait_minutes": 17
+},
+"store-001-0112": {
+"waiting": 8,
+"wait_minutes": 17
+},
+"store-001-0113": {
+"waiting": 8,
+"wait_minutes": 17
+},
+"store-001-0114": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-001-0115": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-001-0116": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-001-0117": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-001-0118": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-001-0119": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-001-0120": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-001-0121": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-001-0122": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-001-0123": {
+"waiting": 8,
+"wait_minutes": 15
+},
+"store-001-0124": {
+"waiting": 8,
+"wait_minutes": 15
+},
+"store-001-0125": {
+"waiting": 8,
+"wait_minutes": 15
+},
+"store-001-0126": {
+"waiting": 8,
+"wait_minutes": 15
+},
+"store-001-0127": {
+"waiting": 7,
+"wait_minutes": 15
+},
+"store-001-0128": {
+"waiting": 7,
+"wait_minutes": 15
+},
+"store-001-0129": {
+"waiting": 7,
+"wait_minutes": 15
+},
+"store-001-0130": {
+"waiting": 7,
+"wait_minutes": 15
+},
+"store-001-0131": {
+"waiting": 7,
+"wait_minutes": 15
+},
+"store-001-0132": {
+"waiting": 7,
+"wait_minutes": 14
+},
+"store-001-0133": {
+"waiting": 7,
+"wait_minutes": 14
+},
+"store-001-0134": {
+"waiting": 7,
+"wait_minutes": 14
+},
+"store-001-0135": {
+"waiting": 7,
+"wait_minutes": 14
+},
+"store-001-0136": {
+"waiting": 7,
+"wait_minutes": 14
+},
+"store-001-0137": {
+"waiting": 7,
+"wait_minutes": 14
+},
+"store-001-0138": {
+"waiting": 7,
+"wait_minutes": 14
+},
+"store-001-0139": {
+"waiting": 7,
+"wait_minutes": 14
+},
+"store-001-0140": {
+"waiting": 7,
+"wait_minutes": 14
+},
+"store-001-0141": {
+"waiting": 7,
+"wait_minutes": 13
+},
+"store-001-0142": {
+"waiting": 7,
+"wait_minutes": 13
+},
+"store-001-0143": {
+"waiting": 7,
+"wait_minutes": 13
+},
+"store-001-0144": {
+"waiting": 7,
+"wait_minutes": 13
+},
+"store-001-0145": {
+"waiting": 7,
+"wait_minutes": 13
+},
+"store-001-0146": {
+"waiting": 6,
+"wait_minutes": 13
+},
+"store-001-0147": {
+"waiting": 6,
+"wait_minutes": 13
+},
+"store-001-0148": {
+"waiting": 6,
+"wait_minutes": 13
+},
+"store-001-0149": {
+"waiting": 6,
+"wait_minutes": 13
+},
+"store-001-0150": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-001-0151": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-001-0152": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-001-0153": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-001-0154": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-001-0155": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-001-0156": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-001-0157": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-001-0158": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-001-0159": {
+"waiting": 6,
+"wait_minutes": 11
+},
+"store-001-0160": {
+"waiting": 6,
+"wait_minutes": 11
+},
+"store-001-0161": {
+"waiting": 6,
+"wait_minutes": 11
+},
+"store-001-0162": {
+"waiting": 6,
+"wait_minutes": 11
+},
+"store-001-0163": {
+"waiting": 6,
+"wait_minutes": 11
+},
+"store-001-0164": {
+"waiting": 5,
+"wait_minutes": 11
+},
+"store-001-0165": {
+"waiting": 5,
+"wait_minutes": 11
+},
+"store-001-0166": {
+"waiting": 5,
+"wait_minutes": 11
+},
+"store-001-0167": {
+"waiting": 5,
+"wait_minutes": 11
+},
+"store-001-0168": {
+"waiting": 5,
+"wait_minutes": 11
+},
+"store-001-0169": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-001-0170": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-001-0171": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-001-0172": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-001-0173": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-001-0174": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-001-0175": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-001-0176": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-001-0177": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-001-0178": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-001-0179": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-001-0180": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-001-0181": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-001-0182": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-001-0183": {
+"waiting": 4,
+"wait_minutes": 9
+},
+"store-001-0184": {
+"waiting": 4,
+"wait_minutes": 9
+},
+"store-001-0185": {
+"waiting": 4,
+"wait_minutes": 9
+},
+"store-001-0186": {
+"waiting": 4,
+"wait_minutes": 9
+},
+"store-001-0187": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-001-0188": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-001-0189": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-001-0190": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-001-0191": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-001-0192": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-001-0193": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-001-0194": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-001-0195": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-001-0196": {
+"waiting": 4,
+"wait_minutes": 7
+},
+"store-001-0197": {
+"waiting": 4,
+"wait_minutes": 7
+},
+"store-001-0198": {
+"waiting": 4,
+"wait_minutes": 7
+},
+"store-001-0199": {
+"waiting": 4,
+"wait_minutes": 7
+},
+"store-001-0200": {
+"waiting": 4,
+"wait_minutes": 7
+},
+"store-001-0201": {
+"waiting": 3,
+"wait_minutes": 7
+},
+"store-001-0202": {
+"waiting": 3,
+"wait_minutes": 7
+},
+"store-001-0203": {
+"waiting": 3,
+"wait_minutes": 7
+},
+"store-001-0204": {
+"waiting": 3,
+"wait_minutes": 7
+},
+"store-001-0205": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-001-0206": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-001-0207": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-001-0208": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-001-0209": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-001-0210": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-001-0211": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-001-0212": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-001-0213": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-001-0214": {
+"waiting": 6,
+"wait_minutes": 11
+},
+"store-001-0215": {
+"waiting": 6,
+"wait_minutes": 11
+},
+"store-001-0216": {
+"waiting": 6,
+"wait_minutes": 11
+},
+"store-001-0217": {
+"waiting": 6,
+"wait_minutes": 11
+},
+"store-001-0218": {
+"waiting": 6,
+"wait_minutes": 11
+},
+"store-001-0219": {
+"waiting": 5,
+"wait_minutes": 11
+},
+"store-001-0220": {
+"waiting": 5,
+"wait_minutes": 11
+},
+"store-001-0221": {
+"waiting": 5,
+"wait_minutes": 11
+},
+"store-001-0222": {
+"waiting": 5,
+"wait_minutes": 11
+},
+"store-001-0223": {
+"waiting": 5,
+"wait_minutes": 11
+},
+"store-001-0224": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-001-0225": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-001-0226": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-001-0227": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-001-0228": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-001-0229": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-001-0230": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-001-0231": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-001-0232": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-001-0233": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-001-0234": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-001-0235": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-001-0236": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-001-0237": {
+"waiting": 4,
+"wait_minutes": 9
+},
+"store-001-0238": {
+"waiting": 4,
+"wait_minutes": 9
+},
+"store-001-0239": {
+"waiting": 4,
+"wait_minutes": 9
+},
+"store-001-0240": {
+"waiting": 4,
+"wait_minutes": 9
+},
+"store-001-0241": {
+"waiting": 4,
+"wait_minutes": 9
+},
+"store-001-0242": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-001-0243": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-001-0244": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-001-0245": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-001-0246": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-001-0247": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-001-0248": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-001-0249": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-001-0250": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-001-0251": {
+"waiting": 4,
+"wait_minutes": 7
+},
+"store-001-0252": {
+"waiting": 4,
+"wait_minutes": 7
+},
+"store-001-0253": {
+"waiting": 4,
+"wait_minutes": 7
+},
+"store-001-0254": {
+"waiting": 4,
+"wait_minutes": 7
+},
+"store-001-0255": {
+"waiting": 3,
+"wait_minutes": 7
+},
+"store-001-0256": {
+"waiting": 3,
+"wait_minutes": 7
+},
+"store-001-0257": {
+"waiting": 3,
+"wait_minutes": 7
+},
+"store-001-0258": {
+"waiting": 3,
+"wait_minutes": 7
+},
+"store-001-0259": {
+"waiting": 3,
+"wait_minutes": 7
+},
+"store-001-0260": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-001-0261": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-001-0262": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-001-0263": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-001-0264": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-001-0265": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-001-0266": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-001-0267": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-001-0268": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-001-0269": {
+"waiting": 3,
+"wait_minutes": 5
+},
+"store-001-0270": {
+"waiting": 3,
+"wait_minutes": 5
+},
+"store-001-0271": {
+"waiting": 3,
+"wait_minutes": 5
+},
+"store-001-0272": {
+"waiting": 3,
+"wait_minutes": 5
+},
+"store-001-0273": {
+"waiting": 3,
+"wait_minutes": 5
+},
+"store-001-0274": {
+"waiting": 2,
+"wait_minutes": 5
+},
+"store-001-0275": {
+"waiting": 2,
+"wait_minutes": 5
+},
+"store-001-0276": {
+"waiting": 2,
+"wait_minutes": 5
+},
+"store-001-0277": {
+"waiting": 2,
+"wait_minutes": 5
+},
+"store-001-0278": {
+"waiting": 2,
+"wait_minutes": 4
+},
+"store-001-0279": {
+"waiting": 2,
+"wait_minutes": 4
+},
+"store-001-0280": {
+"waiting": 2,
+"wait_minutes": 4
+},
+"store-001-0281": {
+"waiting": 2,
+"wait_minutes": 4
+},
+"store-001-0282": {
+"waiting": 2,
+"wait_minutes": 4
+},
+"store-001-0283": {
+"waiting": 2,
+"wait_minutes": 4
+},
+"store-001-0284": {
+"waiting": 2,
+"wait_minutes": 4
+},
+"store-001-0285": {
+"waiting": 2,
+"wait_minutes": 4
+},
+"store-001-0286": {
+"waiting": 2,
+"wait_minutes": 4
+},
+"store-001-0287": {
+"waiting": 2,
+"wait_minutes": 4
+},
+"store-001-0288": {
+"waiting": 2,
+"wait_minutes": 3
+},
+"store-001-0289": {
+"waiting": 2,
+"wait_minutes": 3
+},
+"store-001-0290": {
+"waiting": 2,
+"wait_minutes": 3
+},
+"store-001-0291": {
+"waiting": 2,
+"wait_minutes": 3
+},
+"store-001-0292": {
+"waiting": 1,
+"wait_minutes": 3
+},
+"store-001-0293": {
+"waiting": 1,
+"wait_minutes": 3
+},
+"store-001-0294": {
+"waiting": 1,
+"wait_minutes": 3
+},
+"store-001-0295": {
+"waiting": 1,
+"wait_minutes": 3
+},
+"store-001-0296": {
+"waiting": 1,
+"wait_minutes": 3
+},
+"store-001-0297": {
+"waiting": 1,
+"wait_minutes": 2
+},
+"store-001-0298": {
+"waiting": 1,
+"wait_minutes": 2
+},
+"store-001-0299": {
+"waiting": 1,
+"wait_minutes": 2
+},
+"store-001-0300": {
+"waiting": 1,
+"wait_minutes": 2
+},
+"store-001-0301": {
+"waiting": 1,
+"wait_minutes": 2
+},
+"store-001-0302": {
+"waiting": 1,
+"wait_minutes": 2
+},
+"store-001-0303": {
+"waiting": 1,
+"wait_minutes": 2
+},
+"store-001-0304": {
+"waiting": 1,
+"wait_minutes": 2
+},
+"store-001-0305": {
+"waiting": 1,
+"wait_minutes": 2
+},
+"store-001-0306": {
+"waiting": 1,
+"wait_minutes": 1
+},
+"store-001-0307": {
+"waiting": 1,
+"wait_minutes": 1
+},
+"store-001-0308": {
+"waiting": 1,
+"wait_minutes": 1
+},
+"store-001-0309": {
+"waiting": 1,
+"wait_minutes": 1
+},
+"store-001-0310": {
+"waiting": 1,
+"wait_minutes": 1
+},
+"store-001-0311": {
+"waiting": 0,
+"wait_minutes": 1
+},
+"store-001-0312": {
+"waiting": 0,
+"wait_minutes": 1
+},
+"store-001-0313": {
+"waiting": 0,
+"wait_minutes": 1
+},
+"store-001-0314": {
+"waiting": 0,
+"wait_minutes": 1
+},
+"store-001-0315": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0316": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0317": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0318": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0319": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0320": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0321": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0322": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0323": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0324": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0325": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0326": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0327": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0328": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0329": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0330": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0331": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0332": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0333": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0334": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0335": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0336": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0337": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0338": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0339": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0340": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0341": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0342": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0343": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0344": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0345": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0346": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0347": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0348": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0349": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0350": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0351": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0352": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0353": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0354": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0355": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0356": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0357": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0358": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0359": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0360": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0361": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0362": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0363": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0364": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0365": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0366": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0367": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0368": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0369": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0370": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0371": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0372": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0373": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0374": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0375": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0376": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0377": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0378": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0379": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0380": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0381": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0382": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0383": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0384": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0385": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0386": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0387": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0388": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0389": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0390": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0391": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0392": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0393": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0394": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0395": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0396": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0397": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0398": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0399": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0400": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-001-0401": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0000": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0001": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0002": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0003": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0004": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0005": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0006": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0007": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0008": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-002-0009": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-002-0010": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-002-0011": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-002-0012": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-002-0013": {
+"waiting": 6,
+"wait_minutes": 11
+},
+"store-002-0014": {
+"waiting": 7,
+"wait_minutes": 13
+},
+"store-002-0015": {
+"waiting": 7,
+"wait_minutes": 13
+},
+"store-002-0016": {
+"waiting": 7,
+"wait_minutes": 13
+},
+"store-002-0017": {
+"waiting": 6,
+"wait_minutes": 13
+},
+"store-002-0018": {
+"waiting": 6,
+"wait_minutes": 13
+},
+"store-002-0019": {
+"waiting": 6,
+"wait_minutes": 13
+},
+"store-002-0020": {
+"waiting": 6,
+"wait_minutes": 13
+},
+"store-002-0021": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-002-0022": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-002-0023": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-002-0024": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-002-0025": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-002-0026": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-002-0027": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-002-0028": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-002-0029": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-002-0030": {
+"waiting": 6,
+"wait_minutes": 11
+},
+"store-002-0031": {
+"waiting": 6,
+"wait_minutes": 11
+},
+"store-002-0032": {
+"waiting": 6,
+"wait_minutes": 11
+},
+"store-002-0033": {
+"waiting": 6,
+"wait_minutes": 11
+},
+"store-002-0034": {
+"waiting": 5,
+"wait_minutes": 11
+},
+"store-002-0035": {
+"waiting": 5,
+"wait_minutes": 11
+},
+"store-002-0036": {
+"waiting": 5,
+"wait_minutes": 11
+},
+"store-002-0037": {
+"waiting": 5,
+"wait_minutes": 11
+},
+"store-002-0038": {
+"waiting": 5,
+"wait_minutes": 11
+},
+"store-002-0039": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0040": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0041": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0042": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0043": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0044": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0045": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0046": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0047": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-002-0048": {
+"waiting": 6,
+"wait_minutes": 11
+},
+"store-002-0049": {
+"waiting": 6,
+"wait_minutes": 11
+},
+"store-002-0050": {
+"waiting": 6,
+"wait_minutes": 11
+},
+"store-002-0051": {
+"waiting": 6,
+"wait_minutes": 11
+},
+"store-002-0052": {
+"waiting": 5,
+"wait_minutes": 11
+},
+"store-002-0054": {
+"waiting": 5,
+"wait_minutes": 11
+},
+"store-002-0055": {
+"waiting": 5,
+"wait_minutes": 11
+},
+"store-002-0056": {
+"waiting": 5,
+"wait_minutes": 11
+},
+"store-002-0057": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0058": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0059": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0060": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0061": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0062": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0063": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0064": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0065": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0066": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-002-0067": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-002-0068": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-002-0069": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-002-0070": {
+"waiting": 4,
+"wait_minutes": 9
+},
+"store-002-0071": {
+"waiting": 4,
+"wait_minutes": 9
+},
+"store-002-0072": {
+"waiting": 4,
+"wait_minutes": 9
+},
+"store-002-0073": {
+"waiting": 4,
+"wait_minutes": 9
+},
+"store-002-0074": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-002-0075": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-002-0076": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-002-0077": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-002-0078": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-002-0079": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-002-0080": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-002-0081": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-002-0082": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-002-0083": {
+"waiting": 4,
+"wait_minutes": 7
+},
+"store-002-0085": {
+"waiting": 4,
+"wait_minutes": 7
+},
+"store-002-0086": {
+"waiting": 4,
+"wait_minutes": 7
+},
+"store-002-0087": {
+"waiting": 4,
+"wait_minutes": 7
+},
+"store-002-0088": {
+"waiting": 3,
+"wait_minutes": 7
+},
+"store-002-0089": {
+"waiting": 3,
+"wait_minutes": 7
+},
+"store-002-0090": {
+"waiting": 3,
+"wait_minutes": 7
+},
+"store-002-0091": {
+"waiting": 3,
+"wait_minutes": 7
+},
+"store-002-0092": {
+"waiting": 3,
+"wait_minutes": 7
+},
+"store-002-0093": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-002-0094": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-002-0095": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-002-0096": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-002-0097": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0098": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-002-0099": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-002-0100": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-002-0101": {
+"waiting": 6,
+"wait_minutes": 11
+},
+"store-002-0102": {
+"waiting": 6,
+"wait_minutes": 11
+},
+"store-002-0103": {
+"waiting": 6,
+"wait_minutes": 11
+},
+"store-002-0104": {
+"waiting": 6,
+"wait_minutes": 11
+},
+"store-002-0105": {
+"waiting": 6,
+"wait_minutes": 11
+},
+"store-002-0106": {
+"waiting": 5,
+"wait_minutes": 11
+},
+"store-002-0107": {
+"waiting": 5,
+"wait_minutes": 11
+},
+"store-002-0108": {
+"waiting": 5,
+"wait_minutes": 11
+},
+"store-002-0109": {
+"waiting": 5,
+"wait_minutes": 11
+},
+"store-002-0110": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0111": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0112": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0113": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0114": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0115": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0116": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0117": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0118": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0119": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-002-0120": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-002-0121": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-002-0122": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-002-0123": {
+"waiting": 4,
+"wait_minutes": 9
+},
+"store-002-0124": {
+"waiting": 4,
+"wait_minutes": 9
+},
+"store-002-0125": {
+"waiting": 4,
+"wait_minutes": 9
+},
+"store-002-0126": {
+"waiting": 4,
+"wait_minutes": 9
+},
+"store-002-0127": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-002-0128": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-002-0129": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-002-0130": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-002-0131": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-002-0132": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-002-0133": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-002-0134": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-002-0135": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-002-0136": {
+"waiting": 4,
+"wait_minutes": 7
+},
+"store-002-0137": {
+"waiting": 4,
+"wait_minutes": 7
+},
+"store-002-0138": {
+"waiting": 4,
+"wait_minutes": 7
+},
+"store-002-0139": {
+"waiting": 4,
+"wait_minutes": 7
+},
+"store-002-0140": {
+"waiting": 3,
+"wait_minutes": 7
+},
+"store-002-0141": {
+"waiting": 3,
+"wait_minutes": 7
+},
+"store-002-0142": {
+"waiting": 3,
+"wait_minutes": 7
+},
+"store-002-0143": {
+"waiting": 3,
+"wait_minutes": 7
+},
+"store-002-0144": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-002-0145": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-002-0146": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-002-0147": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-002-0148": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-002-0149": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-002-0150": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-002-0151": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-002-0152": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-002-0153": {
+"waiting": 3,
+"wait_minutes": 5
+},
+"store-002-0154": {
+"waiting": 3,
+"wait_minutes": 5
+},
+"store-002-0155": {
+"waiting": 3,
+"wait_minutes": 5
+},
+"store-002-0156": {
+"waiting": 3,
+"wait_minutes": 5
+},
+"store-002-0157": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-002-0158": {
+"waiting": 4,
+"wait_minutes": 9
+},
+"store-002-0159": {
+"waiting": 4,
+"wait_minutes": 9
+},
+"store-002-0160": {
+"waiting": 4,
+"wait_minutes": 9
+},
+"store-002-0161": {
+"waiting": 8,
+"wait_minutes": 17
+},
+"store-002-0162": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-002-0163": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-002-0164": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-002-0165": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-002-0166": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-002-0167": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-002-0168": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-002-0169": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-002-0170": {
+"waiting": 8,
+"wait_minutes": 15
+},
+"store-002-0171": {
+"waiting": 8,
+"wait_minutes": 15
+},
+"store-002-0172": {
+"waiting": 8,
+"wait_minutes": 15
+},
+"store-002-0173": {
+"waiting": 8,
+"wait_minutes": 15
+},
+"store-002-0174": {
+"waiting": 8,
+"wait_minutes": 15
+},
+"store-002-0175": {
+"waiting": 7,
+"wait_minutes": 15
+},
+"store-002-0176": {
+"waiting": 7,
+"wait_minutes": 15
+},
+"store-002-0177": {
+"waiting": 7,
+"wait_minutes": 15
+},
+"store-002-0178": {
+"waiting": 7,
+"wait_minutes": 15
+},
+"store-002-0179": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-002-0180": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-002-0181": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-002-0182": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-002-0183": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-002-0184": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-002-0185": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-002-0186": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-002-0187": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-002-0188": {
+"waiting": 8,
+"wait_minutes": 15
+},
+"store-002-0189": {
+"waiting": 8,
+"wait_minutes": 15
+},
+"store-002-0190": {
+"waiting": 8,
+"wait_minutes": 15
+},
+"store-002-0191": {
+"waiting": 8,
+"wait_minutes": 15
+},
+"store-002-0192": {
+"waiting": 7,
+"wait_minutes": 15
+},
+"store-002-0193": {
+"waiting": 7,
+"wait_minutes": 15
+},
+"store-002-0194": {
+"waiting": 7,
+"wait_minutes": 15
+},
+"store-002-0195": {
+"waiting": 7,
+"wait_minutes": 15
+},
+"store-002-0196": {
+"waiting": 7,
+"wait_minutes": 14
+},
+"store-002-0197": {
+"waiting": 7,
+"wait_minutes": 14
+},
+"store-002-0198": {
+"waiting": 7,
+"wait_minutes": 14
+},
+"store-002-0199": {
+"waiting": 7,
+"wait_minutes": 14
+},
+"store-002-0200": {
+"waiting": 7,
+"wait_minutes": 14
+},
+"store-002-0201": {
+"waiting": 7,
+"wait_minutes": 14
+},
+"store-002-0202": {
+"waiting": 7,
+"wait_minutes": 14
+},
+"store-002-0203": {
+"waiting": 7,
+"wait_minutes": 14
+},
+"store-002-0204": {
+"waiting": 7,
+"wait_minutes": 14
+},
+"store-002-0205": {
+"waiting": 7,
+"wait_minutes": 13
+},
+"store-002-0206": {
+"waiting": 7,
+"wait_minutes": 13
+},
+"store-002-0207": {
+"waiting": 7,
+"wait_minutes": 13
+},
+"store-002-0208": {
+"waiting": 7,
+"wait_minutes": 13
+},
+"store-002-0209": {
+"waiting": 6,
+"wait_minutes": 13
+},
+"store-002-0210": {
+"waiting": 6,
+"wait_minutes": 13
+},
+"store-002-0211": {
+"waiting": 6,
+"wait_minutes": 13
+},
+"store-002-0212": {
+"waiting": 6,
+"wait_minutes": 13
+},
+"store-002-0213": {
+"waiting": 6,
+"wait_minutes": 13
+},
+"store-002-0214": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-002-0215": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-002-0216": {
+"waiting": 9,
+"wait_minutes": 18
+},
+"store-002-0217": {
+"waiting": 9,
+"wait_minutes": 18
+},
+"store-002-0218": {
+"waiting": 9,
+"wait_minutes": 18
+},
+"store-002-0219": {
+"waiting": 9,
+"wait_minutes": 18
+},
+"store-002-0220": {
+"waiting": 9,
+"wait_minutes": 18
+},
+"store-002-0221": {
+"waiting": 9,
+"wait_minutes": 18
+},
+"store-002-0222": {
+"waiting": 9,
+"wait_minutes": 17
+},
+"store-002-0223": {
+"waiting": 9,
+"wait_minutes": 17
+},
+"store-002-0224": {
+"waiting": 9,
+"wait_minutes": 17
+},
+"store-002-0225": {
+"waiting": 9,
+"wait_minutes": 17
+},
+"store-002-0226": {
+"waiting": 8,
+"wait_minutes": 17
+},
+"store-002-0227": {
+"waiting": 8,
+"wait_minutes": 17
+},
+"store-002-0228": {
+"waiting": 8,
+"wait_minutes": 17
+},
+"store-002-0229": {
+"waiting": 8,
+"wait_minutes": 17
+},
+"store-002-0230": {
+"waiting": 8,
+"wait_minutes": 17
+},
+"store-002-0231": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-002-0232": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-002-0233": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-002-0234": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-002-0235": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-002-0236": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-002-0237": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-002-0238": {
+"waiting": 8,
+"wait_minutes": 16
+},
+"store-002-0239": {
+"waiting": 8,
+"wait_minutes": 15
+},
+"store-002-0240": {
+"waiting": 8,
+"wait_minutes": 15
+},
+"store-002-0241": {
+"waiting": 8,
+"wait_minutes": 15
+},
+"store-002-0242": {
+"waiting": 8,
+"wait_minutes": 15
+},
+"store-002-0243": {
+"waiting": 8,
+"wait_minutes": 15
+},
+"store-002-0244": {
+"waiting": 7,
+"wait_minutes": 15
+},
+"store-002-0245": {
+"waiting": 7,
+"wait_minutes": 15
+},
+"store-002-0246": {
+"waiting": 7,
+"wait_minutes": 15
+},
+"store-002-0247": {
+"waiting": 7,
+"wait_minutes": 15
+},
+"store-002-0248": {
+"waiting": 7,
+"wait_minutes": 14
+},
+"store-002-0249": {
+"waiting": 7,
+"wait_minutes": 14
+},
+"store-002-0250": {
+"waiting": 7,
+"wait_minutes": 14
+},
+"store-002-0251": {
+"waiting": 7,
+"wait_minutes": 14
+},
+"store-002-0252": {
+"waiting": 7,
+"wait_minutes": 14
+},
+"store-002-0253": {
+"waiting": 7,
+"wait_minutes": 14
+},
+"store-002-0254": {
+"waiting": 7,
+"wait_minutes": 14
+},
+"store-002-0255": {
+"waiting": 7,
+"wait_minutes": 14
+},
+"store-002-0256": {
+"waiting": 7,
+"wait_minutes": 14
+},
+"store-002-0257": {
+"waiting": 7,
+"wait_minutes": 13
+},
+"store-002-0258": {
+"waiting": 7,
+"wait_minutes": 13
+},
+"store-002-0259": {
+"waiting": 7,
+"wait_minutes": 13
+},
+"store-002-0260": {
+"waiting": 7,
+"wait_minutes": 13
+},
+"store-002-0261": {
+"waiting": 6,
+"wait_minutes": 13
+},
+"store-002-0262": {
+"waiting": 6,
+"wait_minutes": 13
+},
+"store-002-0263": {
+"waiting": 6,
+"wait_minutes": 13
+},
+"store-002-0264": {
+"waiting": 6,
+"wait_minutes": 13
+},
+"store-002-0265": {
+"waiting": 6,
+"wait_minutes": 13
+},
+"store-002-0266": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-002-0267": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-002-0268": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-002-0269": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-002-0270": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-002-0271": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-002-0272": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-002-0273": {
+"waiting": 6,
+"wait_minutes": 12
+},
+"store-002-0274": {
+"waiting": 6,
+"wait_minutes": 11
+},
+"store-002-0275": {
+"waiting": 6,
+"wait_minutes": 11
+},
+"store-002-0276": {
+"waiting": 6,
+"wait_minutes": 11
+},
+"store-002-0277": {
+"waiting": 6,
+"wait_minutes": 11
+},
+"store-002-0278": {
+"waiting": 5,
+"wait_minutes": 11
+},
+"store-002-0279": {
+"waiting": 5,
+"wait_minutes": 11
+},
+"store-002-0280": {
+"waiting": 5,
+"wait_minutes": 11
+},
+"store-002-0281": {
+"waiting": 5,
+"wait_minutes": 11
+},
+"store-002-0282": {
+"waiting": 5,
+"wait_minutes": 11
+},
+"store-002-0283": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0284": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0285": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0286": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0287": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0288": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0289": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0290": {
+"waiting": 5,
+"wait_minutes": 10
+},
+"store-002-0291": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-002-0292": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-002-0293": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-002-0294": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-002-0295": {
+"waiting": 5,
+"wait_minutes": 9
+},
+"store-002-0296": {
+"waiting": 4,
+"wait_minutes": 9
+},
+"store-002-0297": {
+"waiting": 4,
+"wait_minutes": 9
+},
+"store-002-0298": {
+"waiting": 4,
+"wait_minutes": 9
+},
+"store-002-0299": {
+"waiting": 4,
+"wait_minutes": 9
+},
+"store-002-0300": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-002-0301": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-002-0302": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-002-0304": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-002-0305": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-002-0306": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-002-0307": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-002-0308": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-002-0309": {
+"waiting": 4,
+"wait_minutes": 8
+},
+"store-002-0310": {
+"waiting": 4,
+"wait_minutes": 7
+},
+"store-002-0311": {
+"waiting": 4,
+"wait_minutes": 7
+},
+"store-002-0312": {
+"waiting": 4,
+"wait_minutes": 7
+},
+"store-002-0313": {
+"waiting": 4,
+"wait_minutes": 7
+},
+"store-002-0314": {
+"waiting": 3,
+"wait_minutes": 7
+},
+"store-002-0315": {
+"waiting": 3,
+"wait_minutes": 7
+},
+"store-002-0316": {
+"waiting": 3,
+"wait_minutes": 7
+},
+"store-002-0317": {
+"waiting": 3,
+"wait_minutes": 7
+},
+"store-002-0318": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-002-0319": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-002-0320": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-002-0321": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-002-0322": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-002-0323": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-002-0324": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-002-0325": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-002-0326": {
+"waiting": 3,
+"wait_minutes": 6
+},
+"store-002-0327": {
+"waiting": 3,
+"wait_minutes": 5
+},
+"store-002-0328": {
+"waiting": 3,
+"wait_minutes": 5
+},
+"store-002-0329": {
+"waiting": 3,
+"wait_minutes": 5
+},
+"store-002-0330": {
+"waiting": 3,
+"wait_minutes": 5
+},
+"store-002-0331": {
+"waiting": 2,
+"wait_minutes": 5
+},
+"store-002-0332": {
+"waiting": 2,
+"wait_minutes": 5
+},
+"store-002-0333": {
+"waiting": 2,
+"wait_minutes": 5
+},
+"store-002-0334": {
+"waiting": 2,
+"wait_minutes": 5
+},
+"store-002-0335": {
+"waiting": 2,
+"wait_minutes": 5
+},
+"store-002-0336": {
+"waiting": 2,
+"wait_minutes": 4
+},
+"store-002-0337": {
+"waiting": 2,
+"wait_minutes": 4
+},
+"store-002-0338": {
+"waiting": 2,
+"wait_minutes": 4
+},
+"store-002-0339": {
+"waiting": 2,
+"wait_minutes": 4
+},
+"store-002-0340": {
+"waiting": 2,
+"wait_minutes": 4
+},
+"store-002-0341": {
+"waiting": 2,
+"wait_minutes": 4
+},
+"store-002-0342": {
+"waiting": 2,
+"wait_minutes": 4
+},
+"store-002-0343": {
+"waiting": 2,
+"wait_minutes": 4
+},
+"store-002-0344": {
+"waiting": 2,
+"wait_minutes": 3
+},
+"store-002-0345": {
+"waiting": 2,
+"wait_minutes": 3
+},
+"store-002-0346": {
+"waiting": 2,
+"wait_minutes": 3
+},
+"store-002-0347": {
+"waiting": 2,
+"wait_minutes": 3
+},
+"store-002-0348": {
+"waiting": 2,
+"wait_minutes": 3
+},
+"store-002-0349": {
+"waiting": 1,
+"wait_minutes": 3
+},
+"store-002-0350": {
+"waiting": 1,
+"wait_minutes": 3
+},
+"store-002-0351": {
+"waiting": 1,
+"wait_minutes": 3
+},
+"store-002-0352": {
+"waiting": 1,
+"wait_minutes": 3
+},
+"store-002-0353": {
+"waiting": 1,
+"wait_minutes": 2
+},
+"store-002-0355": {
+"waiting": 1,
+"wait_minutes": 2
+},
+"store-002-0356": {
+"waiting": 1,
+"wait_minutes": 2
+},
+"store-002-0357": {
+"waiting": 1,
+"wait_minutes": 2
+},
+"store-002-0358": {
+"waiting": 1,
+"wait_minutes": 2
+},
+"store-002-0359": {
+"waiting": 1,
+"wait_minutes": 2
+},
+"store-002-0360": {
+"waiting": 1,
+"wait_minutes": 2
+},
+"store-002-0361": {
+"waiting": 1,
+"wait_minutes": 2
+},
+"store-002-0362": {
+"waiting": 1,
+"wait_minutes": 2
+},
+"store-002-0363": {
+"waiting": 1,
+"wait_minutes": 1
+},
+"store-002-0364": {
+"waiting": 1,
+"wait_minutes": 1
+},
+"store-002-0365": {
+"waiting": 1,
+"wait_minutes": 1
+},
+"store-002-0366": {
+"waiting": 1,
+"wait_minutes": 1
+},
+"store-002-0367": {
+"waiting": 0,
+"wait_minutes": 1
+},
+"store-002-0368": {
+"waiting": 0,
+"wait_minutes": 1
+},
+"store-002-0369": {
+"waiting": 0,
+"wait_minutes": 1
+},
+"store-002-0370": {
+"waiting": 0,
+"wait_minutes": 1
+},
+"store-002-0371": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0372": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0373": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0374": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0375": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0376": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0377": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0378": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0379": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0380": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0381": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0382": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0383": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0384": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0385": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0386": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0387": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0388": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0389": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0390": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0391": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0392": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0393": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0394": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0395": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0396": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0397": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0398": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0399": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0400": {
+"waiting": 0,
+"wait_minutes": 0
+},
+"store-002-0401": {
+"waiting": 0,
+"wait_minutes": 0
+}
+}

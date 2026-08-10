@@ -1,8 +1,10 @@
+import csv
+import io
 from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
 
-from app.main import default_summary_period
+from app.main import default_summary_period, repository
 
 
 def valid_store_state(store_id: str = "store-test") -> dict:
@@ -43,6 +45,38 @@ def test_missing_store_state_returns_404(client: TestClient) -> None:
     response = client.get("/api/stores/store-does-not-exist/state")
 
     assert response.status_code == 404
+
+
+def test_registered_store_without_state_returns_empty_snapshot(
+    client: TestClient,
+) -> None:
+    created = repository.create_store("빈상태점")
+    store_id = created.id
+    try:
+        state_response = client.get(f"/api/stores/{store_id}/state")
+        eta_response = client.get(f"/api/stores/{store_id}/eta")
+
+        assert state_response.status_code == 200
+        body = state_response.json()
+        assert body["store_id"] == store_id
+        assert body["visible_person_count"] == 0
+        assert body["source"] == "empty"
+        assert eta_response.status_code == 200
+        assert eta_response.json()["estimated_wait_minutes"] == 0
+        assert eta_response.json()["data_source"] == "empty"
+    finally:
+        # 다른 테스트의 다음 store_id 발급을 오염시키지 않도록 정리한다.
+        repository.delete_store(store_id)
+
+
+def test_internal_stores_returns_master_with_names(client: TestClient) -> None:
+    """서비스용 /internal/stores는 매장 마스터(ID+표시명)를 반환한다. AICC 챗봇이 씀."""
+    response = client.get("/internal/stores")
+
+    assert response.status_code == 200
+    stores = {item["store_id"]: item["name"] for item in response.json()["stores"]}
+    assert stores.get("store-001") == "동명점"
+    assert stores.get("store-002") == "수완점"
 
 
 def test_invalid_store_state_is_rejected(client: TestClient) -> None:
@@ -307,6 +341,19 @@ def test_store_timeline_rejects_period_over_31_days(client: TestClient) -> None:
     assert response.json()["detail"] == "timeline period must not exceed 31 days"
 
 
+def test_store_timeline_rejects_unknown_interval(client: TestClient) -> None:
+    response = client.get(
+        "/api/stores/store-001/timeline",
+        params={
+            "start_at": "2026-07-22T00:00:00+09:00",
+            "end_at": "2026-07-23T00:00:00+09:00",
+            "interval": "1w",
+        },
+    )
+
+    assert response.status_code == 422
+
+
 def test_invalid_order_status_is_rejected(client: TestClient) -> None:
     payload = {
         "event_id": "event-invalid",
@@ -320,3 +367,179 @@ def test_invalid_order_status_is_rejected(client: TestClient) -> None:
     response = client.post("/internal/order-events", json=payload)
 
     assert response.status_code == 422
+
+
+def test_orders_can_be_downloaded_as_csv(client: TestClient) -> None:
+    order_id = "sim-api-export-test-store-001-000001"
+    base_event = {
+        "order_id": order_id,
+        "store_id": "store-001",
+        "items": [{"menu_id": "americano", "name": "아메리카노", "quantity": 1}],
+    }
+    for event_id, status_name, occurred_at in [
+        ("export-received", "received", "2026-07-29T10:00:00+09:00"),
+        ("export-completed", "completed", "2026-07-29T10:03:00+09:00"),
+    ]:
+        response = client.post(
+            "/internal/order-events",
+            json={
+                **base_event,
+                "event_id": event_id,
+                "status": status_name,
+                "occurred_at": occurred_at,
+            },
+        )
+        assert response.status_code == 202
+
+    response = client.get(
+        "/api/exports/orders.csv",
+        params={
+            "start_at": "2026-07-29T00:00:00+09:00",
+            "end_at": "2026-07-30T00:00:00+09:00",
+            "store_id": "store-001",
+        },
+    )
+    rows = list(
+        csv.DictReader(io.StringIO(response.content.decode("utf-8-sig")))
+    )
+    exported = next(row for row in rows if row["order_id"] == order_id)
+
+    assert response.status_code == 200
+    assert response.content.startswith(b"\xef\xbb\xbf")
+    assert response.headers["content-type"] == "text/csv; charset=utf-8"
+    assert response.headers["content-disposition"] == (
+        'attachment; filename="orders_2026-07-29_2026-07-29.csv"'
+    )
+    assert exported["simulation_run_id"] == "api-export-test"
+    assert exported["final_status"] == "completed"
+
+
+def test_order_csv_export_requires_timezones(client: TestClient) -> None:
+    response = client.get(
+        "/api/exports/orders.csv",
+        params={
+            "start_at": "2026-07-01T00:00:00",
+            "end_at": "2026-07-31T00:00:00",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == (
+        "start_at and end_at must include a timezone"
+    )
+
+
+def test_order_csv_export_rejects_period_over_31_days(
+    client: TestClient,
+) -> None:
+    response = client.get(
+        "/api/exports/orders.csv",
+        params={
+            "start_at": "2026-06-01T00:00:00+09:00",
+            "end_at": "2026-07-03T00:00:00+09:00",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == (
+        "order export period must not exceed 31 days"
+    )
+
+
+def test_store_settings_default_for_unset_store(client: TestClient) -> None:
+    response = client.get("/api/stores/store-001/settings")
+    assert response.status_code == 200
+    assert response.json()["max_capacity"] == 30  # 기본 수용 인원
+
+
+def test_store_settings_save_and_read(client: TestClient) -> None:
+    put_response = client.put(
+        "/api/stores/store-002/settings", json={"max_capacity": 25}
+    )
+    assert put_response.status_code == 200
+    assert put_response.json()["max_capacity"] == 25
+
+    read_response = client.get("/api/stores/store-002/settings")
+    assert read_response.status_code == 200
+    assert read_response.json()["max_capacity"] == 25
+
+
+def test_store_settings_rejects_unknown_store(client: TestClient) -> None:
+    response = client.put(
+        "/api/stores/store-unknown/settings", json={"max_capacity": 20}
+    )
+    assert response.status_code == 422
+
+
+def test_store_policy_crud(client: TestClient) -> None:
+    # 1. GET initial policies (seeded from json)
+    get_res = client.get("/api/stores/store-001/policies")
+    assert get_res.status_code == 200
+    policies = get_res.json()["policies"]
+    assert len(policies) > 0
+
+    # 2. POST create new policy
+    new_policy = {
+        "category": "facility",
+        "title": "Wi-Fi 안내",
+        "content": "비밀번호는 12345678 입니다.",
+        "keywords": ["와이파이", "wifi"]
+    }
+    post_res = client.post("/api/stores/store-001/policies", json=new_policy)
+    assert post_res.status_code == 201
+    created = post_res.json()
+    assert created["title"] == "Wi-Fi 안내"
+    policy_id = created["policy_id"]
+
+    # 3. PUT update policy
+    updated_policy = {
+        "category": "facility",
+        "title": "Wi-Fi 무료 이용",
+        "content": "비밀번호는 wifi1234 입니다.",
+        "keywords": ["와이파이", "wifi", "무료"]
+    }
+    put_res = client.put(f"/api/stores/store-001/policies/{policy_id}", json=updated_policy)
+    assert put_res.status_code == 200
+    assert put_res.json()["title"] == "Wi-Fi 무료 이용"
+
+    # 4. DELETE policy
+    del_res = client.delete(f"/api/stores/store-001/policies/{policy_id}")
+    assert del_res.status_code == 200
+    assert del_res.json()["deleted"] is True
+
+
+def test_store_menu_crud_and_toggle(client: TestClient) -> None:
+    # 1. GET initial menus (seeded from json)
+    get_res = client.get("/api/stores/store-001/menus")
+    assert get_res.status_code == 200
+    menus = get_res.json()["menus"]
+    assert len(menus) > 0
+
+    # 2. POST create new menu
+    new_menu = {
+        "category": "coffee",
+        "name": "디카페인 아메리카노",
+        "price": 4800,
+        "prep_minutes": 3,
+        "available": True,
+        "sold_out_reason": None,
+    }
+    post_res = client.post("/api/stores/store-001/menus", json=new_menu)
+    assert post_res.status_code == 201
+    created = post_res.json()
+    assert created["name"] == "디카페인 아메리카노"
+    menu_id = created["menu_id"]
+
+    # 3. PATCH 1-click toggle sold out
+    patch_res = client.patch(
+        f"/api/stores/store-001/menus/{menu_id}/toggle-sold-out",
+        json={"available": False, "sold_out_reason": "원두 일시 품절"},
+    )
+    assert patch_res.status_code == 200
+    assert patch_res.json()["available"] is False
+    assert patch_res.json()["sold_out_reason"] == "원두 일시 품절"
+
+    # 4. DELETE menu
+    del_res = client.delete(f"/api/stores/store-001/menus/{menu_id}")
+    assert del_res.status_code == 200
+    assert del_res.json()["deleted"] is True

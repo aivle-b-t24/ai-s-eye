@@ -33,12 +33,24 @@ services:
       SAMPLE_DATA_DIR: /workspace/samples
       VISION_SNAPSHOT_DIR: /workspace/vision-snapshots
       VISION_SNAPSHOT_MAX_BYTES: ${VISION_SNAPSHOT_MAX_BYTES:-5242880}
+      STORE_MEDIA_DIR: /workspace/store-media
+      STORE_MEDIA_MAX_BYTES: ${STORE_MEDIA_MAX_BYTES:-209715200}
       VISION_STORE_IDS: ${VISION_STORE_IDS:-store-001,store-002}
+      AUTH_REQUIRED: ${AUTH_REQUIRED:-true}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+      FIREBASE_CREDENTIALS: ${FIREBASE_CREDENTIALS:-}
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase-adc.json
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
     ports:
       - "${API_BIND_HOST:-0.0.0.0}:${API_PORT:-8000}:8000"
     volumes:
       - ./samples:/workspace/samples:ro
       - vision_snapshot_data:/workspace/vision-snapshots
+      - store_media_data:/workspace/store-media
+      - type: bind
+        source: ${FIREBASE_ADC_HOST_PATH:-/dev/null}
+        target: /run/secrets/firebase-adc.json
+        read_only: true
     depends_on:
       db:
         condition: service_healthy
@@ -53,6 +65,63 @@ services:
       retries: 5
       start_period: 10s
 
+  api-dev:
+    build:
+      context: ./services/api
+    restart: unless-stopped
+    profiles:
+      - team-dev
+    environment:
+      APP_NAME: ${APP_NAME:-AI's Eye API} Team Dev
+      APP_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-store}:${POSTGRES_PASSWORD:-change-me-for-local-development}@db:5432/${POSTGRES_DB:-store}
+      CORS_ORIGINS: ${API_DEV_CORS_ORIGINS:-http://localhost:5173}
+      SAMPLE_DATA_DIR: /workspace/samples
+      VISION_SNAPSHOT_DIR: /workspace/vision-snapshots
+      VISION_SNAPSHOT_MAX_BYTES: ${VISION_SNAPSHOT_MAX_BYTES:-5242880}
+      STORE_MEDIA_DIR: /workspace/store-media
+      STORE_MEDIA_MAX_BYTES: ${STORE_MEDIA_MAX_BYTES:-209715200}
+      VISION_STORE_IDS: ${VISION_STORE_IDS:-store-001,store-002}
+      AUTH_REQUIRED: "false"
+    ports:
+      - "${API_DEV_BIND_HOST:-127.0.0.1}:${API_DEV_PORT:-8001}:8000"
+    volumes:
+      - ./samples:/workspace/samples:ro
+      - vision_snapshot_data:/workspace/vision-snapshots
+      - store_media_data:/workspace/store-media
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  store-state-cleanup:
+    build:
+      context: ./services/api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-store}:${POSTGRES_PASSWORD:-change-me-for-local-development}@db:5432/${POSTGRES_DB:-store}
+      STORE_STATE_RETENTION_DAYS: ${STORE_STATE_RETENTION_DAYS:-7}
+      STORE_STATE_CLEANUP_INTERVAL_SECONDS: ${STORE_STATE_CLEANUP_INTERVAL_SECONDS:-21600}
+    command:
+      - /bin/sh
+      - -c
+      - >-
+        while true; do python -m app.cleanup_store_states --older-than-days
+        "$${STORE_STATE_RETENTION_DAYS}" --apply; sleep
+        "$${STORE_STATE_CLEANUP_INTERVAL_SECONDS}"; done
+    depends_on:
+      db:
+        condition: service_healthy
+
   dashboard:
     build:
       context: ./apps/dashboard
@@ -60,6 +129,21 @@ services:
     environment:
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
       VITE_AICC_BASE_URL: ${VITE_AICC_BASE_URL:-http://localhost:8100}
+      VITE_AUTH_MODE: ${VITE_AUTH_MODE:-firebase}
+      VITE_ENABLE_CAMERA_TWIN_V2: ${VITE_ENABLE_CAMERA_TWIN_V2:-true}
+      VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY:-}
+      VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN:-}
+      VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID:-}
+      VITE_FIREBASE_STORAGE_BUCKET: ${VITE_FIREBASE_STORAGE_BUCKET:-}
+      VITE_FIREBASE_MESSAGING_SENDER_ID: ${VITE_FIREBASE_MESSAGING_SENDER_ID:-}
+      VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID:-}
+      VITE_ENABLE_DEMO_LOGIN: ${VITE_ENABLE_DEMO_LOGIN:-false}
+      VITE_DEMO_STORE_001_EMAIL: ${VITE_DEMO_STORE_001_EMAIL:-}
+      VITE_DEMO_STORE_001_PASSWORD: ${VITE_DEMO_STORE_001_PASSWORD:-}
+      VITE_DEMO_STORE_002_EMAIL: ${VITE_DEMO_STORE_002_EMAIL:-}
+      VITE_DEMO_STORE_002_PASSWORD: ${VITE_DEMO_STORE_002_PASSWORD:-}
+      VITE_DEMO_ADMIN_EMAIL: ${VITE_DEMO_ADMIN_EMAIL:-}
+      VITE_DEMO_ADMIN_PASSWORD: ${VITE_DEMO_ADMIN_PASSWORD:-}
     ports:
       - "${DASHBOARD_BIND_HOST:-0.0.0.0}:${DASHBOARD_PORT:-5173}:5173"
     volumes:
@@ -88,14 +172,26 @@ services:
       AICC_API_BASE_URL: http://api:8000
       AICC_REQUEST_TIMEOUT_SECONDS: ${AICC_REQUEST_TIMEOUT_SECONDS:-5}
       AICC_DEFAULT_STORE_ID: ${AICC_DEFAULT_STORE_ID:-store-001}
+      AICC_STORE_DIRECTORY: ${AICC_STORE_DIRECTORY:-}
       AICC_CORS_ORIGINS: ${AICC_CORS_ORIGINS:-http://localhost:5173}
       AICC_VERTEX_PROJECT: ${AICC_VERTEX_PROJECT:-}
       AICC_VERTEX_LOCATION: ${AICC_VERTEX_LOCATION:-us-central1}
       AICC_GEMINI_MODEL: ${AICC_GEMINI_MODEL:-gemini-2.5-flash}
+      AICC_SGIS_CONSUMER_KEY: ${AICC_SGIS_CONSUMER_KEY:-}
+      AICC_SGIS_CONSUMER_SECRET: ${AICC_SGIS_CONSUMER_SECRET:-}
+      AUTH_REQUIRED: ${AUTH_REQUIRED:-true}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
+      # 장면 초안은 GPU 서버 :8200 권장. 예: http://100.x.x.x:8200/internal/scene-suggestions
+      AICC_VISION_SCENE_URL: ${AICC_VISION_SCENE_URL:-http://host.docker.internal:8200/internal/scene-suggestions}
+      AICC_SCENE_REQUEST_TIMEOUT_SECONDS: ${AICC_SCENE_REQUEST_TIMEOUT_SECONDS:-120}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      AICC_KAKAO_SKILL_TOKEN: ${AICC_KAKAO_SKILL_TOKEN:-}
       GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/google_adc.json
     ports:
       - "${AICC_BIND_HOST:-0.0.0.0}:${AICC_PORT:-8100}:8100"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - type: bind
         source: ${GOOGLE_APPLICATION_CREDENTIALS_HOST_PATH:-/dev/null}
@@ -117,11 +213,62 @@ services:
       retries: 5
       start_period: 10s
 
+  aicc-dev:
+    build:
+      context: ./services/aicc
+    restart: unless-stopped
+    profiles:
+      - team-dev
+    environment:
+      AICC_API_BASE_URL: http://api-dev:8000
+      AICC_REQUEST_TIMEOUT_SECONDS: ${AICC_REQUEST_TIMEOUT_SECONDS:-5}
+      AICC_DEFAULT_STORE_ID: ${AICC_DEFAULT_STORE_ID:-store-001}
+      AICC_STORE_DIRECTORY: ${AICC_STORE_DIRECTORY:-}
+      AICC_CORS_ORIGINS: ${AICC_DEV_CORS_ORIGINS:-http://localhost:5173}
+      AICC_VERTEX_PROJECT: ${AICC_VERTEX_PROJECT:-}
+      AICC_VERTEX_LOCATION: ${AICC_VERTEX_LOCATION:-us-central1}
+      AICC_GEMINI_MODEL: ${AICC_GEMINI_MODEL:-gemini-2.5-flash}
+      AUTH_REQUIRED: "false"
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
+      # 장면 초안은 GPU 서버 :8200 권장. 예: http://100.x.x.x:8200/internal/scene-suggestions
+      AICC_VISION_SCENE_URL: ${AICC_VISION_SCENE_URL:-http://host.docker.internal:8200/internal/scene-suggestions}
+      AICC_SCENE_REQUEST_TIMEOUT_SECONDS: ${AICC_SCENE_REQUEST_TIMEOUT_SECONDS:-120}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      AICC_KAKAO_SKILL_TOKEN: ${AICC_KAKAO_SKILL_TOKEN:-}
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/google_adc.json
+    ports:
+      - "${AICC_DEV_BIND_HOST:-127.0.0.1}:${AICC_DEV_PORT:-8101}:8100"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - type: bind
+        source: ${GOOGLE_APPLICATION_CREDENTIALS_HOST_PATH:-/dev/null}
+        target: /run/secrets/google_adc.json
+        read_only: true
+    tmpfs:
+      - /run/aicc:size=1m,mode=0700
+    depends_on:
+      api-dev:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8100/healthz', timeout=2)"
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
   vision-replay:
     image: python:3.12-slim
     restart: unless-stopped
     environment:
       PYTHONUNBUFFERED: "1"
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
+      # Compose service DNS (stable). Override only if replay runs outside the compose network.
+      VISION_REPLAY_API_URL: ${VISION_REPLAY_API_URL:-http://api:8000}
     profiles:
       - demo
     command:
@@ -135,7 +282,12 @@ services:
       - ${VISION_REPLAY_INTERVAL:-2}
       - --frames-dir
       - /workspace/services/vision-worker/outputs/snapshots/frames
+      - --raw-frames-dir
+      - /workspace/services/vision-worker/outputs/snapshots/raw-frames
       - --loop
+      - --realtime
+      - --speed
+      - ${VISION_REPLAY_SPEED:-1}
     volumes:
       - ./services/vision-worker:/workspace/services/vision-worker:ro
       - ./samples:/workspace/samples:ro
@@ -147,3 +299,4 @@ volumes:
   postgres_data:
   dashboard_node_modules:
   vision_snapshot_data:
+  store_media_data:

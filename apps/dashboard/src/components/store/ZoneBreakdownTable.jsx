@@ -1,4 +1,10 @@
-import React from 'react'
+import React, { useCallback, useState } from 'react'
+
+import CameraSceneTwin from './CameraSceneTwin'
+
+const ENABLE_CAMERA_TWIN_V2 = (
+  String(import.meta.env.VITE_ENABLE_CAMERA_TWIN_V2 ?? 'true').toLowerCase() !== 'false'
+)
 
 const ZoneIcon = ({ type }) => {
   const paths = {
@@ -36,6 +42,12 @@ const ZoneIcon = ({ type }) => {
         <path d="M11 20v-2a5 5 0 0 1 10 0v2" />
       </>
     ),
+    unassigned: (
+      <>
+        <circle cx="12" cy="12" r="8" />
+        <path d="M12 8v5M12 16h.01" />
+      </>
+    ),
   }
 
   return (
@@ -45,7 +57,11 @@ const ZoneIcon = ({ type }) => {
   )
 }
 
-export default function ZoneBreakdownTable({ zoneCounts }) {
+export default function ZoneBreakdownTable({ zoneCounts, storeId }) {
+  const [twinSummary, setTwinSummary] = useState(null)
+  const handleTwinSummaryChange = useCallback((summary) => {
+    setTwinSummary(summary)
+  }, [])
   const allZones = [
     {
       id: 'staff',
@@ -93,14 +109,44 @@ export default function ZoneBreakdownTable({ zoneCounts }) {
       status: '이동 감지',
       getValue: (zc) => zc?.aisle ?? zc?.aisle_1f,
     },
+    {
+      id: 'unassigned',
+      keyMatch: ['unassigned'],
+      label: '구역 외 고객',
+      english: 'Outside Zone',
+      type: 'unassigned',
+      status: '승인 ROI 밖에서 감지',
+      getValue: (zc) => zc?.unassigned,
+    },
   ]
 
-  const activeZoneKeys = zoneCounts ? Object.keys(zoneCounts) : []
+  const hasLiveTwinData = (
+    ENABLE_CAMERA_TWIN_V2
+    && (twinSummary?.status === 'ready' || twinSummary?.status === 'stale')
+  )
+  const effectiveZoneCounts = hasLiveTwinData
+    ? twinSummary.zoneCounts
+    : zoneCounts
+  const hasApprovedZoneDefinition = (
+    ENABLE_CAMERA_TWIN_V2
+    && Array.isArray(twinSummary?.roiZoneTypes)
+  )
+  const approvedZoneTypes = hasApprovedZoneDefinition
+    ? new Set(twinSummary.roiZoneTypes)
+    : null
+  const activeZoneKeys = effectiveZoneCounts
+    ? Object.keys(effectiveZoneCounts)
+    : []
 
   const filteredZones = allZones
     .map((z) => {
-      const val = z.getValue(zoneCounts)
-      const isPresent = val !== undefined || z.keyMatch.some((k) => activeZoneKeys.includes(k))
+      const val = z.getValue(effectiveZoneCounts)
+      const isPresent = approvedZoneTypes
+        ? (
+          approvedZoneTypes.has(z.id)
+          || z.id === 'unassigned'
+        )
+        : val !== undefined || z.keyMatch.some((k) => activeZoneKeys.includes(k))
       return {
         id: z.id,
         label: z.label,
@@ -114,7 +160,9 @@ export default function ZoneBreakdownTable({ zoneCounts }) {
     })
     .filter((z) => z.isPresent)
 
-  const displayZones = filteredZones.length > 0 ? filteredZones : [
+  const displayZones = filteredZones.length > 0
+    ? filteredZones
+    : (hasApprovedZoneDefinition ? [] : [
     {
       id: 'staff',
       label: '근무 직원',
@@ -133,11 +181,21 @@ export default function ZoneBreakdownTable({ zoneCounts }) {
       value: zoneCounts?.waiting ?? 0,
       danger: (zoneCounts?.waiting ?? 0) >= 5,
     },
-  ]
+  ])
 
-  const totalZoneCount = displayZones.reduce(
+  const fallbackTotalCount = displayZones.reduce(
     (sum, zone) => sum + zone.value,
     0
+  )
+  const totalZoneCount = (
+    hasLiveTwinData
+      ? twinSummary.count
+      : fallbackTotalCount
+  )
+  const liveLabel = (
+    ENABLE_CAMERA_TWIN_V2 && twinSummary?.status === 'stale'
+      ? 'TRACKING DELAYED'
+      : 'LIVE TRACKING'
   )
 
   return (
@@ -154,53 +212,60 @@ export default function ZoneBreakdownTable({ zoneCounts }) {
         <div className="zone-live-summary">
           <span className="zone-live-dot" />
           <div>
-            <small>LIVE TRACKING</small>
+            <small>{liveLabel}</small>
             <strong>{totalZoneCount}명 감지</strong>
           </div>
         </div>
       </div>
 
       <div className="zone-overview-body">
-        <div className="zone-map-preview" aria-hidden="true">
-          <div className="zone-map-grid" />
+        {ENABLE_CAMERA_TWIN_V2 ? (
+          <CameraSceneTwin
+            storeId={storeId}
+            onSummaryChange={handleTwinSummaryChange}
+          />
+        ) : (
+          <div className="zone-map-preview" aria-hidden="true">
+            <div className="zone-map-grid" />
 
-          {displayZones.some((z) => z.id === 'staff') && (
-            <span className="map-zone map-zone-counter">
-              <i />
-              직원 구역
-            </span>
-          )}
+            {displayZones.some((z) => z.id === 'staff') && (
+              <span className="map-zone map-zone-counter">
+                <i />
+                직원 구역
+              </span>
+            )}
 
-          {displayZones.some((z) => z.id === 'waiting') && (
-            <span className="map-zone map-zone-waiting">
-              <i />
-              대기 구역
-            </span>
-          )}
+            {displayZones.some((z) => z.id === 'waiting') && (
+              <span className="map-zone map-zone-waiting">
+                <i />
+                대기 구역
+              </span>
+            )}
 
-          {displayZones.some((z) => z.id === 'counter') && (
-            <span className="map-zone map-zone-counter">
-              <i />
-              카운터
-            </span>
-          )}
+            {displayZones.some((z) => z.id === 'counter') && (
+              <span className="map-zone map-zone-counter">
+                <i />
+                카운터
+              </span>
+            )}
 
-          {displayZones.some((z) => z.id === 'seating') && (
-            <span className="map-zone map-zone-seating-1">
-              <i />
-              좌석
-            </span>
-          )}
+            {displayZones.some((z) => z.id === 'seating') && (
+              <span className="map-zone map-zone-seating-1">
+                <i />
+                좌석
+              </span>
+            )}
 
-          {displayZones.some((z) => z.id === 'aisle') && (
-            <span className="map-zone map-zone-aisle">
-              <i />
-              통로
-            </span>
-          )}
+            {displayZones.some((z) => z.id === 'aisle') && (
+              <span className="map-zone map-zone-aisle">
+                <i />
+                통로
+              </span>
+            )}
 
-          <div className="map-entry">ENTRANCE</div>
-        </div>
+            <div className="map-entry">ENTRANCE</div>
+          </div>
+        )}
 
         <div className="zone-card-grid" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {displayZones.map((zone) => (

@@ -2,9 +2,66 @@ from typing import Any, Callable
 
 import httpx
 
-from aicc.agent import MAX_TOOL_CALLS, StoreAgent
+from aicc.agent import MAX_TOOL_CALLS, SYSTEM_PROMPT, StoreAgent
 from aicc.client import StoreApiClient
 from aicc.tools import StoreTools
+
+
+def test_system_prompt_has_policy_focus_rule() -> None:
+    """정책 답변을 관련 항목만/나열 금지로 좁히는 규칙이 살아있어야 한다."""
+    assert "나열하지 않는다" in SYSTEM_PROMPT  # 전체 나열 금지
+    assert "관련된 항목만" in SYSTEM_PROMPT  # 관련 항목만 답변
+    assert "되물어" in SYSTEM_PROMPT  # 포괄적 질문은 되물어 범위 좁히기
+
+
+def test_system_prompt_has_answer_format_rules() -> None:
+    """읽기 좋은 답변 형식(불릿·참고·마크다운 금지) 규칙이 살아있어야 한다."""
+    assert "• " in SYSTEM_PROMPT  # 불릿 형식 안내
+    assert "⚠️ 참고" in SYSTEM_PROMPT  # 참고 한 줄 안내
+    assert "마크다운 기호는 쓰지 않는다" in SYSTEM_PROMPT  # 별표 등 화면에 깨지는 기호 금지
+    assert "요일별·휴무일은 안내되어 있지 않아" in SYSTEM_PROMPT  # 영업시간 참고 트리거(데이터 기반)
+
+
+def test_system_prompt_answers_only_what_is_asked() -> None:
+    """물어본 것만 답하는 규칙(메뉴 물으면 품절은 안 붙임)이 살아있어야 한다."""
+    assert "물어본 것만 답한다" in SYSTEM_PROMPT
+    assert "⚠️ 참고에 넣지 않는다" in SYSTEM_PROMPT  # 품절은 참고에도 안 붙임
+
+
+def test_system_prompt_bundles_congestion_stats() -> None:
+    """혼잡도 질문은 인원·대기·예상 대기시간을 함께 안내하도록 지시한다."""
+    assert "get_wait_time" in SYSTEM_PROMPT
+    assert "예상 대기시간" in SYSTEM_PROMPT
+
+
+def test_system_prompt_deflects_off_topic_without_revealing_ai() -> None:
+    """범위 밖·정체 질문에 'AI/구글'이라 밝히지 않고 매장 안내로 넘기는 규칙."""
+    assert "언어 모델" in SYSTEM_PROMPT  # 자신을 언어모델/AI로 소개하지 말라는 규칙
+    assert "매장 안내만 도와드릴 수 있어요" in SYSTEM_PROMPT
+
+
+def test_tidy_markdown_normalizes_bullets_and_bold() -> None:
+    """모델이 마크다운을 섞어 써도 화면에서 깨지지 않게 정리한다."""
+    from aicc.agent import _tidy_markdown
+
+    # '*'/'-' 불릿 → '•'
+    assert _tidy_markdown("품절 메뉴\n* 아메리카노\n- 라떼") == "품절 메뉴\n• 아메리카노\n• 라떼"
+    # 들여쓴 불릿도 유지하며 기호만 교체
+    assert _tidy_markdown("  * 항목") == "  • 항목"
+    # 굵게 기호 제거
+    assert _tidy_markdown("**아메리카노**는 4500원") == "아메리카노는 4500원"
+    # 이미 '•'면 그대로 둔다
+    assert _tidy_markdown("• 아메리카노") == "• 아메리카노"
+
+
+def test_gemini_answer_is_tidied() -> None:
+    """ask()가 돌려주는 답변에서 마크다운 불릿이 '•'로 정리돼 나온다."""
+    with agent_for(responder(200, menus_body())) as agent:
+        agent._client = FakeGemini(text="품절 메뉴\n* 아메리카노\n* 라떼")
+        result = agent.ask("품절 메뉴 있어?")
+
+    assert "* 아메리카노" not in result["answer"]
+    assert "• 아메리카노" in result["answer"]
 
 
 def menus_body() -> dict[str, Any]:
@@ -88,8 +145,50 @@ def test_falls_back_when_gemini_errors() -> None:
         result = agent.ask("메뉴 알려줘")
 
     assert result["source"] == "keyword_fallback"
-    assert result["answer"] is None
+    # Gemini가 죽어도 raw 데이터가 아니라 사람이 읽는 문장을 준다.
+    assert isinstance(result["answer"], str) and result["answer"]
+    assert "아메리카노" in result["answer"]
     assert result["reason"]
+
+
+def test_fallback_answer_is_readable_sentence_by_tool() -> None:
+    """Gemini 없이도 도구별로 읽을 수 있는 문장을 만든다."""
+    from aicc.agent import _fallback_answer
+
+    # 매장 상태
+    s = _fallback_answer({"tool": "state", "result": {"ok": True, "visible_person_count": 5, "queue_count_estimate": 2}})
+    assert "5명" in s and "2건" in s
+    # 대기시간
+    e = _fallback_answer({"tool": "eta", "result": {"ok": True, "estimated_wait_minutes": 6}})
+    assert "6분" in e
+    # 주문
+    o = _fallback_answer({"tool": "order", "result": {"ok": True, "status_message": "접수되었습니다."}})
+    assert o == "접수되었습니다."
+    # 오류(ok=False)면 message 그대로
+    f = _fallback_answer({"tool": "state", "result": {"ok": False, "message": "매장 시스템에 연결하지 못했습니다."}})
+    assert f == "매장 시스템에 연결하지 못했습니다."
+
+
+def test_fallback_menu_and_policy_use_bullets() -> None:
+    """Gemini 없이도 메뉴·정책 fallback이 '•' 불릿 형식으로 나온다(Gemini 답변과 통일)."""
+    from aicc.agent import _fallback_answer
+
+    m = _fallback_answer({"tool": "menu", "result": {"ok": True, "menus": [
+        {"name": "아메리카노", "price": 4500, "available": True},
+        {"name": "라떼", "price": 5000, "available": False},
+    ]}})
+    assert "• 아메리카노: 4500원" in m
+    assert "• 라떼: 5000원 (품절)" in m
+    # 정책이 여러 개면 불릿, 하나면 내용만
+    p = _fallback_answer({"tool": "policy", "result": {"ok": True, "policies": [
+        {"title": "주차", "content": "지하 주차장 이용 가능"},
+        {"title": "와이파이", "content": "무료 제공"},
+    ]}})
+    assert "• 주차: 지하 주차장 이용 가능" in p
+    one = _fallback_answer({"tool": "policy", "result": {"ok": True, "policies": [
+        {"title": "주차", "content": "지하 주차장 이용 가능"},
+    ]}})
+    assert one == "지하 주차장 이용 가능"
 
 
 def test_falls_back_when_gemini_returns_empty() -> None:
@@ -110,6 +209,70 @@ def test_returns_gemini_answer() -> None:
 
     assert result["source"] == "gemini"
     assert result["answer"] == "아메리카노는 4500원입니다."
+
+
+def test_ask_without_history_sends_plain_question() -> None:
+    """history 없으면(단일 질문) contents는 그냥 질문 문자열."""
+    capture: dict[str, Any] = {}
+    with agent_for(responder(200, menus_body())) as agent:
+        agent._client = FakeGemini(text="답변", capture=capture)
+        agent.ask("메뉴 알려줘")
+    assert capture["contents"] == "메뉴 알려줘"
+
+
+def test_ask_with_history_builds_multiturn_contents() -> None:
+    """history를 주면 이전 대화가 현재 질문 앞에 붙고, 'bot'은 'model'로 변환된다."""
+    capture: dict[str, Any] = {}
+    with agent_for(responder(200, menus_body())) as agent:
+        agent._client = FakeGemini(text="답변", capture=capture)
+        history = [
+            {"role": "user", "text": "아메리카노 얼마야?"},
+            {"role": "bot", "text": "4000원입니다."},
+        ]
+        agent.ask("그거 품절이야?", history=history)
+    contents = capture["contents"]
+    assert isinstance(contents, list)
+    assert [c.role for c in contents] == ["user", "model", "user"]  # bot→model
+    assert contents[-1].parts[0].text == "그거 품절이야?"  # 현재 질문이 마지막
+
+
+def test_ask_includes_suggestions() -> None:
+    """응답에 이어서 물어볼 추천 질문(suggestions)이 담긴다."""
+    with agent_for(responder(200, menus_body())) as agent:
+        agent._client = FakeGemini(text="아메리카노는 4500원입니다.")
+        result = agent.ask("아메리카노 얼마예요?")
+
+    assert isinstance(result["suggestions"], list) and result["suggestions"]
+
+
+def test_suggest_questions_by_type() -> None:
+    """추천 질문은 질문 종류에 맞게, 우리가 답할 수 있는 것으로 나온다."""
+    from aicc.agent import suggest_questions
+
+    # 메뉴 가격을 물으면 관련(품절·혼잡) 추천, 자기 자신은 빼고
+    s = suggest_questions("메뉴 가격 알려줘")
+    assert isinstance(s, list) and 1 <= len(s) <= 3
+    assert "메뉴 가격 알려줘" not in s
+    # 품절을 물으면 품절 맞춤 추천(전체 메뉴·대기시간)
+    assert suggest_questions("품절 메뉴 있어?") == ["전체 메뉴 알려줘", "예상 대기시간 얼마야?"]
+    # 혼잡도를 물으면 대기시간·영업시간 추천
+    assert suggest_questions("지금 붐벼?") == ["예상 대기시간 얼마야?", "영업시간 언제까지야?"]
+    # 영업시간(정책)을 물으면 영업시간을 다시 추천하지 않는다
+    assert "영업시간 언제까지야?" not in suggest_questions("영업시간 언제까지야?")
+    # 주차를 물으면 주차를 다시 추천하지 않는다(같은 주제 중복 방지)
+    assert "주차 되나요?" not in suggest_questions("주차 되나요?")
+    # 분류 안 되는 질문은 기본 추천으로
+    assert suggest_questions("사장님 성함이 뭐예요") == ["메뉴 가격 알려줘", "지금 매장 붐벼?"]
+
+
+def test_fallback_also_includes_suggestions() -> None:
+    """Gemini가 죽어 fallback으로 가도 추천 질문이 담긴다."""
+    with agent_for(responder(200, menus_body())) as agent:
+        agent._client = FakeGemini(error=RuntimeError("boom"))
+        result = agent.ask("메뉴 알려줘")
+
+    assert result["source"] == "keyword_fallback"
+    assert isinstance(result["suggestions"], list) and result["suggestions"]
 
 
 # --- 무한루프 방지: 도구 자동호출 5회 제한이 실제로 전달되는가 ---

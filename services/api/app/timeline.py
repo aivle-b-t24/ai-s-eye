@@ -12,9 +12,18 @@ from .models import (
     StoreTimelineResponse,
     SummaryPeriod,
 )
+from .order_queue import (
+    WaitingInterval,
+    average_concurrency,
+    build_waiting_intervals,
+    peak_concurrency,
+)
 
 
-TIMELINE_INTERVALS = {"1h": timedelta(hours=1)}
+TIMELINE_INTERVALS = {
+    "1h": timedelta(hours=1),
+    "1d": timedelta(days=1),
+}
 
 
 def build_store_timeline(
@@ -64,10 +73,17 @@ def build_store_timeline(
         if index is not None:
             order_buckets[index].append(order)
 
+    # 대기열 재구성은 생애주기(접수~종료)가 버킷을 넘나들므로, 상태별 필터 없이
+    # 이 매장 전체 주문으로 구간을 한 번 복원한 뒤 버킷마다 겹침으로 집계한다.
+    waiting_intervals = build_waiting_intervals(
+        [order for order in orders if order.store_id == store_id]
+    )
+
     points = [
         _build_point(
             states=state_buckets[index],
             orders=order_buckets[index],
+            waiting_intervals=waiting_intervals,
             start_at=start_at + (interval_delta * index),
             end_at=min(start_at + (interval_delta * (index + 1)), end_at),
         )
@@ -100,6 +116,7 @@ def _build_point(
     *,
     states: list[StoreState],
     orders: list[OrderEvent],
+    waiting_intervals: list[WaitingInterval],
     start_at: datetime,
     end_at: datetime,
 ) -> StoreTimelinePoint:
@@ -129,6 +146,12 @@ def _build_point(
         peak_visible_person_count=peak_people,
         average_queue_count_estimate=average_queue,
         peak_queue_count_estimate=peak_queue,
+        average_waiting_order_count=average_concurrency(
+            waiting_intervals, start_at, end_at
+        ),
+        peak_waiting_order_count=peak_concurrency(
+            waiting_intervals, start_at, end_at
+        ),
         order_count=len({order.order_id for order in orders}),
         quality_issue_count=sum(
             state.quality_status != QualityStatus.NORMAL

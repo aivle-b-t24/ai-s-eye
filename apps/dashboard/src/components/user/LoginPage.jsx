@@ -1,38 +1,79 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { ROLES } from '../../constants/auth';
+import { getDemoAccount, usesCredentialDemoLogin } from '../../auth/demoAccounts';
+import { IS_LOCAL_AUTH_MODE } from '../../auth/runtimeAuth';
+import AuthBrandPanel, { BrandLogo } from './AuthBrandPanel';
+import LegalFooter from '../legal/LegalFooter';
 
-export default function LoginPage({ onLogin, onGoToSignup, onClose }) {
-  const [role, setRole] = useState('store_manager');
-  const [userId, setUserId] = useState('');
+const REMEMBERED_EMAIL_KEY = 'aicafe.rememberedEmail';
+const _DEMO_LOGIN_ENABLED = usesCredentialDemoLogin();
+
+// 접근통제(제4조④) — 로그인 반복 실패 시 일시 계정 잠금.
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCK_DURATION_SECONDS = 60;
+
+export default function LoginPage({ onClose, onLogin, onPasswordReset, onGoToSignup, initialRole = ROLES.STORE_MANAGER, initialError = '', onRoleChange }) {
+  const [role, setRole] = useState(initialRole);
+  const [userId, setUserId] = useState(() => localStorage.getItem(REMEMBERED_EMAIL_KEY) ?? '');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberId, setRememberId] = useState(false);
-  const [failedCount, setFailedCount] = useState(0);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [rememberId, setRememberId] = useState(() => Boolean(localStorage.getItem(REMEMBERED_EMAIL_KEY)));
+  const [errorMessage, setErrorMessage] = useState(initialError);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [_isStoreSubmenuOpen, _setIsStoreSubmenuOpen] = useState(false);
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockUntil, setLockUntil] = useState(0);
+  const [lockRemaining, setLockRemaining] = useState(0);
 
-  const handleDemoLogin = (selectedRole) => {
-    const demoId = selectedRole === 'store_manager' ? 'owner01' : 'admin01';
-    const userName = selectedRole === 'store_manager' ? '김점주 점주님' : '박팀장 슈퍼바이저님';
-    const storeId = selectedRole === 'store_manager' ? 'store-001' : 'head-office';
-    
-    onLogin({
-      id: demoId,
-      name: userName,
-      role: selectedRole,
-      storeId: storeId
-    });
+  useEffect(() => setRole(initialRole), [initialRole]);
+  useEffect(() => setErrorMessage(initialError), [initialError]);
+
+  useEffect(() => {
+    if (!lockUntil) return undefined;
+    const tick = () => {
+      const remain = Math.ceil((lockUntil - Date.now()) / 1000);
+      if (remain <= 0) {
+        setLockUntil(0);
+        setLockRemaining(0);
+      } else {
+        setLockRemaining(remain);
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [lockUntil]);
+
+  const handleTabSwitch = (newRole) => {
+    setRole(newRole);
+    setErrorMessage('');
+    setSuccessMessage('');
+    if (onRoleChange) {
+      onRoleChange(newRole);
+    }
   };
 
-  const handleSubmit = (e) => {
+  const handleResetPassword = async () => {
+    setErrorMessage('');
+    setSuccessMessage('');
+    try {
+      await onPasswordReset(userId);
+      setSuccessMessage('비밀번호 설정 메일을 보냈습니다. 이메일의 링크를 확인해 주세요.');
+    } catch (error) {
+      setErrorMessage(error.message || '비밀번호 설정 메일을 보내지 못했습니다.');
+    }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (failedCount >= 5) {
-
-      setErrorMessage('비밀번호 5회 이상 오류로 계정이 일시 잠금되었습니다. 고객센터에 문의하거나 비밀번호를 재설정해 주세요.');
+    if (lockUntil && Date.now() < lockUntil) {
+      setErrorMessage(`로그인 ${MAX_LOGIN_ATTEMPTS}회 실패로 계정이 일시 잠금되었습니다. ${lockRemaining}초 후 다시 시도해 주세요.`);
       return;
     }
-
     if (!userId.trim()) {
-      setErrorMessage('아이디를 입력해 주세요.');
+      setErrorMessage('이메일을 입력해 주세요.');
       return;
     }
     if (!password) {
@@ -40,76 +81,119 @@ export default function LoginPage({ onLogin, onGoToSignup, onClose }) {
       return;
     }
 
-    if ((role === 'store_manager' && userId === 'owner' && password === '1234') ||
-        (role === 'admin' && userId === 'admin' && password === '1234')) {
-      setFailedCount(0);
-      setErrorMessage('');
-      onLogin({
-        id: userId,
-        name: role === 'store_manager' ? '강남점 점주' : '본사 관리자',
-        role: role,
-        storeId: role === 'store_manager' ? 'store-001' : 'head-office'
+    setIsSubmitting(true);
+    try {
+      await onLogin({
+        email: userId.trim(),
+        password,
+        remember: rememberId,
       });
-    } else {
-      const newCount = failedCount + 1;
-      setFailedCount(newCount);
-      if (newCount >= 5) {
-        setErrorMessage('비밀번호 5회 이상 오류로 계정이 일시 잠금되었습니다.');
+      if (rememberId) {
+        localStorage.setItem(REMEMBERED_EMAIL_KEY, userId.trim());
       } else {
-        setErrorMessage(`아이디 또는 비밀번호가 올바르지 않습니다. (실패 횟수: ${newCount}/5회)`);
+        localStorage.removeItem(REMEMBERED_EMAIL_KEY);
       }
+      setErrorMessage('');
+      setFailedAttempts(0);
+    } catch (error) {
+      const nextAttempts = failedAttempts + 1;
+      if (nextAttempts >= MAX_LOGIN_ATTEMPTS) {
+        setFailedAttempts(0);
+        setLockUntil(Date.now() + LOCK_DURATION_SECONDS * 1000);
+        setErrorMessage(`로그인 ${MAX_LOGIN_ATTEMPTS}회 실패로 계정이 ${LOCK_DURATION_SECONDS}초간 잠금되었습니다.`);
+      } else {
+        setFailedAttempts(nextAttempts);
+        setErrorMessage(`${error.message || '로그인에 실패했습니다.'} (${MAX_LOGIN_ATTEMPTS - nextAttempts}회 남음)`);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const _handleDemoLogin = async (storeId) => {
+    const account = getDemoAccount(storeId);
+    if (!account?.email || !account?.password) {
+      setErrorMessage('빠른 로그인 계정이 설정되지 않았습니다.');
+      return;
+    }
+
+    setIsStoreSubmenuOpen(false);
+    setRole(account.role);
+    setErrorMessage('');
+    setIsSubmitting(true);
+    if (onRoleChange) {
+      onRoleChange(account.role);
+    }
+
+    try {
+      await onLogin({
+        email: account.email,
+        password: account.password,
+        remember: false,
+        role: account.role,
+      });
+    } catch (error) {
+      setErrorMessage(error.message || '빠른 로그인에 실패했습니다.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="auth-wrapper">
-      <div className="auth-card">
-        {/* 오른쪽 상단 X자 닫기 버튼 */}
-        <button
-          type="button"
-          className="auth-close-x-btn"
-          onClick={onClose}
-          aria-label="닫기"
-          title="닫기"
-        >
-          ✕
-        </button>
-
-        <div className="auth-header">
-          <span className="auth-badge">AI MONITORING SYSTEM</span>
-          <h2 className="auth-title">AI's Eye 로그인</h2>
-          <p className="auth-subtitle">관제 시스템에 접속하기 위한 계정 정보를 입력하세요.</p>
-        </div>
-
-        <div className="role-switch-tabs">
+    <div className="signup-page">
+      <AuthBrandPanel />
+      <main className="signup-form-panel">
+        {onClose && (
           <button
             type="button"
-            className={`role-tab ${role === 'store_manager' ? 'active' : ''}`}
-            onClick={() => { setRole('store_manager'); setErrorMessage(''); }}
+            className="signup-home-link"
+            onClick={onClose}
+            aria-label="홈으로 이동"
+            title="홈으로 이동"
           >
-            점주 전용 로그인
+            홈으로 ✕
           </button>
-          <button
-            type="button"
-            className={`role-tab ${role === 'admin' ? 'active' : ''}`}
-            onClick={() => { setRole('admin'); setErrorMessage(''); }}
-          >
-            본사 관리자 로그인
-          </button>
-        </div>
+        )}
 
-        <form onSubmit={handleSubmit} className="auth-form">
+        <div className="signup-form-scroll">
+          <div className="signup-form-inner">
+            <BrandLogo className="signup-wordmark-mobile" />
+
+            <div className="signup-form-head">
+              <h2 className="signup-form-title">AI&apos;s Eye 로그인</h2>
+              <p className="signup-form-sub">관제 시스템에 접속하기 위한 계정 정보를 입력하세요.</p>
+            </div>
+
+            <div className="role-switch-tabs signup-tabs">
+              <button
+                type="button"
+                className={`role-tab ${role === ROLES.STORE_MANAGER ? 'active' : ''}`}
+                onClick={() => handleTabSwitch(ROLES.STORE_MANAGER)}
+              >
+                점주 전용 로그인
+              </button>
+              <button
+                type="button"
+                className={`role-tab ${role === ROLES.ADMIN ? 'active' : ''}`}
+                onClick={() => handleTabSwitch(ROLES.ADMIN)}
+              >
+                본사 관리자 로그인
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
             <label htmlFor="userId">
-              {role === 'store_manager' ? '점주 아이디' : '본사 관리자 사번/아이디'}
+              {role === ROLES.STORE_MANAGER ? '점주 이메일' : '본사 관리자 이메일'}
             </label>
             <input
               id="userId"
-              type="text"
-              placeholder={role === 'store_manager' ? '예: owner01' : '예: admin01'}
+              type="email"
+              autoComplete="username"
+              placeholder={role === ROLES.STORE_MANAGER ? '예: owner01@aicafe.com' : '예: admin01@aicafe.com'}
               value={userId}
               onChange={(e) => setUserId(e.target.value)}
-              disabled={failedCount >= 5}
+              disabled={isSubmitting}
             />
           </div>
 
@@ -122,7 +206,8 @@ export default function LoginPage({ onLogin, onGoToSignup, onClose }) {
                 placeholder="비밀번호를 입력하세요"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                disabled={failedCount >= 5}
+                autoComplete="current-password"
+                disabled={isSubmitting}
               />
               <button
                 type="button"
@@ -160,6 +245,11 @@ export default function LoginPage({ onLogin, onGoToSignup, onClose }) {
                 </button>
               </div>
             )}
+            {successMessage && (
+              <div className="auth-success-alert inline-single-line clean-text-only">
+                <span>{successMessage}</span>
+              </div>
+            )}
           </div>
 
           <div className="form-options">
@@ -169,49 +259,45 @@ export default function LoginPage({ onLogin, onGoToSignup, onClose }) {
                 checked={rememberId}
                 onChange={(e) => setRememberId(e.target.checked)}
               />
-              아이디 저장
+              이메일 저장
             </label>
-            <span className="auth-link">아이디 / 비밀번호 찾기</span>
+            {IS_LOCAL_AUTH_MODE ? (
+              <span className="auth-link">로컬 개발 모드</span>
+            ) : (
+              <button
+                type="button"
+                className="auth-link auth-link-button"
+                onClick={handleResetPassword}
+                disabled={isSubmitting}
+              >
+                비밀번호 설정 / 재설정
+              </button>
+            )}
           </div>
 
-          <button type="submit" className="auth-submit-btn" disabled={failedCount >= 5}>
-            {role === 'store_manager' ? '점주 관제 화면 로그인' : '본사 관리자 대시보드 로그인'}
+          <button type="submit" className="auth-submit-btn" disabled={isSubmitting || lockRemaining > 0}>
+            {lockRemaining > 0
+              ? `계정 잠금 · ${lockRemaining}초 후 재시도`
+              : isSubmitting
+                ? '로그인 확인 중...'
+                : role === ROLES.STORE_MANAGER
+                  ? '점주 관제 화면 로그인'
+                  : '본사 관리자 대시보드 로그인'}
           </button>
         </form>
 
-        <div className="demo-login-box">
-          <p className="demo-hint">[빠른 체험용 원클릭 로그인]</p>
-          <div className="demo-btn-group">
             <button
               type="button"
-              className="demo-btn store-demo"
-              onClick={() => handleDemoLogin('store_manager')}
+              className="auth-link auth-link-button signup-to-login"
+              onClick={onGoToSignup}
+              disabled={isSubmitting}
             >
-              [점주] 로그인
-            </button>
-            <button
-              type="button"
-              className="demo-btn admin-demo"
-              onClick={() => handleDemoLogin('admin')}
-            >
-              [본사 관리자] 로그인
+              계정이 없으신가요? 회원가입
             </button>
           </div>
-
         </div>
-
-        <div className="auth-footer-links">
-          <span>아직 계정이 없으신가요?</span>
-          <button type="button" className="signup-link-btn" onClick={onGoToSignup}>
-            회원가입 신청하기
-          </button>
-        </div>
-
-        <footer className="auth-compliance-footer">
-          <span>개인정보 처리방침</span> | <span>이용약관</span> | <span>© 2026 AI's Eye. All rights reserved.</span>
-        </footer>
-      </div>
+        <LegalFooter className="signup-footer" />
+      </main>
     </div>
   );
 }
-

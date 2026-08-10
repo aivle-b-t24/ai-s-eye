@@ -1,4 +1,5 @@
 import json
+import base64
 from typing import Any, Callable
 
 import httpx
@@ -6,6 +7,10 @@ from fastapi.testclient import TestClient
 
 import aicc.api as api
 from aicc.client import StoreApiClient
+from aicc.scene_detection import (
+    SceneSuggestionResponse,
+    SceneSuggestionUnavailableError,
+)
 
 
 def summary_body() -> dict[str, Any]:
@@ -46,7 +51,8 @@ def summary_body() -> dict[str, Any]:
 FAKE_INSIGHTS = {
     "insights": [
         {"store_id": "store-001", "insight_type": "congestion", "severity": "high",
-         "summary": "점심 혼잡", "evidence": {"peak_visible_person_count": 28}, "recommendation": "인력 보강"},
+         "summary": "점심 혼잡", "probable_cause": "인근 직장인 점심 수요로 추정됩니다.",
+         "evidence": {"peak_visible_person_count": 28}, "recommendation": "인력 보강"},
         {"store_id": "store-002", "insight_type": "afternoon_demand", "severity": "medium",
          "summary": "오후 수요", "evidence": {"peak_visible_person_count": 22}, "recommendation": "재고 보충"},
     ],
@@ -108,6 +114,9 @@ def test_insights_ok(monkeypatch) -> None:
     ids = {i["store_id"] for i in data["insights"]}
     assert ids == {"store-001", "store-002"}
     assert data["comparison"]["summary"]
+    # 추정 원인이 response_model에서 안 잘리고 그대로 나온다
+    s1 = next(i for i in data["insights"] if i["store_id"] == "store-001")
+    assert s1["probable_cause"] == "인근 직장인 점심 수요로 추정됩니다."
 
 
 def test_insights_ok_with_period(monkeypatch) -> None:
@@ -153,6 +162,178 @@ def test_bad_period_returns_422(monkeypatch) -> None:
 def test_healthz() -> None:
     tc = TestClient(api.app)
     assert tc.get("/healthz").json() == {"status": "ok"}
+
+
+
+def test_scene_suggestion_ok(monkeypatch) -> None:
+    expected = SceneSuggestionResponse(
+        store_id="store-001",
+        camera_id="store-001-cam1",
+        model="yoloe-26s-seg.pt",
+        objects=[
+            {
+                "id": "yolo-table-1",
+                "type": "table",
+                "label": "YOLO 테이블 1",
+                "polygon": [
+                    {"x": 100, "y": 100},
+                    {"x": 300, "y": 100},
+                    {"x": 300, "y": 300},
+                    {"x": 100, "y": 300},
+                ],
+            }
+        ],
+        detections=[{"type": "table", "label": "YOLO 테이블 1", "confidence": 0.9}],
+        warnings=["사람이 확인해야 합니다."],
+    )
+    monkeypatch.setattr(api, "generate_scene_suggestion", lambda req: expected)
+    png = base64.b64encode(b"\x89PNG\r\n\x1a\nminimal").decode()
+    tc = TestClient(api.app)
+
+    response = tc.post(
+        "/scene-suggestions",
+        json={
+            "store_id": "store-001",
+            "camera_id": "store-001-cam1",
+            "image_base64": png,
+            "mime_type": "image/png",
+            "image_width": 1920,
+            "image_height": 1080,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["objects"][0]["type"] == "table"
+    assert body["seat_anchors"] == []
+
+
+def test_scene_suggestion_rejects_camera_from_other_store(monkeypatch) -> None:
+    monkeypatch.setattr(api, "generate_scene_suggestion", lambda req: None)
+    png = base64.b64encode(b"\x89PNG\r\n\x1a\nminimal").decode()
+    tc = TestClient(api.app)
+
+    response = tc.post(
+        "/scene-suggestions",
+        json={
+            "store_id": "store-001",
+            "camera_id": "store-002-cam1",
+            "image_base64": png,
+            "mime_type": "image/png",
+            "image_width": 1920,
+            "image_height": 1080,
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_scene_suggestion_worker_failure_returns_503(monkeypatch) -> None:
+    def _raise(_req):
+        raise SceneSuggestionUnavailableError("connection refused")
+
+    monkeypatch.setattr(api, "generate_scene_suggestion", _raise)
+    png = base64.b64encode(b"\x89PNG\r\n\x1a\nminimal").decode()
+    tc = TestClient(api.app)
+
+    response = tc.post(
+        "/scene-suggestions",
+        json={
+            "store_id": "store-001",
+            "camera_id": "store-001-cam1",
+            "image_base64": png,
+            "mime_type": "image/png",
+            "image_width": 1920,
+            "image_height": 1080,
+        },
+    )
+
+    assert response.status_code == 503
+    detail = response.json()["detail"]
+    assert detail["error"] == "scene_suggestion_unavailable"
+    assert "장면 초안을 생성하지 못했습니다" in detail["message"]
+
+
+# --- 챗봇 (/chat) ---
+
+
+class FakeAgent:
+    """StoreAgent 대역. ask()가 정해둔 답을 돌려준다."""
+
+    def __init__(self, reply: dict[str, Any]) -> None:
+        self._reply = reply
+        self.seen: dict[str, Any] = {}
+
+    def ask(
+        self,
+        question: str,
+        store_id: str | None = None,
+        history: list[dict[str, str]] | None = None,
+    ) -> dict[str, Any]:
+        self.seen = {"question": question, "store_id": store_id, "history": history}
+        return self._reply
+
+
+def test_chat_ok() -> None:
+    agent = FakeAgent({"question": "지금 붐벼?", "answer": "현재 5명 있습니다.", "source": "gemini"})
+    tc = TestClient(api.app)
+    tc.app.state.agent = agent
+    r = tc.post("/chat", json={"question": "지금 붐벼?", "store_id": "store-001"})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["answer"] == "현재 5명 있습니다."
+    assert data["source"] == "gemini"
+    assert agent.seen == {"question": "지금 붐벼?", "store_id": "store-001", "history": []}
+
+
+def test_chat_fallback_source() -> None:
+    agent = FakeAgent({"question": "메뉴?", "answer": "아메리카노 4500원", "source": "keyword_fallback"})
+    tc = TestClient(api.app)
+    tc.app.state.agent = agent
+    r = tc.post("/chat", json={"question": "메뉴?"})
+    assert r.status_code == 200
+    assert r.json()["source"] == "keyword_fallback"
+
+
+def test_chat_empty_question_returns_422() -> None:
+    tc = TestClient(api.app)
+    tc.app.state.agent = FakeAgent({})
+    r = tc.post("/chat", json={"question": ""})  # 빈 질문
+    assert r.status_code == 422
+
+
+def test_chat_too_long_question_returns_422() -> None:
+    tc = TestClient(api.app)
+    tc.app.state.agent = FakeAgent({})
+    r = tc.post("/chat", json={"question": "가" * 501})  # 500자 초과
+    assert r.status_code == 422
+
+
+def test_chat_blank_question_returns_422() -> None:
+    """공백만 있는 질문도 막는다."""
+    tc = TestClient(api.app)
+    tc.app.state.agent = FakeAgent({})
+    r = tc.post("/chat", json={"question": "   "})
+    assert r.status_code == 422
+
+
+class RaisingAgent:
+    def ask(
+        self,
+        question: str,
+        store_id: str | None = None,
+        history: list[dict[str, str]] | None = None,
+    ) -> dict[str, Any]:
+        raise RuntimeError("예상 밖 오류")
+
+
+def test_chat_agent_error_returns_503_not_500() -> None:
+    """agent가 예상 밖 예외를 던져도 500이 아니라 깔끔한 503을 준다."""
+    tc = TestClient(api.app)
+    tc.app.state.agent = RaisingAgent()
+    r = tc.post("/chat", json={"question": "테스트"})
+    assert r.status_code == 503
+    assert r.json()["detail"]["error"] == "chat_unavailable"
 
 
 def test_insights_cors_preflight() -> None:

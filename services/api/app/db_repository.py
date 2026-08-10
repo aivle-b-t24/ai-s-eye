@@ -1,26 +1,70 @@
 """PostgreSQL에 매장 상태와 주문 이벤트를 저장하는 Repository."""
 
 from collections.abc import Callable, Collection
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+import re
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from .database import get_session_factory
-from .db_models import OrderEventRecord, OrderItemRecord, StoreStateRecord
+from .db_models import (
+    AnalysisJobRecord,
+    CameraRoiConfigRecord,
+    CameraSceneConfigRecord,
+    CurrentStoreStateRecord,
+    HourlyStoreMetricRecord,
+    OrderEventRecord,
+    OrderItemRecord,
+    StoreMediaRecord,
+    StoreMenuRecord,
+    StorePolicyRecord,
+    StoreRecord,
+    StoreSettingsRecord,
+    StoreStateHistoryRecord,
+    StoreStateRecord,
+)
 from .models import (
+    AnalysisJobInfo,
+    AnalysisJobStatus,
+    CameraRoiConfig,
+    CameraRoiConfigInput,
+    CameraSceneConfig,
+    CameraSceneConfigInput,
     OrderEvent,
     OrderItem,
+    RoiConfigStatus,
+    SceneConfigStatus,
+    StoreInfo,
+    StoreMediaInfo,
+    StoreMediaType,
+    StoreMenuInput,
+    StoreMenuItem,
+    StorePolicyInput,
+    StorePolicyItem,
+    StoreSettings,
     StoreState,
     StoreSummaryResponse,
     StoreTimelineResponse,
 )
+from .store_media_storage import new_media_id, read_media_bytes
+from .order_queue import build_waiting_intervals, concurrency_at
 from .summary import build_store_summary
 from .timeline import build_store_timeline
 
 
+class StoreNameAlreadyExistsError(Exception):
+    """같은 이름의 매장이 이미 존재한다."""
+
+
 SessionFactory = Callable[[], Session]
+HISTORY_SAMPLE_SECONDS = 30
+# 주문 생애주기(접수~픽업)는 10분 안팎이라, 특정 시각에 진행 중인 주문을 모두
+# 담으려면 앞뒤로 1시간이면 충분하다.
+WAITING_LOOKUP_WINDOW = timedelta(hours=1)
+_STORE_ID_PATTERN = re.compile(r"^store-(\d+)$")
 
 
 class DatabaseRepository:
@@ -30,39 +74,29 @@ class DatabaseRepository:
         self._session_factory = session_factory or get_session_factory()
 
     def save_store_state(self, state: StoreState) -> StoreState:
-        """매장 상태를 이력으로 추가하되 같은 측정값은 중복 저장하지 않는다."""
+        """최신본을 갱신하고 원본·30초 샘플·시간 집계를 함께 저장한다."""
         with self._session_factory() as session:
-            existing_statement = select(StoreStateRecord).where(
-                StoreStateRecord.store_id == state.store_id,
-                StoreStateRecord.camera_id == state.camera_id,
-                StoreStateRecord.captured_at == state.captured_at,
-            )
-            for existing in session.scalars(existing_statement):
-                if _store_state_from_record(existing) == state:
-                    return state
+            _upsert_current_store_state(session, state)
 
-            record = StoreStateRecord(
-                store_id=state.store_id,
-                camera_id=state.camera_id,
-                captured_at=state.captured_at,
-                visible_person_count=state.visible_person_count,
-                queue_count_estimate=state.queue_count_estimate,
-                zone_counts=state.zone_counts,
-                quality_status=state.quality_status.value,
-                source=state.source,
-                model_version=state.model_version,
-            )
+            existing = _find_raw_store_state(session, state)
+            if existing is not None:
+                session.commit()
+                return state
+
+            record = StoreStateRecord(**_store_state_values(state))
             session.add(record)
+            _upsert_history_sample(session, state)
+            _upsert_hourly_metric(session, state)
             session.commit()
 
         return state
 
     def get_store_state(self, store_id: str) -> StoreState | None:
-        """매장의 측정 시각이 가장 최근인 상태를 반환한다."""
+        """매장에서 마지막으로 수신한 카메라 상태를 반환한다."""
         statement = (
-            select(StoreStateRecord)
-            .where(StoreStateRecord.store_id == store_id)
-            .order_by(StoreStateRecord.captured_at.desc(), StoreStateRecord.id.desc())
+            select(CurrentStoreStateRecord)
+            .where(CurrentStoreStateRecord.store_id == store_id)
+            .order_by(CurrentStoreStateRecord.updated_at.desc())
             .limit(1)
         )
 
@@ -71,6 +105,377 @@ class DatabaseRepository:
             if record is None:
                 return None
             return _store_state_from_record(record)
+
+    def get_store_state_by_frame_id(
+        self, store_id: str, frame_id: str
+    ) -> StoreState | None:
+        """특정 frame_id(디지털 트윈이 보여주는 그 프레임)의 상태를 원본 이력에서 조회한다.
+
+        트윈 이미지와 운영 현황 숫자를 동일 프레임으로 맞추기 위해 사용한다.
+        원본 이력은 7일 보관되며 frame_id는 고유하다.
+        """
+        statement = (
+            select(StoreStateRecord)
+            .where(
+                StoreStateRecord.store_id == store_id,
+                StoreStateRecord.frame_id == frame_id,
+            )
+            .order_by(StoreStateRecord.captured_at.desc())
+            .limit(1)
+        )
+
+        with self._session_factory() as session:
+            record = session.scalar(statement)
+            if record is None:
+                return None
+            return _store_state_from_record(record)
+
+    def list_stores(self) -> list[StoreInfo]:
+        """등록된 매장 마스터 목록을 반환한다."""
+        statement = select(StoreRecord).order_by(StoreRecord.id)
+        with self._session_factory() as session:
+            records = session.scalars(statement).all()
+            return [_store_info_from_record(record) for record in records]
+
+    def get_store(self, store_id: str) -> StoreInfo | None:
+        with self._session_factory() as session:
+            record = session.get(StoreRecord, store_id)
+            if record is None:
+                return None
+            return _store_info_from_record(record)
+
+    def store_exists(self, store_id: str) -> bool:
+        with self._session_factory() as session:
+            return session.get(StoreRecord, store_id) is not None
+
+    def create_store(self, name: str) -> StoreInfo:
+        """매장명을 받아 새 store_id를 발급하고 마스터에 등록한다."""
+        with self._session_factory() as session:
+            store_id = _next_store_id(session)
+            record = StoreRecord(id=store_id, name=name)
+            session.add(record)
+            try:
+                session.commit()
+            except IntegrityError as exc:
+                session.rollback()
+                raise StoreNameAlreadyExistsError(name) from exc
+            session.refresh(record)
+            return _store_info_from_record(record)
+
+    def delete_store(self, store_id: str) -> None:
+        with self._session_factory() as session:
+            record = session.get(StoreRecord, store_id)
+            if record is None:
+                return
+            session.execute(
+                delete(AnalysisJobRecord).where(AnalysisJobRecord.store_id == store_id)
+            )
+            session.execute(
+                delete(StoreMediaRecord).where(StoreMediaRecord.store_id == store_id)
+            )
+            session.delete(record)
+            session.commit()
+
+    def save_store_media(
+        self,
+        *,
+        store_id: str,
+        media_type: StoreMediaType,
+        filename: str,
+        content_type: str,
+        content: bytes,
+        storage_path: str,
+        media_id: str | None = None,
+    ) -> StoreMediaInfo:
+        media_id = media_id or new_media_id()
+        record = StoreMediaRecord(
+            id=media_id,
+            store_id=store_id,
+            media_type=media_type.value,
+            filename=filename,
+            content_type=content_type,
+            size_bytes=len(content),
+            storage_path=storage_path,
+        )
+        with self._session_factory() as session:
+            session.add(record)
+            session.commit()
+            session.refresh(record)
+            return _media_from_record(record)
+
+    def list_store_media(self, store_id: str) -> list[StoreMediaInfo]:
+        statement = (
+            select(StoreMediaRecord)
+            .where(StoreMediaRecord.store_id == store_id)
+            .order_by(StoreMediaRecord.created_at.desc())
+        )
+        with self._session_factory() as session:
+            return [_media_from_record(row) for row in session.scalars(statement)]
+
+    def get_store_media(self, media_id: str) -> StoreMediaInfo | None:
+        with self._session_factory() as session:
+            record = session.get(StoreMediaRecord, media_id)
+            return None if record is None else _media_from_record(record)
+
+    def get_store_media_bytes(self, media_id: str) -> bytes | None:
+        with self._session_factory() as session:
+            record = session.get(StoreMediaRecord, media_id)
+            if record is None:
+                return None
+            try:
+                return read_media_bytes(Path(record.storage_path))
+            except OSError:
+                return None
+
+    def get_store_media_storage_path(self, media_id: str) -> str | None:
+        with self._session_factory() as session:
+            record = session.get(StoreMediaRecord, media_id)
+            return None if record is None else record.storage_path
+
+    def create_analysis_job(
+        self,
+        store_id: str,
+        media_id: str,
+    ) -> AnalysisJobInfo:
+        with self._session_factory() as session:
+            media = session.get(StoreMediaRecord, media_id)
+            if media is None or media.store_id != store_id:
+                raise KeyError(media_id)
+            record = AnalysisJobRecord(
+                id=new_media_id(),
+                store_id=store_id,
+                media_id=media_id,
+                status=AnalysisJobStatus.QUEUED.value,
+            )
+            session.add(record)
+            session.commit()
+            session.refresh(record)
+            return _job_from_record(record)
+
+    def list_analysis_jobs(self, store_id: str) -> list[AnalysisJobInfo]:
+        statement = (
+            select(AnalysisJobRecord)
+            .where(AnalysisJobRecord.store_id == store_id)
+            .order_by(AnalysisJobRecord.created_at.desc())
+        )
+        with self._session_factory() as session:
+            return [_job_from_record(row) for row in session.scalars(statement)]
+
+    def claim_next_analysis_job(self, worker_id: str) -> AnalysisJobInfo | None:
+        with self._session_factory() as session:
+            statement = (
+                select(AnalysisJobRecord)
+                .where(AnalysisJobRecord.status == AnalysisJobStatus.QUEUED.value)
+                .order_by(AnalysisJobRecord.created_at.asc())
+                .limit(1)
+                .with_for_update(skip_locked=True)
+            )
+            record = session.scalars(statement).first()
+            if record is None:
+                return None
+            record.status = AnalysisJobStatus.RUNNING.value
+            record.worker_id = worker_id
+            record.claimed_at = datetime.now(timezone.utc)
+            session.commit()
+            session.refresh(record)
+            return _job_from_record(record)
+
+    def update_analysis_job(
+        self,
+        job_id: str,
+        *,
+        status: AnalysisJobStatus,
+        progress_percent: float | None = None,
+        processed_frames: int | None = None,
+        total_frames: int | None = None,
+        stage_message: str | None = None,
+        error_message: str | None = None,
+        worker_id: str | None = None,
+    ) -> AnalysisJobInfo | None:
+        with self._session_factory() as session:
+            record = session.get(AnalysisJobRecord, job_id)
+            if record is None:
+                return None
+            record.status = status.value
+            record.error_message = error_message
+            if progress_percent is not None:
+                record.progress_percent = progress_percent
+            if processed_frames is not None:
+                record.processed_frames = processed_frames
+            if total_frames is not None:
+                record.total_frames = total_frames
+            if stage_message is not None:
+                record.stage_message = stage_message
+            if worker_id is not None:
+                record.worker_id = worker_id
+            if status in {AnalysisJobStatus.COMPLETED, AnalysisJobStatus.FAILED}:
+                record.completed_at = datetime.now(timezone.utc)
+                if status == AnalysisJobStatus.COMPLETED and progress_percent is None:
+                    record.progress_percent = 100.0
+            session.commit()
+            session.refresh(record)
+            return _job_from_record(record)
+
+    def get_analysis_job(self, job_id: str) -> AnalysisJobInfo | None:
+        with self._session_factory() as session:
+            record = session.get(AnalysisJobRecord, job_id)
+            return None if record is None else _job_from_record(record)
+
+    def get_store_policies(self, store_id: str) -> list[StorePolicyItem]:
+        with self._session_factory() as session:
+            records = session.scalars(
+                select(StorePolicyRecord)
+                .where(StorePolicyRecord.store_id == store_id)
+                .order_by(StorePolicyRecord.created_at.asc())
+            ).all()
+            return [_policy_from_record(r) for r in records]
+
+    def save_store_policy(
+        self,
+        store_id: str,
+        policy_input: StorePolicyInput,
+        policy_id: str | None = None,
+    ) -> StorePolicyItem:
+        from uuid import uuid4
+        target_id = policy_id or f"policy-{uuid4().hex[:8]}"
+        now = datetime.now(timezone.utc)
+        with self._session_factory() as session:
+            record = session.get(StorePolicyRecord, target_id)
+            if record is None:
+                record = StorePolicyRecord(
+                    policy_id=target_id,
+                    store_id=store_id,
+                    category=policy_input.category,
+                    title=policy_input.title,
+                    content=policy_input.content,
+                    keywords=policy_input.keywords,
+                    created_at=now,
+                    updated_at=now,
+                )
+                session.add(record)
+            else:
+                record.category = policy_input.category
+                record.title = policy_input.title
+                record.content = policy_input.content
+                record.keywords = policy_input.keywords
+                record.updated_at = now
+            session.commit()
+            session.refresh(record)
+            return _policy_from_record(record)
+
+    def delete_store_policy(self, store_id: str, policy_id: str) -> bool:
+        with self._session_factory() as session:
+            record = session.get(StorePolicyRecord, policy_id)
+            if record is None or record.store_id != store_id:
+                return False
+            session.delete(record)
+            session.commit()
+            return True
+
+    def get_store_menus(self, store_id: str) -> list[StoreMenuItem]:
+        with self._session_factory() as session:
+            records = session.scalars(
+                select(StoreMenuRecord)
+                .where(StoreMenuRecord.store_id == store_id)
+                .order_by(StoreMenuRecord.created_at.asc())
+            ).all()
+            return [_menu_from_record(r) for r in records]
+
+    def save_store_menu(
+        self,
+        store_id: str,
+        menu_input: StoreMenuInput,
+        menu_id: str | None = None,
+    ) -> StoreMenuItem:
+        from uuid import uuid4
+        target_id = menu_id or f"menu-{uuid4().hex[:8]}"
+        now = datetime.now(timezone.utc)
+        with self._session_factory() as session:
+            record = session.get(StoreMenuRecord, target_id)
+            if record is None:
+                record = StoreMenuRecord(
+                    menu_id=target_id,
+                    store_id=store_id,
+                    category=menu_input.category,
+                    name=menu_input.name,
+                    price=menu_input.price,
+                    prep_minutes=menu_input.prep_minutes,
+                    available=menu_input.available,
+                    sold_out_reason=menu_input.sold_out_reason if not menu_input.available else None,
+                    created_at=now,
+                    updated_at=now,
+                )
+                session.add(record)
+            else:
+                record.category = menu_input.category
+                record.name = menu_input.name
+                record.price = menu_input.price
+                record.prep_minutes = menu_input.prep_minutes
+                record.available = menu_input.available
+                record.sold_out_reason = menu_input.sold_out_reason if not menu_input.available else None
+                record.updated_at = now
+            session.commit()
+            session.refresh(record)
+            return _menu_from_record(record)
+
+    def toggle_store_menu_sold_out(
+        self,
+        store_id: str,
+        menu_id: str,
+        available: bool,
+        sold_out_reason: str | None = None,
+    ) -> StoreMenuItem | None:
+        now = datetime.now(timezone.utc)
+        with self._session_factory() as session:
+            record = session.get(StoreMenuRecord, menu_id)
+            if record is None or record.store_id != store_id:
+                return None
+            record.available = available
+            record.sold_out_reason = sold_out_reason if not available else None
+            record.updated_at = now
+            session.commit()
+            session.refresh(record)
+            return _menu_from_record(record)
+
+    def delete_store_menu(self, store_id: str, menu_id: str) -> bool:
+        with self._session_factory() as session:
+            record = session.get(StoreMenuRecord, menu_id)
+            if record is None or record.store_id != store_id:
+                return False
+            session.delete(record)
+            session.commit()
+            return True
+
+    def get_store_settings(self, store_id: str) -> StoreSettings | None:
+        """매장 운영 설정(수용 인원 등). 없으면 None."""
+        with self._session_factory() as session:
+            record = session.get(StoreSettingsRecord, store_id)
+            if record is None:
+                return None
+            return StoreSettings(
+                store_id=record.store_id,
+                max_capacity=record.max_capacity,
+                updated_at=record.updated_at,
+            )
+
+    def save_store_settings(self, store_id: str, max_capacity: int) -> StoreSettings:
+        """매장 설정을 저장(없으면 생성, 있으면 갱신)한다."""
+        with self._session_factory() as session:
+            record = session.get(StoreSettingsRecord, store_id)
+            if record is None:
+                record = StoreSettingsRecord(
+                    store_id=store_id, max_capacity=max_capacity
+                )
+                session.add(record)
+            else:
+                record.max_capacity = max_capacity
+            session.commit()
+            session.refresh(record)
+            return StoreSettings(
+                store_id=record.store_id,
+                max_capacity=record.max_capacity,
+                updated_at=record.updated_at,
+            )
 
     def save_order_event(self, event: OrderEvent) -> OrderEvent:
         """주문 이벤트와 메뉴를 함께 저장하며 event_id 중복을 허용하지 않는다."""
@@ -155,16 +560,60 @@ class DatabaseRepository:
                 return None
             return _order_event_from_record(record)
 
+    def list_order_events(
+        self,
+        *,
+        start_at: datetime,
+        end_at: datetime,
+        store_id: str | None = None,
+    ) -> list[OrderEvent]:
+        """CSV 내보내기에 사용할 기간 내 주문 이벤트를 반환한다."""
+        statement = (
+            select(OrderEventRecord)
+            .options(selectinload(OrderEventRecord.items))
+            .where(
+                OrderEventRecord.occurred_at >= start_at,
+                OrderEventRecord.occurred_at < end_at,
+            )
+            .order_by(
+                OrderEventRecord.occurred_at,
+                OrderEventRecord.store_id,
+                OrderEventRecord.order_id,
+                OrderEventRecord.event_id,
+            )
+        )
+        if store_id is not None:
+            statement = statement.where(OrderEventRecord.store_id == store_id)
+
+        with self._session_factory() as session:
+            records = list(session.scalars(statement))
+            return [_order_event_from_record(record) for record in records]
+
+    def count_waiting_orders_at(self, store_id: str, at: datetime) -> int:
+        """주어진 시각에 진행 중(접수~픽업 전)인 주문 수 = 그 순간 대기 인원.
+
+        라이브 화면이 보여주는 프레임 시각(state.captured_at)에 맞춰, 그때 아직
+        완료되지 않은 주문을 센다. 주문 로그의 정확한 시각만 쓰므로 비전 추적과
+        무관하다. 데이터가 합성이면 값은 생성기 재현이다(실 POS면 실측 대기).
+        """
+        orders = self.list_order_events(
+            start_at=at - WAITING_LOOKUP_WINDOW,
+            end_at=at + WAITING_LOOKUP_WINDOW,
+            store_id=store_id,
+        )
+        intervals = build_waiting_intervals(orders)
+        return concurrency_at(intervals, at)
+
     def get_store_summary(
         self,
         start_at: datetime | None = None,
         end_at: datetime | None = None,
     ) -> StoreSummaryResponse:
         """기간에 포함된 상태와 주문 이력을 매장별로 집계한다."""
-        state_statement = select(StoreStateRecord).order_by(
-            StoreStateRecord.store_id,
-            StoreStateRecord.captured_at,
-            StoreStateRecord.id,
+        state_statement = select(StoreStateHistoryRecord).order_by(
+            StoreStateHistoryRecord.store_id,
+            StoreStateHistoryRecord.captured_at,
+            StoreStateHistoryRecord.id,
         )
         order_statement = (
             select(OrderEventRecord)
@@ -178,17 +627,17 @@ class DatabaseRepository:
 
         if start_at is not None:
             state_statement = state_statement.where(
-                StoreStateRecord.captured_at >= start_at
+                StoreStateHistoryRecord.captured_at >= start_at
             )
             order_statement = order_statement.where(
                 OrderEventRecord.occurred_at >= start_at
             )
         if end_at is not None:
             state_statement = state_statement.where(
-                StoreStateRecord.captured_at <= end_at
+                StoreStateHistoryRecord.captured_at < end_at
             )
             order_statement = order_statement.where(
-                OrderEventRecord.occurred_at <= end_at
+                OrderEventRecord.occurred_at < end_at
             )
 
         with self._session_factory() as session:
@@ -214,13 +663,16 @@ class DatabaseRepository:
     ) -> StoreTimelineResponse:
         """한 매장의 상태와 신규 주문을 요청 기간의 시간대별로 집계한다."""
         state_statement = (
-            select(StoreStateRecord)
+            select(StoreStateHistoryRecord)
             .where(
-                StoreStateRecord.store_id == store_id,
-                StoreStateRecord.captured_at >= start_at,
-                StoreStateRecord.captured_at < end_at,
+                StoreStateHistoryRecord.store_id == store_id,
+                StoreStateHistoryRecord.captured_at >= start_at,
+                StoreStateHistoryRecord.captured_at < end_at,
             )
-            .order_by(StoreStateRecord.captured_at, StoreStateRecord.id)
+            .order_by(
+                StoreStateHistoryRecord.captured_at,
+                StoreStateHistoryRecord.id,
+            )
         )
         order_statement = (
             select(OrderEventRecord)
@@ -253,7 +705,7 @@ class DatabaseRepository:
         cutoff: datetime,
         store_ids: Collection[str] | None = None,
     ) -> int:
-        """보관기간이 지났고 매장별 최신 상태가 아닌 이력 수를 반환한다."""
+        """보관기간이 지난 원본 이력 수를 반환한다."""
         expired_ids = _expired_store_state_ids(cutoff, store_ids)
         statement = (
             select(func.count())
@@ -268,7 +720,10 @@ class DatabaseRepository:
         cutoff: datetime,
         store_ids: Collection[str] | None = None,
     ) -> int:
-        """보관기간이 지난 이력을 삭제하되 매장별 최신 상태 1건은 보존한다."""
+        """보관기간이 지난 원본 이력을 삭제한다.
+
+        최신 상태는 ``current_store_states``에 별도로 유지된다.
+        """
         expired_ids = _expired_store_state_ids(cutoff, store_ids)
         statement = delete(StoreStateRecord).where(
             StoreStateRecord.id.in_(expired_ids)
@@ -277,6 +732,397 @@ class DatabaseRepository:
             result = session.execute(statement)
             session.commit()
             return int(result.rowcount or 0)
+
+    def save_roi_config(
+        self,
+        store_id: str,
+        camera_id: str,
+        config: CameraRoiConfigInput,
+    ) -> CameraRoiConfig:
+        """새 승인 버전을 저장하고 이전 승인본은 보관 상태로 바꾼다."""
+        with self._session_factory() as session:
+            existing_statement = (
+                select(CameraRoiConfigRecord)
+                .where(
+                    CameraRoiConfigRecord.store_id == store_id,
+                    CameraRoiConfigRecord.camera_id == camera_id,
+                )
+                .order_by(CameraRoiConfigRecord.version)
+                .with_for_update()
+            )
+            existing = list(session.scalars(existing_statement))
+            next_version = max((item.version for item in existing), default=0) + 1
+            session.execute(
+                update(CameraRoiConfigRecord)
+                .where(
+                    CameraRoiConfigRecord.store_id == store_id,
+                    CameraRoiConfigRecord.camera_id == camera_id,
+                    CameraRoiConfigRecord.status == RoiConfigStatus.APPROVED.value,
+                )
+                .values(status=RoiConfigStatus.ARCHIVED.value)
+            )
+            now = datetime.now(timezone.utc)
+            record = CameraRoiConfigRecord(
+                store_id=store_id,
+                camera_id=camera_id,
+                version=next_version,
+                coordinate_space=config.coordinate_space,
+                image_width=config.image_size.width,
+                image_height=config.image_size.height,
+                zones=[
+                    zone.model_dump(mode="json")
+                    for zone in config.zones
+                ],
+                source=config.source.value,
+                status=RoiConfigStatus.APPROVED.value,
+                approved_at=now,
+            )
+            session.add(record)
+            session.commit()
+            session.refresh(record)
+            return _roi_config_from_record(record)
+
+    def get_approved_roi_config(
+        self,
+        store_id: str,
+        camera_id: str,
+    ) -> CameraRoiConfig | None:
+        statement = (
+            select(CameraRoiConfigRecord)
+            .where(
+                CameraRoiConfigRecord.store_id == store_id,
+                CameraRoiConfigRecord.camera_id == camera_id,
+                CameraRoiConfigRecord.status == RoiConfigStatus.APPROVED.value,
+            )
+            .limit(1)
+        )
+        with self._session_factory() as session:
+            record = session.scalar(statement)
+            return _roi_config_from_record(record) if record is not None else None
+
+    def list_roi_configs(
+        self,
+        store_id: str,
+        camera_id: str,
+    ) -> list[CameraRoiConfig]:
+        statement = (
+            select(CameraRoiConfigRecord)
+            .where(
+                CameraRoiConfigRecord.store_id == store_id,
+                CameraRoiConfigRecord.camera_id == camera_id,
+            )
+            .order_by(CameraRoiConfigRecord.version.desc())
+        )
+        with self._session_factory() as session:
+            return [
+                _roi_config_from_record(record)
+                for record in session.scalars(statement)
+            ]
+
+    def approve_roi_config(
+        self,
+        store_id: str,
+        camera_id: str,
+        version: int,
+    ) -> CameraRoiConfig | None:
+        with self._session_factory() as session:
+            target_statement = (
+                select(CameraRoiConfigRecord)
+                .where(
+                    CameraRoiConfigRecord.store_id == store_id,
+                    CameraRoiConfigRecord.camera_id == camera_id,
+                    CameraRoiConfigRecord.version == version,
+                )
+                .with_for_update()
+            )
+            target = session.scalar(target_statement)
+            if target is None:
+                return None
+            session.execute(
+                update(CameraRoiConfigRecord)
+                .where(
+                    CameraRoiConfigRecord.store_id == store_id,
+                    CameraRoiConfigRecord.camera_id == camera_id,
+                    CameraRoiConfigRecord.status == RoiConfigStatus.APPROVED.value,
+                )
+                .values(status=RoiConfigStatus.ARCHIVED.value)
+            )
+            target.status = RoiConfigStatus.APPROVED.value
+            target.approved_at = datetime.now(timezone.utc)
+            session.commit()
+            session.refresh(target)
+            return _roi_config_from_record(target)
+
+    def save_scene_config(
+        self,
+        store_id: str,
+        camera_id: str,
+        config: CameraSceneConfigInput,
+    ) -> CameraSceneConfig:
+        """새 장면 설정을 승인하고 이전 승인본은 보관한다."""
+        with self._session_factory() as session:
+            existing_statement = (
+                select(CameraSceneConfigRecord)
+                .where(
+                    CameraSceneConfigRecord.store_id == store_id,
+                    CameraSceneConfigRecord.camera_id == camera_id,
+                )
+                .order_by(CameraSceneConfigRecord.version)
+                .with_for_update()
+            )
+            existing = list(session.scalars(existing_statement))
+            next_version = max((item.version for item in existing), default=0) + 1
+            session.execute(
+                update(CameraSceneConfigRecord)
+                .where(
+                    CameraSceneConfigRecord.store_id == store_id,
+                    CameraSceneConfigRecord.camera_id == camera_id,
+                    CameraSceneConfigRecord.status == SceneConfigStatus.APPROVED.value,
+                )
+                .values(status=SceneConfigStatus.ARCHIVED.value)
+            )
+            now = datetime.now(timezone.utc)
+            record = CameraSceneConfigRecord(
+                store_id=store_id,
+                camera_id=camera_id,
+                version=next_version,
+                coordinate_space=config.coordinate_space,
+                image_width=config.image_size.width,
+                image_height=config.image_size.height,
+                objects=[
+                    item.model_dump(mode="json")
+                    for item in config.objects
+                ],
+                perspective=config.perspective.model_dump(mode="json"),
+                seat_anchors=[
+                    item.model_dump(mode="json", exclude_none=True)
+                    for item in config.seat_anchors
+                ],
+                source=config.source.value,
+                status=SceneConfigStatus.APPROVED.value,
+                approved_at=now,
+            )
+            session.add(record)
+            session.commit()
+            session.refresh(record)
+            return _scene_config_from_record(record)
+
+    def get_approved_scene_config(
+        self,
+        store_id: str,
+        camera_id: str,
+    ) -> CameraSceneConfig | None:
+        statement = (
+            select(CameraSceneConfigRecord)
+            .where(
+                CameraSceneConfigRecord.store_id == store_id,
+                CameraSceneConfigRecord.camera_id == camera_id,
+                CameraSceneConfigRecord.status == SceneConfigStatus.APPROVED.value,
+            )
+            .limit(1)
+        )
+        with self._session_factory() as session:
+            record = session.scalar(statement)
+            return _scene_config_from_record(record) if record is not None else None
+
+    def list_scene_configs(
+        self,
+        store_id: str,
+        camera_id: str,
+    ) -> list[CameraSceneConfig]:
+        statement = (
+            select(CameraSceneConfigRecord)
+            .where(
+                CameraSceneConfigRecord.store_id == store_id,
+                CameraSceneConfigRecord.camera_id == camera_id,
+            )
+            .order_by(CameraSceneConfigRecord.version.desc())
+        )
+        with self._session_factory() as session:
+            return [
+                _scene_config_from_record(record)
+                for record in session.scalars(statement)
+            ]
+
+    def approve_scene_config(
+        self,
+        store_id: str,
+        camera_id: str,
+        version: int,
+    ) -> CameraSceneConfig | None:
+        with self._session_factory() as session:
+            target_statement = (
+                select(CameraSceneConfigRecord)
+                .where(
+                    CameraSceneConfigRecord.store_id == store_id,
+                    CameraSceneConfigRecord.camera_id == camera_id,
+                    CameraSceneConfigRecord.version == version,
+                )
+                .with_for_update()
+            )
+            target = session.scalar(target_statement)
+            if target is None:
+                return None
+            session.execute(
+                update(CameraSceneConfigRecord)
+                .where(
+                    CameraSceneConfigRecord.store_id == store_id,
+                    CameraSceneConfigRecord.camera_id == camera_id,
+                    CameraSceneConfigRecord.status == SceneConfigStatus.APPROVED.value,
+                )
+                .values(status=SceneConfigStatus.ARCHIVED.value)
+            )
+            target.status = SceneConfigStatus.APPROVED.value
+            target.approved_at = datetime.now(timezone.utc)
+            session.commit()
+            session.refresh(target)
+            return _scene_config_from_record(target)
+
+
+def _store_state_values(state: StoreState) -> dict:
+    return {
+        "store_id": state.store_id,
+        "camera_id": state.camera_id,
+        "frame_id": state.frame_id,
+        "captured_at": state.captured_at,
+        "processed_at": state.processed_at,
+        "roi_version": state.roi_version,
+        "visible_person_count": state.visible_person_count,
+        "queue_count_estimate": state.queue_count_estimate,
+        "zone_counts": state.zone_counts,
+        "quality_status": state.quality_status.value,
+        "source": state.source,
+        "model_version": state.model_version,
+    }
+
+
+def _copy_store_state_values(record, state: StoreState) -> None:
+    for key, value in _store_state_values(state).items():
+        setattr(record, key, value)
+
+
+def _find_raw_store_state(
+    session: Session,
+    state: StoreState,
+) -> StoreStateRecord | None:
+    if state.frame_id is not None:
+        statement = select(StoreStateRecord).where(
+            StoreStateRecord.store_id == state.store_id,
+            StoreStateRecord.camera_id == state.camera_id,
+            StoreStateRecord.frame_id == state.frame_id,
+        )
+        return session.scalar(statement)
+
+    statement = select(StoreStateRecord).where(
+        StoreStateRecord.store_id == state.store_id,
+        StoreStateRecord.camera_id == state.camera_id,
+        StoreStateRecord.captured_at == state.captured_at,
+    )
+    for existing in session.scalars(statement):
+        if _store_state_from_record(existing) == state:
+            return existing
+    return None
+
+
+def _upsert_current_store_state(session: Session, state: StoreState) -> None:
+    key = (state.store_id, state.camera_id)
+    current = session.get(CurrentStoreStateRecord, key)
+    if current is None:
+        current = CurrentStoreStateRecord(**_store_state_values(state))
+        session.add(current)
+        return
+    _copy_store_state_values(current, state)
+    current.updated_at = datetime.now(timezone.utc)
+
+
+def _sample_bucket(captured_at: datetime) -> datetime:
+    captured_utc = captured_at.astimezone(timezone.utc)
+    second = (
+        captured_utc.second // HISTORY_SAMPLE_SECONDS
+    ) * HISTORY_SAMPLE_SECONDS
+    return captured_utc.replace(second=second, microsecond=0)
+
+
+def _hour_bucket(captured_at: datetime) -> datetime:
+    return captured_at.astimezone(timezone.utc).replace(
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+
+
+def _upsert_history_sample(session: Session, state: StoreState) -> None:
+    bucket_at = _sample_bucket(state.captured_at)
+    statement = select(StoreStateHistoryRecord).where(
+        StoreStateHistoryRecord.store_id == state.store_id,
+        StoreStateHistoryRecord.camera_id == state.camera_id,
+        StoreStateHistoryRecord.bucket_at == bucket_at,
+    )
+    history = session.scalar(statement)
+    if history is None:
+        history = StoreStateHistoryRecord(
+            bucket_at=bucket_at,
+            **_store_state_values(state),
+        )
+        session.add(history)
+        return
+    if state.captured_at >= history.captured_at:
+        _copy_store_state_values(history, state)
+
+
+def _upsert_hourly_metric(session: Session, state: StoreState) -> None:
+    bucket_at = _hour_bucket(state.captured_at)
+    key = (state.store_id, state.camera_id, bucket_at)
+    metric = session.get(HourlyStoreMetricRecord, key)
+    quality_issue = int(state.quality_status.value != "normal")
+    if metric is None:
+        session.add(
+            HourlyStoreMetricRecord(
+                store_id=state.store_id,
+                camera_id=state.camera_id,
+                bucket_at=bucket_at,
+                observation_count=1,
+                visible_person_sum=state.visible_person_count,
+                queue_count_sum=state.queue_count_estimate,
+                peak_visible_person_count=state.visible_person_count,
+                peak_visible_person_count_at=state.captured_at,
+                peak_queue_count_estimate=state.queue_count_estimate,
+                peak_queue_count_estimate_at=state.captured_at,
+                quality_issue_count=quality_issue,
+                latest_captured_at=state.captured_at,
+                latest_visible_person_count=state.visible_person_count,
+                latest_queue_count_estimate=state.queue_count_estimate,
+            )
+        )
+        return
+
+    metric.observation_count += 1
+    metric.visible_person_sum += state.visible_person_count
+    metric.queue_count_sum += state.queue_count_estimate
+    metric.quality_issue_count += quality_issue
+    if (
+        state.visible_person_count > metric.peak_visible_person_count
+        or (
+            state.visible_person_count == metric.peak_visible_person_count
+            and state.captured_at >= metric.peak_visible_person_count_at
+        )
+    ):
+        metric.peak_visible_person_count = state.visible_person_count
+        metric.peak_visible_person_count_at = state.captured_at
+    if (
+        state.queue_count_estimate > metric.peak_queue_count_estimate
+        or (
+            state.queue_count_estimate == metric.peak_queue_count_estimate
+            and state.captured_at >= metric.peak_queue_count_estimate_at
+        )
+    ):
+        metric.peak_queue_count_estimate = state.queue_count_estimate
+        metric.peak_queue_count_estimate_at = state.captured_at
+    if state.captured_at >= metric.latest_captured_at:
+        metric.latest_captured_at = state.captured_at
+        metric.latest_visible_person_count = state.visible_person_count
+        metric.latest_queue_count_estimate = state.queue_count_estimate
+    metric.updated_at = datetime.now(timezone.utc)
 
 
 def _get_order_event_record(
@@ -295,37 +1141,24 @@ def _expired_store_state_ids(
     cutoff: datetime,
     store_ids: Collection[str] | None = None,
 ):
-    ranked_statement = select(
-        StoreStateRecord.id.label("id"),
-        StoreStateRecord.store_id.label("store_id"),
-        StoreStateRecord.captured_at.label("captured_at"),
-        func.row_number()
-        .over(
-            partition_by=StoreStateRecord.store_id,
-            order_by=(
-                StoreStateRecord.captured_at.desc(),
-                StoreStateRecord.id.desc(),
-            ),
-        )
-        .label("latest_rank"),
+    statement = select(StoreStateRecord.id).where(
+        StoreStateRecord.captured_at < cutoff
     )
     if store_ids is not None:
-        ranked_statement = ranked_statement.where(
+        statement = statement.where(
             StoreStateRecord.store_id.in_(store_ids)
         )
-
-    ranked_states = ranked_statement.subquery()
-    return select(ranked_states.c.id).where(
-        ranked_states.c.captured_at < cutoff,
-        ranked_states.c.latest_rank > 1,
-    )
+    return statement
 
 
-def _store_state_from_record(record: StoreStateRecord) -> StoreState:
+def _store_state_from_record(record) -> StoreState:
     return StoreState(
         store_id=record.store_id,
         camera_id=record.camera_id,
+        frame_id=record.frame_id,
         captured_at=record.captured_at,
+        processed_at=record.processed_at,
+        roi_version=record.roi_version,
         visible_person_count=record.visible_person_count,
         queue_count_estimate=record.queue_count_estimate,
         zone_counts=record.zone_counts,
@@ -350,4 +1183,115 @@ def _order_event_from_record(record: OrderEventRecord) -> OrderEvent:
             )
             for item in sorted(record.items, key=lambda item: item.id or 0)
         ],
+    )
+
+
+def _roi_config_from_record(record: CameraRoiConfigRecord) -> CameraRoiConfig:
+    return CameraRoiConfig(
+        store_id=record.store_id,
+        camera_id=record.camera_id,
+        version=record.version,
+        coordinate_space=record.coordinate_space,
+        image_size={
+            "width": record.image_width,
+            "height": record.image_height,
+        },
+        zones=record.zones,
+        source=record.source,
+        status=record.status,
+        created_at=record.created_at,
+        approved_at=record.approved_at,
+    )
+
+
+def _scene_config_from_record(record: CameraSceneConfigRecord) -> CameraSceneConfig:
+    return CameraSceneConfig(
+        store_id=record.store_id,
+        camera_id=record.camera_id,
+        version=record.version,
+        coordinate_space=record.coordinate_space,
+        image_size={
+            "width": record.image_width,
+            "height": record.image_height,
+        },
+        objects=record.objects,
+        perspective=record.perspective,
+        seat_anchors=record.seat_anchors,
+        source=record.source,
+        status=record.status,
+        created_at=record.created_at,
+        approved_at=record.approved_at,
+    )
+
+
+def _store_info_from_record(record: StoreRecord) -> StoreInfo:
+    return StoreInfo(
+        id=record.id,
+        name=record.name,
+        created_at=record.created_at,
+        updated_at=record.updated_at,
+    )
+
+
+def _media_from_record(record: StoreMediaRecord) -> StoreMediaInfo:
+    return StoreMediaInfo(
+        id=record.id,
+        store_id=record.store_id,
+        media_type=StoreMediaType(record.media_type),
+        filename=record.filename,
+        content_type=record.content_type,
+        size_bytes=record.size_bytes,
+        created_at=record.created_at,
+    )
+
+
+def _job_from_record(record: AnalysisJobRecord) -> AnalysisJobInfo:
+    return AnalysisJobInfo(
+        id=record.id,
+        store_id=record.store_id,
+        media_id=record.media_id,
+        status=AnalysisJobStatus(record.status),
+        progress_percent=getattr(record, "progress_percent", 0.0) or 0.0,
+        processed_frames=getattr(record, "processed_frames", None),
+        total_frames=getattr(record, "total_frames", None),
+        stage_message=getattr(record, "stage_message", None),
+        error_message=record.error_message,
+        worker_id=record.worker_id,
+        claimed_at=record.claimed_at,
+        completed_at=record.completed_at,
+        created_at=record.created_at,
+    )
+
+
+def _next_store_id(session: Session) -> str:
+    ids = session.scalars(select(StoreRecord.id)).all()
+    max_number = 0
+    for store_id in ids:
+        match = _STORE_ID_PATTERN.match(store_id)
+        if match:
+            max_number = max(max_number, int(match.group(1)))
+    return f"store-{max_number + 1:03d}"
+
+
+def _policy_from_record(record: StorePolicyRecord) -> StorePolicyItem:
+    return StorePolicyItem(
+        policy_id=record.policy_id,
+        store_id=record.store_id,
+        category=record.category or "general",
+        title=record.title,
+        content=record.content,
+        keywords=record.keywords if isinstance(record.keywords, list) else [],
+    )
+
+
+def _menu_from_record(record: StoreMenuRecord) -> StoreMenuItem:
+    return StoreMenuItem(
+        menu_id=record.menu_id,
+        store_id=record.store_id,
+        category=record.category or "coffee",
+        name=record.name,
+        price=record.price,
+        prep_minutes=record.prep_minutes,
+        available=record.available,
+        sold_out_reason=record.sold_out_reason,
     )

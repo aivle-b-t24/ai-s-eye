@@ -1,19 +1,22 @@
 import React, { useState, useEffect } from 'react'
 
+import RoleBanner from '../common/RoleBanner'
 import KpiSummaryBar from './KpiSummaryBar'
 import ZoneBreakdownTable from './ZoneBreakdownTable'
-import VisionMonitorPanel from './VisionMonitorPanel'
-import MenuListPanel from './MenuListPanel'
-import PolicyListPanel from './PolicyListPanel'
-import EmptyStorePanel from './EmptyStorePanel'
+import StoreChatbotWidget from './StoreChatbotWidget'
 
 export default function StoreDashboardView({
   page,
+  storeName,
   dashboard,
   soldOutCount,
+  apiBaseUrl,
+  error,
+  loading,
+  isChatbotEnabled,
 }) {
-  const [isPolicyExpanded, setIsPolicyExpanded] = useState(false)
-  const [isMenuExpanded, setIsMenuExpanded] = useState(false)
+  const [isPolicyExpanded, _setIsPolicyExpanded] = useState(false)
+  const [isMenuExpanded, _setIsMenuExpanded] = useState(false)
 
   const isAnyExpanded = isPolicyExpanded || isMenuExpanded
 
@@ -29,8 +32,15 @@ export default function StoreDashboardView({
   }, [isAnyExpanded])
 
   return (
-
+    <>
     <section className="store-dashboard-view">
+      <RoleBanner
+        page={page}
+        storeName={storeName}
+        apiBaseUrl={apiBaseUrl}
+        error={error}
+        loading={loading}
+      />
       {dashboard?.state?.quality_status !== 'normal' && (
         <section className="alert-banner warning-alert">
           ⚠️ <strong>점주 알림:</strong> AI 카메라 스트림 화질 점검이
@@ -58,6 +68,7 @@ export default function StoreDashboardView({
           </span>
         </div>
 
+
         <KpiSummaryBar
           dashboard={dashboard}
           soldOutCount={soldOutCount}
@@ -67,34 +78,20 @@ export default function StoreDashboardView({
       <section className="dashboard-feature-grid">
         <div className="dashboard-feature dashboard-feature-large">
           <ZoneBreakdownTable
+            storeId={page}
             zoneCounts={dashboard?.state?.zone_counts}
           />
         </div>
-
-        <div className="dashboard-feature">
-          <VisionMonitorPanel storeId={page} />
-        </div>
       </section>
 
-      <section className="dashboard-bottom-grid">
-        <div className="dashboard-feature">
-          <PolicyListPanel
-            policies={dashboard?.policies}
-            isExpanded={isPolicyExpanded}
-            onToggleExpand={() => setIsPolicyExpanded((prev) => !prev)}
-          />
-        </div>
-
-        <div className="dashboard-feature">
-          <MenuListPanel
-            menus={dashboard?.menus}
-            soldOutCount={soldOutCount}
-            isExpanded={isMenuExpanded}
-            onToggleExpand={() => setIsMenuExpanded((prev) => !prev)}
-          />
-        </div>
-      </section>
+      
 
     </section>
+
+    
+      {isChatbotEnabled !== false && (
+        <StoreChatbotWidget page={page} storeName={storeName} />
+      )}
+    </>
   )
 }

@@ -1,5 +1,6 @@
 from functools import lru_cache
 import os
+from pathlib import Path
 
 from pydantic import BaseModel
 
@@ -11,8 +12,20 @@ class Settings(BaseModel):
     cors_origins: list[str]
     gemini_api_key: str | None
     gemini_model: str
+    embedding_model: str
     vertex_project: str | None
     vertex_location: str
+    auth_required: bool
+    firebase_project_id: str | None
+    firebase_credentials_path: Path | None
+    internal_api_key: str | None
+    kakao_skill_token: str | None
+    store_directory_raw: str | None
+    session_ttl_seconds: float
+    sgis_consumer_key: str | None
+    sgis_consumer_secret: str | None
+    vision_scene_url: str
+    scene_request_timeout_seconds: float
 
     @property
     def use_vertex(self) -> bool:
@@ -30,6 +43,7 @@ def get_settings() -> Settings:
     ]
     use_vertex = bool(os.getenv("AICC_VERTEX_PROJECT"))
     default_model = "gemini-2.5-flash" if use_vertex else "gemini-flash-lite-latest"
+    firebase_credentials = os.getenv("FIREBASE_CREDENTIALS")
     return Settings(
         api_base_url=base_url.rstrip("/"),
         request_timeout_seconds=float(os.getenv("AICC_REQUEST_TIMEOUT_SECONDS", "5")),
@@ -37,6 +51,30 @@ def get_settings() -> Settings:
         cors_origins=cors_origins,
         gemini_api_key=os.getenv("GOOGLE_API_KEY"),
         gemini_model=os.getenv("AICC_GEMINI_MODEL", default_model),
+        embedding_model=os.getenv("AICC_EMBEDDING_MODEL", "text-multilingual-embedding-002"),
         vertex_project=os.getenv("AICC_VERTEX_PROJECT"),
         vertex_location=os.getenv("AICC_VERTEX_LOCATION", "us-central1"),
+        auth_required=os.getenv("AUTH_REQUIRED", "false").lower()
+        in {"1", "true", "yes", "on"},
+        firebase_project_id=os.getenv("FIREBASE_PROJECT_ID"),
+        firebase_credentials_path=(
+            Path(firebase_credentials) if firebase_credentials else None
+        ),
+        internal_api_key=os.getenv("INTERNAL_API_KEY"),
+        # 카카오 스킬 웹훅은 손님용이라 firebase 로그인이 없다. 대신 공유 토큰으로
+        # 아무나 못 부르게 막는다. 비워두면(개발 편의) 토큰 검사를 건너뛴다.
+        kakao_skill_token=os.getenv("AICC_KAKAO_SKILL_TOKEN") or None,
+        # 공용 채널이 안내할 매장 목록(JSON). 여러 매장이면 손님이 대화에서 고른다.
+        store_directory_raw=os.getenv("AICC_STORE_DIRECTORY") or None,
+        # 유저별 선택 매장을 기억하는 시간(초). 기본 30분.
+        session_ttl_seconds=float(os.getenv("AICC_SESSION_TTL_SECONDS", "1800")),
+        sgis_consumer_key=os.getenv("AICC_SGIS_CONSUMER_KEY"),
+        sgis_consumer_secret=os.getenv("AICC_SGIS_CONSUMER_SECRET"),
+        vision_scene_url=os.getenv(
+            "AICC_VISION_SCENE_URL",
+            "http://host.docker.internal:8200/internal/scene-suggestions",
+        ),
+        scene_request_timeout_seconds=float(
+            os.getenv("AICC_SCENE_REQUEST_TIMEOUT_SECONDS", "120")
+        ),
     )

@@ -8,9 +8,26 @@ import pytest
 from sqlalchemy import create_engine, delete, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.db_models import OrderEventRecord, StoreStateRecord
+from app.db_models import (
+    CameraRoiConfigRecord,
+    CameraSceneConfigRecord,
+    CurrentStoreStateRecord,
+    HourlyStoreMetricRecord,
+    OrderEventRecord,
+    StoreStateHistoryRecord,
+    StoreStateRecord,
+)
 from app.db_repository import DatabaseRepository
-from app.models import OrderEvent, OrderItem, OrderStatus, QualityStatus, StoreState
+from app.models import (
+    CameraRoiConfigInput,
+    CameraSceneConfigInput,
+    OrderEvent,
+    OrderItem,
+    OrderStatus,
+    QualityStatus,
+    RoiConfigSource,
+    StoreState,
+)
 
 
 def _test_database_url() -> str:
@@ -39,8 +56,33 @@ def database_repository() -> tuple[DatabaseRepository, sessionmaker[Session], st
     finally:
         with session_factory() as session:
             session.execute(
+                delete(CameraRoiConfigRecord).where(
+                    CameraRoiConfigRecord.store_id.like(f"{test_id}%")
+                )
+            )
+            session.execute(
+                delete(CameraSceneConfigRecord).where(
+                    CameraSceneConfigRecord.store_id.like(f"{test_id}%")
+                )
+            )
+            session.execute(
                 delete(OrderEventRecord).where(
                     OrderEventRecord.event_id.like(f"{test_id}%")
+                )
+            )
+            session.execute(
+                delete(HourlyStoreMetricRecord).where(
+                    HourlyStoreMetricRecord.store_id.like(f"{test_id}%")
+                )
+            )
+            session.execute(
+                delete(StoreStateHistoryRecord).where(
+                    StoreStateHistoryRecord.store_id.like(f"{test_id}%")
+                )
+            )
+            session.execute(
+                delete(CurrentStoreStateRecord).where(
+                    CurrentStoreStateRecord.store_id.like(f"{test_id}%")
                 )
             )
             session.execute(
@@ -50,6 +92,86 @@ def database_repository() -> tuple[DatabaseRepository, sessionmaker[Session], st
             )
             session.commit()
         engine.dispose()
+
+
+def test_roi_versions_are_saved_and_previous_version_can_be_restored(
+    database_repository: tuple[DatabaseRepository, sessionmaker[Session], str],
+) -> None:
+    repository, _, test_id = database_repository
+    payload = CameraRoiConfigInput(
+        image_size={"width": 1920, "height": 1080},
+        zones=[
+            {
+                "id": "staff-1",
+                "type": "staff",
+                "label": "직원 구역",
+                "polygon": [
+                    {"x": 100, "y": 100},
+                    {"x": 400, "y": 100},
+                    {"x": 400, "y": 400},
+                ],
+            }
+        ],
+    )
+
+    first = repository.save_roi_config(test_id, "cam-1", payload)
+    second = repository.save_roi_config(
+        test_id,
+        "cam-1",
+        payload.model_copy(update={"source": RoiConfigSource.AI_ASSISTED}),
+    )
+
+    assert first.version == 1
+    assert second.version == 2
+    assert repository.get_approved_roi_config(test_id, "cam-1").version == 2
+    assert [item.status.value for item in repository.list_roi_configs(test_id, "cam-1")] == [
+        "approved",
+        "archived",
+    ]
+
+    restored = repository.approve_roi_config(test_id, "cam-1", 1)
+
+    assert restored is not None
+    assert restored.version == 1
+    assert repository.get_approved_roi_config(test_id, "cam-1").version == 1
+
+
+def test_scene_versions_are_saved_and_previous_version_can_be_restored(
+    database_repository: tuple[DatabaseRepository, sessionmaker[Session], str],
+) -> None:
+    repository, _, test_id = database_repository
+    payload = CameraSceneConfigInput(
+        image_size={"width": 1920, "height": 1080},
+        objects=[
+            {
+                "id": "table-1",
+                "type": "table",
+                "label": "테이블",
+                "polygon": [
+                    {"x": 100, "y": 100},
+                    {"x": 400, "y": 100},
+                    {"x": 400, "y": 400},
+                ],
+            }
+        ],
+    )
+
+    first = repository.save_scene_config(test_id, "cam-1", payload)
+    second = repository.save_scene_config(test_id, "cam-1", payload)
+
+    assert first.version == 1
+    assert second.version == 2
+    assert repository.get_approved_scene_config(test_id, "cam-1").version == 2
+    assert [
+        item.status.value
+        for item in repository.list_scene_configs(test_id, "cam-1")
+    ] == ["approved", "archived"]
+
+    restored = repository.approve_scene_config(test_id, "cam-1", 1)
+
+    assert restored is not None
+    assert restored.version == 1
+    assert repository.get_approved_scene_config(test_id, "cam-1").version == 1
 
 
 def test_latest_store_state_is_returned(
@@ -86,6 +208,28 @@ def test_latest_store_state_is_returned(
     assert saved_state.visible_person_count == 6
     assert saved_state.queue_count_estimate == 3
 
+    with database_repository[1]() as session:
+        raw_count = session.scalar(
+            select(func.count())
+            .select_from(StoreStateRecord)
+            .where(StoreStateRecord.store_id == test_id)
+        )
+        history_count = session.scalar(
+            select(func.count())
+            .select_from(StoreStateHistoryRecord)
+            .where(StoreStateHistoryRecord.store_id == test_id)
+        )
+        hourly = session.scalar(
+            select(HourlyStoreMetricRecord).where(
+                HourlyStoreMetricRecord.store_id == test_id
+            )
+        )
+    assert raw_count == 2
+    assert history_count == 1
+    assert hourly is not None
+    assert hourly.observation_count == 2
+    assert hourly.visible_person_sum == 8
+
 
 def test_same_store_state_payload_is_not_saved_twice(
     database_repository: tuple[DatabaseRepository, sessionmaker[Session], str],
@@ -120,7 +264,60 @@ def test_same_store_state_payload_is_not_saved_twice(
     assert state_count == 1
 
 
-def test_expired_states_are_deleted_but_latest_state_is_preserved(
+def test_replayed_frame_updates_current_without_growing_history(
+    database_repository: tuple[DatabaseRepository, sessionmaker[Session], str],
+) -> None:
+    repository, session_factory, test_id = database_repository
+    state = StoreState(
+        store_id=test_id,
+        camera_id="cam-replay",
+        frame_id=f"{test_id}-frame-001",
+        captured_at=datetime(2026, 7, 22, 9, 0, tzinfo=timezone.utc),
+        processed_at=datetime(2026, 7, 22, 9, 1, tzinfo=timezone.utc),
+        roi_version=3,
+        visible_person_count=8,
+        queue_count_estimate=2,
+        zone_counts={"waiting": 2, "seating": 6},
+        quality_status=QualityStatus.NORMAL,
+        source="demo-replay",
+        model_version="test-v1",
+    )
+
+    repository.save_store_state(state)
+    repository.save_store_state(
+        state.model_copy(update={"source": "vision-worker-batch"})
+    )
+
+    with session_factory() as session:
+        raw_count = session.scalar(
+            select(func.count())
+            .select_from(StoreStateRecord)
+            .where(StoreStateRecord.store_id == test_id)
+        )
+        history_count = session.scalar(
+            select(func.count())
+            .select_from(StoreStateHistoryRecord)
+            .where(StoreStateHistoryRecord.store_id == test_id)
+        )
+        metric = session.scalar(
+            select(HourlyStoreMetricRecord).where(
+                HourlyStoreMetricRecord.store_id == test_id
+            )
+        )
+        current_count = session.scalar(
+            select(func.count())
+            .select_from(CurrentStoreStateRecord)
+            .where(CurrentStoreStateRecord.store_id == test_id)
+        )
+
+    assert raw_count == 1
+    assert history_count == 1
+    assert current_count == 1
+    assert metric is not None
+    assert metric.observation_count == 1
+
+
+def test_expired_raw_states_are_deleted_but_current_state_is_preserved(
     database_repository: tuple[DatabaseRepository, sessionmaker[Session], str],
 ) -> None:
     repository, _, test_id = database_repository
@@ -157,8 +354,8 @@ def test_expired_states_are_deleted_but_latest_state_is_preserved(
         store_ids=[store_with_history, inactive_store],
     )
 
-    assert target_count == 2
-    assert deleted_count == 2
+    assert target_count == 3
+    assert deleted_count == 3
     assert repository.get_store_state(store_with_history).visible_person_count == 4
     assert repository.get_store_state(inactive_store).visible_person_count == 1
 
@@ -303,7 +500,7 @@ def test_store_summary_uses_period_and_separates_stores(
         order_id=f"{test_id}-order-002",
         store_id=store_two,
         occurred_at=start_at + timedelta(hours=6),
-        status=OrderStatus.COMPLETED,
+        status=OrderStatus.RECEIVED,
         items=[OrderItem(menu_id="menu-021", name="크루아상", quantity=3)],
     )
     repository.save_order_event(received_event)
@@ -333,8 +530,8 @@ def test_store_summary_uses_period_and_separates_stores(
     filtered_stores = {store.store_id: store for store in filtered.stores}
 
     assert filtered_stores[store_one].traffic_summary is None
-    assert filtered_stores[store_one].order_summary.total_order_count == 1
-    assert filtered_stores[store_one].order_summary.order_event_count == 1
+    assert filtered_stores[store_one].order_summary.total_order_count == 0
+    assert filtered_stores[store_one].order_summary.order_event_count == 0
 
 
 def test_store_timeline_groups_store_records_by_hour(

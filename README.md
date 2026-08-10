@@ -103,7 +103,10 @@ docker compose down
 | 메뉴와 품절 여부 | 샘플 메뉴 10개 중 2개 품절 처리 |
 | 매장 정책 | 샘플 정책 5개 조회 가능 |
 | 영상 분석 결과 받기 | StoreState JSON과 매장별 최신 분석 이미지 업로드·조회 API 준비 |
+| 카메라 ROI 설정 | 점주가 CCTV 화면에서 구역을 직접 설정하고 PostgreSQL에 버전별 저장 |
+| CCTV 디지털 트윈 | 구역 현황에서 CCTV 시점 가상 매장에 ROI·사람 위치·이동 궤적 표시(V2 기능 플래그) |
 | 주문 이벤트 받기 | 주문 시스템이 나중에 보낼 JSON 형식만 준비 |
+| What-if 운영 시뮬레이션 | 슈퍼바이저 화면에서 직원 수·방문객·제조시간·좌석·행사 조건 비교 및 디지털 트윈 재생 |
 | 슈퍼바이저 AI 인사이트 | 두 매장 집계 결과를 Vertex AI로 분석하는 API 준비 |
 
 서버를 실행한 뒤 [http://localhost:8000/docs](http://localhost:8000/docs)에 들어가면 위 기능을 직접 눌러서 확인할 수 있습니다.
@@ -139,6 +142,158 @@ GOOGLE_APPLICATION_CREDENTIALS_HOST_PATH=/home/user/.config/gcloud/application_d
 설정 후 `docker compose up -d --build aicc`로 실행하고
 `http://localhost:8100/healthz`에서 상태를 확인합니다. 인증 설정이 없더라도
 컨테이너와 상태 확인 API는 실행되지만 실제 `/insights` 호출은 실패합니다.
+
+## Firebase 로그인
+
+대시보드는 Firebase Authentication의 이메일/비밀번호 로그인을 사용한다. React가
+받은 Firebase ID Token을 API와 AICC에 Bearer Token으로 보내고, 각 서버는 Firebase
+Admin SDK로 토큰과 `role`, `store_id` claim을 검증한다. 점주는 claim에 지정된 한
+매장만 접근할 수 있고 `admin`은 본사 화면과 전체 매장 집계에 접근할 수 있다.
+
+로컬에서는 서비스 계정 비공개 키 대신 서비스 계정 위임 ADC를 사용한다. 위임 ADC는
+저장소 밖에 두고 `.env`의 `FIREBASE_ADC_HOST_PATH`에 절대 경로를 지정한다. ADC나
+실제 비밀번호는 Git에 추가하지 않는다. 웹 앱 설정과 서버 설정은 `.env.example`을
+참고한다.
+
+### 팀원 프런트 전용 시작 (Firebase 불필요)
+
+미니PC의 팀 개발 API와 AICC는 운영 서비스와 다른 포트에서 실행한다. 개발 서비스는
+Tailscale IP에만 바인딩하고 Cloudflare에는 연결하지 않는다. 미니PC 관리자는 `.env`에
+다음을 추가하고 한 번 실행한다.
+
+```env
+API_DEV_BIND_HOST=100.86.5.67
+API_DEV_PORT=8001
+AICC_DEV_BIND_HOST=100.86.5.67
+AICC_DEV_PORT=8101
+```
+
+```bash
+docker compose --profile team-dev up -d --build api-dev aicc-dev
+```
+
+팀원은 Tailscale에 연결한 뒤 대시보드 폴더의 안전한 공용 설정을 복사한다. Firebase
+웹 설정, Firebase 계정, ADC, 서비스 계정 키는 필요하지 않다.
+
+```bash
+cd apps/dashboard
+cp team.env.example .env.local
+npm ci
+npm run dev
+```
+
+Windows 명령 프롬프트에서는 첫 번째 복사 명령 대신 다음을 사용한다.
+
+```cmd
+copy team.env.example .env.local
+```
+
+로그인 화면의 팀 개발용 빠른 로그인에서 동명점, 수완점, 본사 관리자 중 하나를
+선택한다. `VITE_AUTH_MODE=local`은 Vite 개발 서버에서만 적용되며 프로덕션 빌드에서는
+Firebase 인증을 강제로 사용한다. 운영 API `8000`과 AICC `8100`의 인증 설정은 변경되지
+않는다.
+
+본사 관리자 로컬 계정은 `admin@local.test` / `1234`이다. 점주 계정은 빠른 로그인
+메뉴에서 매장을 선택하면 별도 입력 없이 로그인된다.
+
+### 팀원 Firebase 로컬 시작
+
+팀원은 기존 Vertex AI용 ADC 로그인을 그대로 유지한 채 Firebase 위임 ADC만 별도로
+만든다. 팀원 Google 계정에는 Firebase 서비스 계정의
+`Service Account Token Creator` 역할이 미리 부여되어 있어야 한다.
+
+```bash
+python3 scripts/setup_firebase_adc.py
+```
+
+성공하면 출력된 두 값을 로컬 `.env`에 반영한다.
+
+```env
+FIREBASE_PROJECT_ID=project-511b6816-d61a-47ab-b67
+FIREBASE_ADC_HOST_PATH=/home/사용자/.config/ai-s-eye/firebase-adc.json
+```
+
+API와 대시보드를 실행한다. API가 의존하는 PostgreSQL도 함께 시작된다.
+
+```bash
+docker compose up -d --build api dashboard
+```
+
+```text
+대시보드  http://localhost:5173
+API 상태  http://localhost:8000/health
+```
+
+스크립트는 기존 Gemini ADC를 수정하지 않는다. Firebase ADC는 성공적으로 임시 토큰을
+발급한 경우에만 저장하며, 토큰이나 갱신 자격증명은 화면에 출력하지 않는다.
+
+최초 본사 관리자 계정은 다음 대화형 스크립트로 만든다. 이름, 이메일, 임시
+비밀번호를 차례로 입력하며 비밀번호는 화면이나 명령행에 표시되지 않는다.
+
+```bash
+python3 scripts/create_franchise_admin.py
+```
+
+입력한 이메일이 이미 존재하면 이름, 비밀번호, `admin` claim이 갱신되고 기존
+refresh token이 폐기된다. 완료 후 대시보드 로그인 화면에서 입력한 계정으로
+로그인한다.
+
+점주 계정은 클라이언트에서 관리자 역할을 직접 선택해 만들지 않는다. 다음처럼
+서버의 계정 준비 명령을 사용하며, 비밀번호는 명령행 대신 임시 환경변수로 전달한다.
+
+```bash
+FIREBASE_TEMP_PASSWORD='별도로 전달받은 임시 비밀번호' \
+docker compose run --rm -e FIREBASE_TEMP_PASSWORD api \
+  python -m app.provision_firebase_user \
+  --email owner01@aicafe.com \
+  --name '동명점 점주' \
+  --role store_manager \
+  --store-id store-001
+```
+
+기존 점주 계정을 다시 실행하면 claim이 갱신되고 기존 refresh token은 폐기되므로
+다시 로그인해야 한다.
+
+## 카메라 ROI 설정
+
+점주 계정으로 로그인한 뒤 `설정`의 `카메라 구역 설정`에서 사용할 수 있습니다.
+
+1. 최신 CCTV 이미지 또는 별도 JPEG·PNG 이미지를 선택합니다.
+2. 직원·대기·출입구·좌석 구역을 직접 그립니다.
+3. 꼭짓점을 이동하거나 추가·삭제해 경계를 맞춥니다.
+4. `저장 및 적용`을 누르면 새 버전이 PostgreSQL에 저장됩니다.
+
+Vision은 다음 분석 실행 시 API의 승인본을 먼저 사용하고, API 장애 시 마지막 캐시,
+그마저 없으면 기존 `zones/*.json`을 사용합니다. 기존에 만들어 둔 재생 JSON은
+ROI만 저장한다고 다시 계산되지 않으므로 Vision 분석을 재실행해야 수치가 바뀝니다.
+
+개발 중에는 다음 명령으로 Vision LIVE 분석을 계속 실행할 수 있습니다.
+
+```bash
+services/vision-worker/live_control.sh start
+services/vision-worker/live_control.sh status
+services/vision-worker/live_control.sh logs
+services/vision-worker/live_control.sh stop
+```
+
+LIVE 실행 중에는 승인된 ROI 버전을 2초마다 확인합니다. `저장 및 적용`을 누르면
+별도 재시작 없이 다음 분석 구간부터 새 ROI가 사용됩니다. 마지막 구간까지 끝나면
+처음부터 반복하므로 대시보드의 인원, 위치, 분석 이미지도 계속 갱신됩니다. 기존
+JSON 기반 `vision-replay`는 같은 데이터를 덮어쓰지 않도록 LIVE 시작 시 중지합니다.
+
+## What-if 운영 시뮬레이션
+
+본사 슈퍼바이저 계정의 `운영 시뮬레이션`에서 기준 조건과 대안 조건을 비교한다.
+SimPy가 방문, 대기, 주문·제조, 대기 포기, 착석, 퇴장을 이산사건으로 계산하며
+같은 입력과 seed에는 같은 결과를 반환한다.
+
+이 결과는 응답의 `source`가 항상 `simulation`이고 `run_id`가 `sim-`으로
+시작한다. 실제 `StoreState`, `OrderEvent`, 기간 집계 테이블에는 저장하지 않는다.
+디지털 트윈 재생 화면에도 `합성 시뮬레이션`, `실제 데이터 아님`을 표시한다.
+
+장면 설정에는 카메라별 원거리·근거리 기준과 좌석 앵커가 포함된다. 기존 장면은
+마이그레이션 기본값과 테이블 기반 자동 좌석 배치를 사용하며, 설정 화면에서 다시
+보정해 새 버전으로 저장할 수 있다.
 
 ## 테스트
 

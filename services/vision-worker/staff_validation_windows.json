@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "label_scope": "manual_staff_count",
+  "label_note": "CAFE에는 직원 역할 정답이 없어, 서비스 공간에서 실제 업무 중인 사람 수를 원본 CCTV로 사람이 확인한다.",
+  "sample_every_seconds": 5,
+  "windows": [
+    {
+      "id": "cam5-first-5min",
+      "camera": "5",
+      "store_id": "store-001",
+      "start_seconds": 0,
+      "duration_seconds": 300,
+      "expected_staff_count": 1,
+      "review_note": "카운터 안쪽에서 주문·제조 업무를 수행하는 직원 1명"
+    },
+    {
+      "id": "cam21-first-5min",
+      "camera": "21",
+      "store_id": "store-002",
+      "start_seconds": 0,
+      "duration_seconds": 300,
+      "expected_staff_count": 1,
+      "review_note": "화면 왼쪽 카운터 안쪽에서 주문 업무를 수행하는 직원 1명"
+    }
+  ]
+}

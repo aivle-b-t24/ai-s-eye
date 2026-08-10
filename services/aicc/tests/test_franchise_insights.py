@@ -28,6 +28,7 @@ def summary() -> dict[str, Any]:
                 },
                 "order_summary": {
                     "total_order_count": 3,
+                    "data_sources": ["synthetic_order_simulator"],
                     "latest_status_counts": {"received": 1, "preparing": 2},
                     "top_menu_items": [{"menu_id": "menu-001", "name": "아메리카노", "quantity": 5}],
                 },
@@ -45,6 +46,7 @@ def summary() -> dict[str, Any]:
                 },
                 "order_summary": {
                     "total_order_count": 3,
+                    "data_sources": ["synthetic_order_simulator"],
                     "latest_status_counts": {"received": 1, "completed": 1},
                     "top_menu_items": [{"menu_id": "menu-021", "name": "크루아상", "quantity": 2}],
                 },
@@ -136,6 +138,46 @@ def test_prompt_has_both_stores_numbers() -> None:
     assert "28" in p and "22" in p  # 두 매장 피크 인원
 
 
+def test_prompt_includes_synthetic_order_source() -> None:
+    p = build_prompt(summary())
+
+    assert "주문 데이터 출처: synthetic_order_simulator" in p
+
+
+def test_system_prompt_has_probable_cause_guardrail() -> None:
+    """추정 원인 규칙과 '지어내기 금지' 가드레일이 프롬프트에 살아있어야 한다."""
+    from aicc.franchise_insights import SYSTEM_PROMPT
+
+    assert "probable_cause" in SYSTEM_PROMPT  # 필드 지시가 있다
+    assert "추정" in SYSTEM_PROMPT  # 가설 어투 강제
+    assert "지어내지 않는다" in SYSTEM_PROMPT  # 상권 통계에 없는 사실 지어내기 금지
+    assert "실제 POS 실적이라고 표현하지 않는다" in SYSTEM_PROMPT
+    assert "지점명은 절대 지어내지 않는다" in SYSTEM_PROMPT  # 강남점 등 임의 지점명 환각 금지
+    assert "글자 그대로만 쓴다" in SYSTEM_PROMPT  # 동 이름 바꿔치기(신림동 등) 금지
+    assert "evidence에 넣지 않는다" in SYSTEM_PROMPT  # evidence는 숫자만
+
+
+class FakeContext:
+    """상권 프로필 대역. profile_text가 정해둔 문자열을 준다."""
+
+    def profile_text(self, store_id):
+        return "동명동 20대·직장인구 높은 도심 상권" if store_id == "store-001" else None
+
+
+def test_prompt_includes_store_context() -> None:
+    """profiles를 주면 매장 아래에 상권 줄이 들어간다."""
+    p = build_prompt(summary(), {"store-001": "동명동 상권 통계 — 20대 27%"})
+    assert "상권: 동명동 상권 통계 — 20대 27%" in p
+
+
+def test_generate_injects_context_into_prompt() -> None:
+    """generate_insights가 context_provider의 상권을 프롬프트에 넣는다."""
+    capture: dict[str, Any] = {}
+    client = FakeGemini(json.dumps(FAKE_OUTPUT), capture=capture)
+    generate_insights(summary(), client=client, context_provider=FakeContext())
+    assert "상권: 동명동 20대·직장인구 높은 도심 상권" in capture["contents"]
+
+
 def test_prompt_does_not_leak_expected_insights() -> None:
     """정답(expected_insights)이 프롬프트에 새지 않는다."""
     s = summary()
@@ -189,6 +231,15 @@ def test_non_json_response_raises() -> None:
     client = FakeGemini("이건 JSON이 아님")
     with pytest.raises(InsightsUnavailableError):
         generate_insights(summary(), client=client)
+
+
+def test_empty_stores_raises_without_calling_gemini() -> None:
+    """데이터가 0개면 Gemini를 부르지 않고 명확한 오류를 낸다(빈 입력 지어내기 방지)."""
+    capture: dict[str, Any] = {}
+    client = FakeGemini(json.dumps(FAKE_OUTPUT), capture=capture)
+    with pytest.raises(InsightsUnavailableError, match="데이터가 없습니다"):
+        generate_insights({"stores": []}, client=client)
+    assert "contents" not in capture  # Gemini 호출이 아예 안 됨
 
 
 @pytest.mark.parametrize("bad", [[], "문자열", {"period": {}}, {"stores": "리스트아님"}, None])

@@ -169,6 +169,29 @@ docker compose ps
 DB 볼륨은 유지되므로 일반적인 이미지 재빌드로 데이터가 삭제되지 않는다.
 `docker compose down -v`는 PostgreSQL 데이터를 전부 지우므로 사용하지 않는다.
 
+### 5.1 develop 자동 배포
+
+`develop`에 병합되면 `.github/workflows/deploy-develop.yml`이 GitHub-hosted Runner를
+Tailscale의 임시 `tag:ci` 장비로 연결하고 미니PC에 SSH 접속한다. 미니PC는 외부 SSH나
+Cloudflare에 노출하지 않는다.
+
+필요한 GitHub Actions Secret은 다음과 같다.
+
+- `TS_OAUTH_CLIENT_ID`, `TS_OAUTH_SECRET`: `Auth Keys: Write`, `tag:ci`로 제한한
+  Tailscale OAuth Credential
+- `MINIPC_DEPLOY_SSH_KEY`: 미니PC 배포 전용 Ed25519 개인키
+- `MINIPC_KNOWN_HOSTS`: 미니PC SSH 호스트 공개키
+
+저장소 Variable은 다음과 같다.
+
+- `MINIPC_HOST=100.86.5.67`
+- `MINIPC_USER=ubuntu`
+- `MINIPC_APP_PATH=/home/ubuntu/ai-s-eye`
+
+서버에서는 `scripts/deploy-minipc.sh`가 동시 배포 잠금, 배포 전 DB 백업, 이미지 빌드,
+마이그레이션, API·AICC·Dashboard 상태 검사를 수행한다. 서버의 추적 파일이 수정돼 있으면
+덮어쓰지 않고 배포를 중단한다.
+
 ## 6. 백업과 복구
 
 백업 폴더를 만들고 PostgreSQL 덤프를 저장한다.
@@ -219,4 +242,5 @@ API가 열리지 않으면 다음 순서로 확인한다.
 - `.env`, 비밀번호, Google 인증 파일은 저장소에 올리지 않는다.
 - 미니PC에 기능 브랜치를 바로 배포하지 않고 `develop` 병합 후 갱신한다.
 - 대용량 영상·모델 가중치는 미니PC DB나 GitHub에 넣지 않는다.
+- 업로드형 온보딩 분석·장면 초안은 본인 GPU 서버에서 돌린다. 절차는 [gpu-upload-worker.md](./gpu-upload-worker.md) 참고.
 - 외부 공개, HTTPS, 도메인, 최종 클라우드 배포는 별도 단계에서 진행한다.

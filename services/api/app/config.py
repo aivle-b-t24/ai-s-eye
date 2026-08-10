@@ -13,7 +13,14 @@ class Settings(BaseModel):
     sample_data_dir: Path
     vision_snapshot_dir: Path
     vision_snapshot_max_bytes: int
+    store_media_dir: Path
+    store_media_max_bytes: int
     vision_store_ids: set[str]
+    auth_required: bool
+    firebase_project_id: str | None
+    firebase_credentials_path: Path | None
+    internal_api_key: str | None
+    recaptcha_secret: str
 
 
 def _default_sample_data_dir() -> Path:
@@ -32,6 +39,10 @@ def _default_vision_snapshot_dir() -> Path:
     return Path(__file__).resolve().parents[1] / "data" / "vision"
 
 
+def _default_store_media_dir() -> Path:
+    return Path(__file__).resolve().parents[1] / "data" / "store-media"
+
+
 @lru_cache
 def get_settings() -> Settings:
     origins = os.getenv("CORS_ORIGINS", "http://localhost:5173")
@@ -43,10 +54,17 @@ def get_settings() -> Settings:
         else _default_sample_data_dir()
     )
     configured_snapshot_dir = os.getenv("VISION_SNAPSHOT_DIR")
+    configured_media_dir = os.getenv("STORE_MEDIA_DIR")
+    configured_firebase_credentials = os.getenv("FIREBASE_CREDENTIALS")
     vision_snapshot_dir = (
         Path(configured_snapshot_dir)
         if configured_snapshot_dir
         else _default_vision_snapshot_dir()
+    )
+    store_media_dir = (
+        Path(configured_media_dir)
+        if configured_media_dir
+        else _default_store_media_dir()
     )
     return Settings(
         app_name=os.getenv("APP_NAME", "AI's Eye API"),
@@ -58,9 +76,27 @@ def get_settings() -> Settings:
         vision_snapshot_max_bytes=int(
             os.getenv("VISION_SNAPSHOT_MAX_BYTES", str(5 * 1024 * 1024))
         ),
+        store_media_dir=store_media_dir,
+        store_media_max_bytes=int(
+            os.getenv("STORE_MEDIA_MAX_BYTES", str(200 * 1024 * 1024))
+        ),
         vision_store_ids={
             store_id.strip()
             for store_id in vision_store_ids.split(",")
             if store_id.strip()
         },
+        auth_required=os.getenv("AUTH_REQUIRED", "false").lower()
+        in {"1", "true", "yes", "on"},
+        firebase_project_id=os.getenv("FIREBASE_PROJECT_ID"),
+        firebase_credentials_path=(
+            Path(configured_firebase_credentials)
+            if configured_firebase_credentials
+            else None
+        ),
+        internal_api_key=os.getenv("INTERNAL_API_KEY"),
+        # 기본값은 Google 공식 reCAPTCHA 테스트 시크릿(항상 성공). 운영은 RECAPTCHA_SECRET_KEY로 교체.
+        recaptcha_secret=os.getenv(
+            "RECAPTCHA_SECRET_KEY",
+            "6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe",
+        ),
     )

@@ -4,9 +4,29 @@
 
 기본 주소는 `http://localhost:8000`이다.
 
+### 주문 CSV 다운로드
+
+`GET /api/exports/orders.csv`
+
+- `start_at`, `end_at`: 시간대가 포함된 ISO 8601 시각, 종료 시각은 미포함
+- `store_id`: 선택값. 생략하면 전체 매장
+- 최대 조회 범위: 31일
+- 응답: UTF-8 BOM CSV, 주문 한 건당 한 행
+
 ## GET /health
 
 API와 PostgreSQL 연결 상태를 확인한다.
+
+## 매장 운영 집계 데이터 출처
+
+`GET /api/stores/summary`의 매장별 `order_summary.data_sources`는 주문 출처를
+나타낸다. 현재 합성 주문은 `synthetic_order_simulator`, 그 외 주문 이벤트는
+`order_event`로 표시한다. 합성 주문 여부는 `sim-` 주문번호 접두사로 판별한다.
+
+`GET /api/stores/{store_id}/timeline`의 `interval`은 `1h` 또는 `1d`를 지원한다.
+슈퍼바이저 화면은 최근 24시간에 `1h`, 7일·30일·직접 설정에 `1d`를 사용한다.
+기간별 주문 KPI와 타임라인은 요청 범위 `[start_at, end_at)` 안에서
+`received` 상태가 발생한 주문을 기준으로 집계한다.
 
 응답 예시:
 
@@ -32,10 +52,13 @@ API와 PostgreSQL 연결 상태를 확인한다.
 - `visible_person_count`는 CCTV에서 보이는 인원이며 정확한 고객 수로 단정하지 않는다.
 - 시각은 ISO 8601 형식을 사용한다.
 - `quality_status`는 `normal`, `low`, `stale`, `unknown` 중 하나다.
+- 신규 Vision 결과는 `frame_id`, `processed_at`, `roi_version`을 함께 보낸다.
+- `captured_at`은 프레임 시각, `processed_at`은 모델 분석 완료 시각이다.
+- `frame_id`가 있는 상태는 매장·카메라별로 한 번만 원본 이력에 저장한다.
 
 성공 상태 코드는 `201 Created`다.
-매장·카메라·측정 시각과 나머지 값까지 모두 같은 상태를 다시 보내면
-PostgreSQL에 중복 이력을 추가하지 않는다.
+마지막 수신 상태는 `current_store_states`, 30초 샘플은
+`store_state_history`, 시간 집계는 `hourly_store_metrics`에 함께 반영된다.
 
 ## POST /internal/order-events
 
@@ -58,6 +81,21 @@ POS/KDS 또는 주문 시뮬레이터가 주문 상태 변경을 전송한다.
 
 Vision Worker가 사람 탐지 박스와 ROI를 표시한 최신 분석 이미지를 전송한다.
 요청은 `multipart/form-data`이며 `image` 필드에 JPEG 또는 PNG 파일을 넣는다.
+신규 분석은 `metadata` 필드에 StoreState와 동일한 프레임 신원 JSON을 넣는다.
+
+```json
+{
+  "schema_version": "1.0",
+  "store_id": "store-001",
+  "camera_id": "store-001-cam1",
+  "frame_id": "store-001-0253",
+  "captured_at": "2026-07-27T15:31:14+09:00",
+  "processed_at": "2026-07-30T10:20:00+09:00",
+  "model_version": "yolo11s-cafe-ft+pose-dwell",
+  "roi_version": 7,
+  "source": "demo-replay"
+}
+```
 
 기본 지원 매장은 `store-001`, `store-002`이고 파일 최대 크기는 5MB다. 새 이미지를
 받으면 해당 매장의 기존 최신 이미지를 교체한다. 이미지 파일은 PostgreSQL에
@@ -70,6 +108,25 @@ Vision Worker가 사람 탐지 박스와 ROI를 표시한 최신 분석 이미�
 해당 매장의 가장 최근 Vision 분석 이미지를 반환한다. 아직 업로드된 이미지가
 없으면 `404`를 반환한다. 브라우저 캐시로 이전 이미지가 계속 보이지 않도록
 응답에 `Cache-Control: no-store`를 포함한다.
+메타데이터가 있으면 `X-Vision-Frame-Id`, `X-Vision-Model-Version`,
+`X-Vision-Roi-Version` 등의 응답 헤더도 포함한다.
+
+## GET /api/stores/{store_id}/vision/metadata
+
+최신 분석 이미지와 연결된 프레임 ID, 촬영·처리 시각, 모델·ROI 버전과 출처를
+JSON으로 반환한다. 원본 프레임 메타데이터는
+`GET /api/stores/{store_id}/vision/raw/metadata`에서 조회한다.
+
+## POST /internal/stores/{store_id}/vision-raw
+
+ROI 설정에 사용할 탐지 박스·기존 ROI 오버레이가 없는 원본 CCTV 프레임을 전송한다.
+요청 형식과 용량 제한은 분석 이미지 업로드와 동일하다. 분석 이미지와 원본 이미지는
+서로 다른 최신 파일로 보관하며 PostgreSQL에는 저장하지 않는다.
+
+## GET /api/stores/{store_id}/vision/raw/latest
+
+해당 매장의 최신 원본 CCTV 프레임을 반환한다. ROI 편집기는 이 주소만 사용하며,
+원본이 없을 때 분석 이미지로 자동 대체하지 않는다.
 
 ## GET /api/stores/{store_id}/orders/{order_id}
 
@@ -109,7 +166,8 @@ Vision Worker가 사람 탐지 박스와 ROI를 표시한 최신 분석 이미�
 
 ## GET /api/stores/{store_id}/state
 
-해당 매장의 가장 최근 StoreState를 반환한다. 상태가 없으면 `404`를 반환한다.
+해당 매장에 마지막으로 수신된 StoreState를 반환한다. `captured_at`이 과거인
+데모 재생도 수신 순서대로 최신본을 갱신하며, 상태가 없으면 `404`를 반환한다.
 
 기본 mock 매장은 `store-001`이다.
 
@@ -194,6 +252,23 @@ PostgreSQL에 저장된 상태와 주문 이력을 기간별·매장별로 집�
 
 PostgreSQL이 설정되지 않은 환경에서는 `503`을 반환한다.
 
+## POST /api/simulations/operations
+
+슈퍼바이저 What-if 비교를 위한 이산사건 시뮬레이션을 한 번 실행한다.
+
+주요 입력:
+
+- `staff_count`: 제조 자원으로 사용할 직원 수
+- `arrivals_per_hour`, `event_multiplier`: 가상 고객 도착 강도
+- `average_service_minutes`: 주문·제조 평균 소요시간
+- `patience_minutes`: 고객의 평균 대기 인내시간
+- `seat_count`, `dine_in_rate`: 착석 자원과 매장 이용 비율
+- `seed`: 동일 조건 재현용 난수 seed
+
+응답에는 `metrics`와 2분 간격 `frames`가 포함된다. 모든 응답의 `source`는
+`simulation`이며 `run_id`는 `sim-` 접두사를 사용한다. 이 API는 실제 이력 API와
+분리된 순수 계산 API이며 PostgreSQL에 어떠한 이벤트도 저장하지 않는다.
+
 ## 두 매장 데모 시나리오 적재
 
 Docker의 API와 PostgreSQL을 빌드해 실행한 뒤 다음 명령으로
@@ -222,3 +297,52 @@ docker compose exec api python -m app.scenario_loader
 
 - `packages/contracts/store_state.schema.json`
 - `packages/contracts/order_event.schema.json`
+- `packages/contracts/camera_roi_config.schema.json`
+## 카메라 ROI 설정
+
+ROI 좌표는 이미지 해상도와 무관한 `normalized_1000` 좌표계를 사용한다.
+왼쪽 위가 `(0, 0)`, 오른쪽 아래가 `(1000, 1000)`이다.
+
+- `GET /api/stores/{store_id}/cameras/{camera_id}/roi-config`: 현재 승인본
+- `PUT /api/stores/{store_id}/cameras/{camera_id}/roi-config`: 새 버전 저장·적용
+- `GET /api/stores/{store_id}/cameras/{camera_id}/roi-configs`: 버전 이력
+- `POST /api/stores/{store_id}/cameras/{camera_id}/roi-configs/{version}/approve`: 이전 버전 재적용
+- `GET /internal/stores/{store_id}/cameras/{camera_id}/roi-config`: Vision용 승인본
+
+지원 구역은 `staff`, `waiting`, `entrance`, `seating`이다. 폴리곤은 꼭짓점
+3~20개로 구성하며 좌표 범위, 면적, 자기 교차 여부를 API가 검증한다.
+
+점주는 원본 프레임 위에서 구역을 직접 그린다. `waiting`은 이미지 한 장만으로
+결정하지 않고 사람 추적·체류 자료와 실제 매장 운영 기준을 함께 참고한다.
+
+```json
+{
+  "coordinate_space": "normalized_1000",
+  "image_size": {"width": 1920, "height": 1080},
+  "source": "manual",
+  "zones": [
+    {
+      "id": "staff-1",
+      "type": "staff",
+      "label": "직원 구역",
+      "polygon": [
+        {"x": 530, "y": 20},
+        {"x": 995, "y": 20},
+        {"x": 995, "y": 540}
+      ]
+    }
+  ]
+}
+```
+
+## CCTV 디지털 트윈
+
+별도 매장 도면을 가정하지 않고 원본 CCTV 화면을 공간 기준으로 사용한다.
+Vision Worker는 사람의 발 좌표를 이미지 너비·높이에 대한 `0~1` 좌표로 정규화해
+`POST /internal/stores/{store_id}/occupancy`로 보낸다.
+
+`GET /api/stores/{store_id}/occupancy/latest`는 해당 카메라의 최신 위치를 반환한다.
+각 사람에는 `track_id`, 역할, 상태와 ROI 구역이 포함된다. 대시보드는 승인된 ROI,
+발 좌표와 최근 이동 궤적을 원본 CCTV 이미지 위에 표시한다.
+
+도면 좌표 변환이나 여러 카메라 위치의 공간 통합은 현재 범위에 포함하지 않는다.

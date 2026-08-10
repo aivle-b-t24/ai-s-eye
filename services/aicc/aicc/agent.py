@@ -345,10 +345,19 @@ def _fallback_answer(routed: dict[str, Any]) -> str:
 
     tool = routed.get("tool")
     if tool == "state":
-        return (
-            f"현재 매장에 {inner.get('visible_person_count')}명이 있고, "
-            f"대기 주문은 {inner.get('queue_count_estimate')}건입니다."
-        )
+        # 사이트 '현재 매장 운영 현황'과 동일하게 안내한다(gemini 답과 값·형식 통일).
+        waiting = inner.get("waiting_order_count")
+        if waiting is None:
+            waiting = inner.get("queue_count_estimate")
+        lines = [
+            "현재 매장 현황입니다.",
+            f"• 현재 고객 {inner.get('visible_person_count')}명",
+            f"• 대기 주문 {waiting}건",
+        ]
+        if inner.get("estimated_wait_minutes") is not None:
+            lines.append(f"• 예상 대기시간 {inner.get('estimated_wait_minutes')}분")
+        lines.append("⚠️ 참고 — 실시간 관제 기준이라 순간순간 바뀔 수 있어요.")
+        return "\n".join(lines)
     if tool == "eta":
         return f"예상 대기시간은 약 {inner.get('estimated_wait_minutes')}분입니다."
     if tool == "order":

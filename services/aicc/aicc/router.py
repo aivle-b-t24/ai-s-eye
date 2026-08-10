@@ -242,7 +242,16 @@ class QuestionRouter:
         if question_type is QuestionType.MENU:
             return {"tool": "menu", "result": self._tools.get_menus(store_id)}
         if question_type is QuestionType.STATE:
-            return {"tool": "state", "result": self._tools.get_store_state(store_id)}
+            state = self._tools.get_store_state(store_id)
+            # 사이트 '현재 매장 운영 현황'과 같은 값(대기 주문·예상 대기시간)을 함께 담는다.
+            # eta는 매장 API 호출이라 Gemini 할당량과 무관 → 폴백에서도 안전하게 부른다.
+            if isinstance(state, dict) and state.get("ok"):
+                eta = self._tools.get_eta(store_id)
+                if isinstance(eta, dict) and eta.get("ok"):
+                    for key in ("waiting_order_count", "estimated_wait_minutes"):
+                        if eta.get(key) is not None:
+                            state[key] = eta[key]
+            return {"tool": "state", "result": state}
         if question_type is QuestionType.ETA:
             return {"tool": "eta", "result": self._tools.get_eta(store_id)}
         if question_type is QuestionType.ORDER:

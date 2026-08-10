@@ -92,21 +92,22 @@ def test_classify_question_type(question: str, expected: QuestionType) -> None:
 
 
 @pytest.mark.parametrize(
-    ("question", "expected_tool"),
+    ("question", "expected_calls"),
     [
-        ("아메리카노 얼마예요?", "menus"),
-        ("지금 몇 명 있나요?", "state"),
-        ("얼마나 기다려야 해요?", "eta"),
-        ("주차 되나요?", "policies"),
+        ("아메리카노 얼마예요?", ["menus"]),
+        # 현황은 사이트 값(대기 주문·예상 대기시간)과 맞추려 state 뒤에 eta도 부른다.
+        ("지금 몇 명 있나요?", ["state", "eta"]),
+        ("얼마나 기다려야 해요?", ["eta"]),
+        ("주차 되나요?", ["policies"]),
     ],
 )
-def test_router_calls_matching_tool(question: str, expected_tool: str) -> None:
+def test_router_calls_matching_tool(question: str, expected_calls: list[str]) -> None:
     tools = FakeTools()
     router = QuestionRouter(tools)
 
     router.handle(question)
 
-    assert tools.calls == [expected_tool]
+    assert tools.calls == expected_calls
 
 
 def test_menu_question_does_not_call_other_tools() -> None:

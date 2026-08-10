@@ -21,7 +21,7 @@ remove_stateless_service_containers() {
   local service
   local -a container_ids
 
-  for service in api aicc dashboard store-state-cleanup; do
+  for service in order-simulator api aicc dashboard store-state-cleanup; do
     mapfile -t container_ids < <(compose ps -aq "$service")
     if (( ${#container_ids[@]} > 0 )); then
       echo "[deploy-minipc] replacing $service containers: ${container_ids[*]}"
@@ -35,7 +35,7 @@ diagnose() {
   if (( exit_code != 0 )); then
     echo "[deploy-minipc] deployment failed (exit=$exit_code)" >&2
     compose ps >&2 || true
-    compose logs --tail=80 api aicc dashboard >&2 || true
+    compose --profile demo logs --tail=80 api aicc dashboard order-simulator >&2 || true
   fi
   exit "$exit_code"
 }
@@ -87,10 +87,10 @@ compose exec -T db sh -lc \
 chmod 600 "$backup_path"
 echo "[deploy-minipc] database backup: $backup_path"
 
-compose build api aicc dashboard store-state-cleanup
+compose --profile demo build api aicc dashboard store-state-cleanup order-simulator
 compose run --rm --no-deps api alembic upgrade head
 remove_stateless_service_containers
-compose up -d --no-build db api aicc dashboard store-state-cleanup
+compose --profile demo up -d --no-build db api aicc dashboard store-state-cleanup order-simulator
 
 api_address=$(compose port api 8000)
 aicc_address=$(compose port aicc 8100)
@@ -100,6 +100,6 @@ wait_for_url "API" "http://$api_address/health"
 wait_for_url "AICC" "http://$aicc_address/healthz"
 wait_for_url "Dashboard" "http://$dashboard_address/"
 
-compose ps
+compose --profile demo ps
 printf '%s\n' "$deployed_sha" >.deployed-minipc-sha
 echo "[deploy-minipc] completed $deployed_sha"

@@ -9,6 +9,7 @@ import {
 import OperationsSimulator from './OperationsSimulator'
 import AccountManagementPanel from './AccountManagementPanel'
 import OrderTrendChart from './OrderTrendChart'
+import { currentHqSection } from './hqNavigation'
 import {
   SUPERVISOR_STORE_IDS,
   orderDataLabel,
@@ -53,6 +54,29 @@ const SEVERITY_LABELS = {
   medium: '보통',
   low: '낮음',
   info: '참고',
+}
+
+const HQ_VIEW_COPY = {
+  'hq-overview': {
+    overline: 'FRANCHISE OPERATIONS',
+    title: '가맹점 운영 분석',
+    description: '핵심 지표와 주문 추이, 매장별 운영 상태를 한 화면에서 비교합니다.',
+  },
+  'hq-simulation': {
+    overline: 'OPERATIONS SIMULATION',
+    title: '운영 시뮬레이션',
+    description: '같은 행사 수요에서 직원 수에 따른 대기·완료·포기 차이를 검토합니다.',
+  },
+  'hq-ai': {
+    overline: 'AI INSIGHTS',
+    title: 'AI 운영 인사이트',
+    description: '선택 기간의 매장 데이터를 근거로 특이사항과 권장 조치를 생성합니다.',
+  },
+  'hq-accounts': {
+    overline: 'ACCOUNT ADMINISTRATION',
+    title: '점주 계정 관리',
+    description: '가맹점 점주 계정을 발급하고 매장 연결과 접근 권한을 관리합니다.',
+  },
 }
 
 function createPresetRange(hours, interval = '1h') {
@@ -245,6 +269,17 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
   const [storeNames, setStoreNames] = useState({})
   const [storeIds, setStoreIds] = useState(SUPERVISOR_STORE_IDS)
   const [storeDirectory, setStoreDirectory] = useState([])
+  const [activeView, setActiveView] = useState(currentHqSection)
+
+  useEffect(() => {
+    const syncView = () => setActiveView(currentHqSection())
+    window.addEventListener('hashchange', syncView)
+    return () => window.removeEventListener('hashchange', syncView)
+  }, [])
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' })
+  }, [activeView])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -438,37 +473,52 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
     }
   }
 
+  const viewCopy = HQ_VIEW_COPY[activeView] ?? HQ_VIEW_COPY['hq-overview']
+
   return (
     <section
-      id="hq-overview"
       className="supervisor-dashboard"
       aria-labelledby="supervisor-title"
     >
       <header className="supervisor-page-header">
         <div>
-          <p className="supervisor-overline">FRANCHISE OPERATIONS</p>
-          <h1 id="supervisor-title">가맹점 운영 분석</h1>
+          <p className="supervisor-overline">{viewCopy.overline}</p>
+          <h1 id="supervisor-title">{viewCopy.title}</h1>
           <p className="supervisor-lead">
-            기간별 매장 데이터를 비교하고 운영상 특이사항을 확인합니다.
+            {viewCopy.description}
           </p>
         </div>
-        <div className="supervisor-generated-at">
-          <span>데이터 생성 시각</span>
-          <strong>{formatFullDateTime(summary?.generated_at)}</strong>
-          <small>한국시간 기준</small>
-        </div>
+        {activeView === 'hq-overview' && (
+          <div className="supervisor-generated-at">
+            <span>데이터 생성 시각</span>
+            <strong>{formatFullDateTime(summary?.generated_at)}</strong>
+            <small>한국시간 기준</small>
+          </div>
+        )}
       </header>
 
-      <section className="supervisor-data-source-notice" aria-label="데모 데이터 출처 안내">
+      <section
+        className="supervisor-data-source-notice"
+        aria-label="데모 데이터 출처 안내"
+        hidden={activeView !== 'hq-overview'}
+      >
         <strong>데모 데이터 환경</strong>
         <span>Vision: CCTV 데모 재생 분석</span>
         <span>주문·메뉴: {orderDataLabel(orderMode)}</span>
         <em>실제 POS 실적이 아닙니다.</em>
       </section>
 
-      <AccountManagementPanel apiBaseUrl={apiBaseUrl} />
+      {activeView === 'hq-accounts' && (
+        <section id="hq-accounts" className="supervisor-view-panel supervisor-account-view">
+          <AccountManagementPanel apiBaseUrl={apiBaseUrl} />
+        </section>
+      )}
 
-      <section className="supervisor-filter-section" aria-labelledby="period-filter-title">
+      <section
+        className="supervisor-filter-section"
+        aria-labelledby="period-filter-title"
+        hidden={activeView === 'hq-accounts'}
+      >
         <div className="supervisor-section-heading">
           <div>
             <p className="supervisor-section-kicker">조회 조건</p>
@@ -537,7 +587,7 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
         )}
       </section>
 
-      {summaryError && (
+      {activeView !== 'hq-accounts' && summaryError && (
         <section className="supervisor-error-panel" role="alert" aria-live="assertive">
           <div>
             <strong>집계 데이터를 불러오지 못했습니다.</strong>
@@ -553,6 +603,11 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
         </section>
       )}
 
+      <div
+        id="hq-overview"
+        className="supervisor-view-panel"
+        hidden={activeView !== 'hq-overview'}
+      >
       <section className="supervisor-kpi-section" aria-labelledby="hq-kpi-title">
         <div className="supervisor-section-heading supervisor-section-heading-compact">
           <div>
@@ -601,7 +656,6 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
       />
 
       <section
-        id="hq-stores"
         className="supervisor-comparison-section"
         aria-labelledby="store-comparison-title"
       >
@@ -692,17 +746,21 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
           )}
         </div>
       </section>
+      </div>
 
-      <OperationsSimulator
-        aiccBaseUrl={aiccBaseUrl}
-        stores={storeDirectory}
-        activeRange={activeRange}
-      />
+      <div className="supervisor-view-panel" hidden={activeView !== 'hq-simulation'}>
+        <OperationsSimulator
+          aiccBaseUrl={aiccBaseUrl}
+          stores={storeDirectory}
+          activeRange={activeRange}
+        />
+      </div>
 
       <section
         id="hq-ai"
         className="supervisor-ai-section"
         aria-labelledby="ai-insights-title"
+        hidden={activeView !== 'hq-ai'}
       >
         <div className="supervisor-ai-header">
           <div>

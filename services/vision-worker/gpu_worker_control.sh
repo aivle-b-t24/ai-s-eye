@@ -6,6 +6,7 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 RUN_DIR="${SCRIPT_DIR}/outputs/gpu_worker"
 WORKER_PID="${RUN_DIR}/upload_job_worker.pid"
 WORKER_LOG="${RUN_DIR}/upload_job_worker.log"
+FURNITURE_SCENE_CONTROL="${SCRIPT_DIR}/furniture_scene_control.sh"
 
 VISION_PYTHON="${VISION_PYTHON:-${PROJECT_ROOT}/.venv-vision/bin/python}"
 AISEYE_API_BASE_URL="${AISEYE_API_BASE_URL:-http://100.86.5.67:8000}"
@@ -14,7 +15,7 @@ AISEYE_CAFE_MODEL="${AISEYE_CAFE_MODEL:-/home/kokdo/datasets/ai-s-eye/models/bes
 if [[ -z "${INTERNAL_API_KEY:-}" && -f "${PROJECT_ROOT}/.env" ]]; then
   INTERNAL_API_KEY="$(sed -n 's/^INTERNAL_API_KEY=//p' "${PROJECT_ROOT}/.env" | tail -n 1)"
 fi
-INTERNAL_API_KEY="${INTERNAL_API_KEY:-fc2b1f7766f6e977ab639713b3db08b5dfbe03a09a3cb80b1e95d3cae7de84e0}"
+INTERNAL_API_KEY="${INTERNAL_API_KEY:-}"
 
 mkdir -p "${RUN_DIR}"
 
@@ -22,9 +23,23 @@ is_worker_running() {
   [[ -s "${WORKER_PID}" ]] && kill -0 "$(cat "${WORKER_PID}")" 2>/dev/null
 }
 
+run_furniture_scene_control() {
+  local action=$1
+  if [[ -x "${FURNITURE_SCENE_CONTROL}" ]]; then
+    INTERNAL_API_KEY="${INTERNAL_API_KEY}" "${FURNITURE_SCENE_CONTROL}" "${action}"
+  else
+    echo "가구/장면 분석 API 선택 기능이 설치되지 않아 건너뜁니다."
+  fi
+}
+
 start_all() {
+  if [[ -z "${INTERNAL_API_KEY}" ]]; then
+    echo "INTERNAL_API_KEY is required; set it in the environment or ${PROJECT_ROOT}/.env" >&2
+    return 1
+  fi
+
   echo "=== 1. 가구/장면 분석 API (포트 8200) 시작 ==="
-  INTERNAL_API_KEY="${INTERNAL_API_KEY}" "${SCRIPT_DIR}/furniture_scene_control.sh" start || true
+  run_furniture_scene_control start || true
 
   echo "=== 2. 업로드 영상 및 실시간 리플레이 워커 시작 ==="
   if is_worker_running; then
@@ -55,7 +70,7 @@ start_all() {
 
 stop_all() {
   echo "=== 1. 가구/장면 분석 API (포트 8200) 종료 ==="
-  "${SCRIPT_DIR}/furniture_scene_control.sh" stop || true
+  run_furniture_scene_control stop || true
 
   echo "=== 2. 업로드 영상 및 실시간 리플레이 워커 종료 ==="
   if is_worker_running; then
@@ -71,7 +86,7 @@ stop_all() {
 
 status_all() {
   echo "--- 1. 가구/장면 분석 API 상태 ---"
-  "${SCRIPT_DIR}/furniture_scene_control.sh" status || true
+  run_furniture_scene_control status || true
   echo ""
   echo "--- 2. 업로드 영상 및 실시간 리플레이 워커 상태 ---"
   if is_worker_running; then

@@ -23,24 +23,44 @@ Embedder = Callable[[list[str]], list[list[float]]]
 
 
 def build_embedder(settings: Settings) -> Embedder | None:
-    """Vertex 임베딩으로 텍스트를 벡터로 바꾸는 함수를 만든다. 못 만들면 None.
+    """텍스트를 벡터로 바꾸는 함수를 만든다. 못 만들면 None.
 
-    None이면 RAG는 자동으로 '전체 반환'으로 물러난다(챗봇은 계속 동작).
+    우선순위:
+    1) 임베딩 전용 API 키(무료 티어)가 있으면 그걸로 부른다. Vertex 임베딩은 분당 5회
+       제한이라, 챗봇 답은 Vertex(크레딧)로 두고 임베딩만 이 키로 분리한다.
+    2) 키가 없고 Vertex 프로젝트가 있으면 Vertex 임베딩을 쓴다(기존 방식).
+    3) 둘 다 없으면 None → RAG는 '전체 반환'으로 물러난다(챗봇은 계속 동작).
+
+    클라이언트는 실제로 임베딩할 때 한 번만 만든다(지연 생성).
     """
     try:
         from google import genai
     except ImportError:
         return None
+
+    box: dict[str, Any] = {}
+
+    # 1) 임베딩 전용 API 키 (무료 티어, 5회/분 제한 없음)
+    if settings.embed_api_key:
+        model = settings.embed_api_model
+
+        def embed_apikey(texts: list[str]) -> list[list[float]]:
+            client = box.get("client")
+            if client is None:
+                client = genai.Client(api_key=settings.embed_api_key)
+                box["client"] = client
+            resp = client.models.embed_content(model=model, contents=texts)
+            return [e.values for e in resp.embeddings]
+
+        return embed_apikey
+
+    # 2) Vertex 임베딩 (크레딧, 분당 5회 제한)
     if not settings.use_vertex:
-        # 임베딩은 Vertex 경로만 지원한다. API 키 모드에선 RAG 없이 전체 반환.
         return None
 
     model = settings.embedding_model
-    # 클라이언트는 실제로 임베딩할 때 한 번만 만든다(지연 생성). 그래야 도구를 만들기만 하고
-    # 정책 질문이 안 들어오면(예: 테스트, 다른 질문) Vertex에 아예 연결하지 않는다.
-    box: dict[str, Any] = {}
 
-    def embed(texts: list[str]) -> list[list[float]]:
+    def embed_vertex(texts: list[str]) -> list[list[float]]:
         client = box.get("client")
         if client is None:
             client = genai.Client(
@@ -52,7 +72,7 @@ def build_embedder(settings: Settings) -> Embedder | None:
         resp = client.models.embed_content(model=model, contents=texts)
         return [e.values for e in resp.embeddings]
 
-    return embed
+    return embed_vertex
 
 
 def _cosine(a: list[float], b: list[float]) -> float:

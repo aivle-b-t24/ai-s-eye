@@ -4,14 +4,17 @@ import { authenticatedFetch } from '../../api/authenticatedFetch'
 import CameraSceneTwin from '../store/CameraSceneTwin'
 import './OperationsSimulator.css'
 import {
-  PRESENTATION_SCENARIOS,
-  buildPresentationScenarios,
-} from './operationsScenarios'
+  consumeSse,
+  frameIndexAtMinute,
+  nextOrderAtMinute,
+  nextPlaybackMinute,
+  recentEventsAtMinute,
+} from './operationsAgentStream'
 
 const DEFAULT_CONDITIONS = {
   store_id: 'store-001',
   duration_minutes: 180,
-  arrivals_per_hour: 24,
+  event_multiplier: 1.6,
   average_service_minutes: 4,
   patience_minutes: 8,
   seat_count: 16,
@@ -20,43 +23,115 @@ const DEFAULT_CONDITIONS = {
 }
 
 const METRICS = [
-  { key: 'completed_orders', label: '완료 주문', unit: '건', higherIsBetter: true },
-  { key: 'abandoned_orders', label: '주문 포기', unit: '건', higherIsBetter: false },
-  { key: 'average_wait_minutes', label: '평균 대기', unit: '분', higherIsBetter: false },
-  { key: 'max_queue', label: '최대 대기열', unit: '명', higherIsBetter: false },
-  { key: 'staff_utilization_percent', label: '직원 가동률', unit: '%', higherIsBetter: null },
+  { key: 'completed_orders', label: '완료 주문', unit: '건', better: 'higher' },
+  { key: 'abandoned_orders', label: '주문 포기', unit: '건', better: 'lower' },
+  { key: 'average_wait_minutes', label: '평균 대기', unit: '분', better: 'lower' },
+  { key: 'max_queue', label: '최대 대기열', unit: '명', better: 'lower' },
+  { key: 'staff_utilization_percent', label: '직원 가동률', unit: '%', better: null },
 ]
+
+const EVENT_LABELS = {
+  customer_entered: '고객 입장',
+  order_received: '주문 접수',
+  queued: '대기열 진입',
+  preparing: '제조 시작',
+  ready: '준비 완료',
+  completed: '주문 수령',
+  abandoned: '주문 포기',
+  seated: '좌석 이용',
+  customer_exited: '고객 퇴장',
+}
 
 function metricValue(value, unit) {
   return `${Number(value ?? 0).toLocaleString('ko-KR', { maximumFractionDigits: 1 })}${unit}`
 }
 
-function resultTone(metric, values, value) {
-  if (metric.higherIsBetter === null || new Set(values).size <= 1) return 'neutral'
-  const best = metric.higherIsBetter ? Math.max(...values) : Math.min(...values)
-  const worst = metric.higherIsBetter ? Math.min(...values) : Math.max(...values)
-  if (value === best) return 'good'
-  if (value === worst) return 'bad'
-  return 'neutral'
+function formatRange(range) {
+  if (!range?.startAt || !range?.endAt) return '현재 선택 기간'
+  const format = (value) => new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date(value))
+  return `${format(range.startAt)} ~ ${format(range.endAt)}`
 }
 
-function recommendation(results) {
-  const eventOne = results?.eventOne?.metrics
-  const eventTwo = results?.eventTwo?.metrics
-  if (!eventOne || !eventTwo) return ''
-  if (
-    eventTwo.completed_orders > eventOne.completed_orders
-    && eventTwo.average_wait_minutes < eventOne.average_wait_minutes
-  ) {
-    return `행사 때 직원 2명을 배치하면 1명일 때보다 완료 주문이 ${eventTwo.completed_orders - eventOne.completed_orders}건 늘고 평균 대기가 ${(eventOne.average_wait_minutes - eventTwo.average_wait_minutes).toFixed(1)}분 줄어듭니다. 행사·피크 시간 한정 증원을 우선 검토하세요.`
-  }
-  if (eventTwo.staff_utilization_percent < 45 && eventTwo.abandoned_orders === 0) {
-    return '행사 조건에서도 직원 2명의 여유가 큰 편입니다. 상시 증원보다 행사 시간 한정 배치가 적합합니다.'
-  }
-  return '행사 조건에서 직원 1명과 2명의 차이가 크지 않습니다. 방문객 수나 제조시간을 높여 임계점을 추가 확인하세요.'
+function scenarioTone(metric, one, two, side) {
+  if (!metric.better || one === two) return 'neutral'
+  const twoIsBetter = metric.better === 'higher' ? two > one : two < one
+  if (side === 'two') return twoIsBetter ? 'good' : 'bad'
+  return twoIsBetter ? 'bad' : 'good'
 }
 
-export default function OperationsSimulator({ apiBaseUrl, stores = [] }) {
+function OrderStatusStrip({ frame }) {
+  const counts = frame?.order_status_counts ?? {}
+  const received = Object.values(counts).reduce((sum, value) => sum + Number(value ?? 0), 0)
+  return (
+    <div className="simulation-order-status-grid">
+      <span><small>접수</small><strong>{received}</strong></span>
+      <span><small>대기</small><strong>{counts.waiting ?? 0}</strong></span>
+      <span><small>제조 중</small><strong>{counts.preparing ?? 0}</strong></span>
+      <span><small>준비 완료</small><strong>{counts.ready ?? 0}</strong></span>
+      <span><small>완료</small><strong>{counts.completed ?? 0}</strong></span>
+      <span><small>포기</small><strong>{counts.abandoned ?? 0}</strong></span>
+    </div>
+  )
+}
+
+function SimulationColumn({ label, result, storeId, minute }) {
+  const frameIndex = frameIndexAtMinute(result?.frames, minute)
+  const frame = result?.frames?.[frameIndex]
+  const recentEvents = recentEventsAtMinute(result?.events, minute)
+  const nextOrder = nextOrderAtMinute(result?.events, minute)
+  const latestOrder = (result?.events ?? [])
+    .filter((event) => event.event_type === 'order_received' && event.at_minute <= minute)
+    .at(-1)
+  const showNewOrder = latestOrder && minute - latestOrder.at_minute <= 1.2
+
+  return (
+    <article className="simulation-live-column">
+      <header>
+        <div>
+          <span>{label}</span>
+          <strong>{result?.scenario?.name}</strong>
+        </div>
+        <div className="simulation-live-demand">
+          {showNewOrder && <b>신규 주문 +1 · {latestOrder.order_id}</b>}
+          <small>
+            {nextOrder
+              ? `다음 주문까지 ${(nextOrder.at_minute - minute).toFixed(1)}분`
+              : '주문 유입 종료'}
+          </small>
+        </div>
+      </header>
+      <OrderStatusStrip frame={frame} />
+      <CameraSceneTwin
+        storeId={storeId}
+        simulationResult={result}
+        simulationFrameIndex={frameIndex}
+      />
+      <div className="simulation-event-feed" aria-live="polite">
+        <strong>주문·고객 이벤트</strong>
+        {recentEvents.map((event) => (
+          <div key={`${event.sequence}-${event.event_type}`} className={`is-${event.event_type}`}>
+            <time>+{event.at_minute.toFixed(1)}분</time>
+            <span>{EVENT_LABELS[event.event_type] ?? event.event_type}</span>
+            <small>{event.order_id}</small>
+          </div>
+        ))}
+      </div>
+    </article>
+  )
+}
+
+export default function OperationsSimulator({
+  aiccBaseUrl,
+  stores = [],
+  activeRange,
+}) {
   const storeOptions = useMemo(
     () => (stores.length > 0
       ? stores.map((store) => ({ id: store.id, name: store.name || store.id }))
@@ -67,6 +142,11 @@ export default function OperationsSimulator({ apiBaseUrl, stores = [] }) {
     ...DEFAULT_CONDITIONS,
     store_id: storeOptions[0]?.id ?? DEFAULT_CONDITIONS.store_id,
   }))
+  const [steps, setSteps] = useState([])
+  const [status, setStatus] = useState({ kind: 'idle', message: '' })
+  const [runResult, setRunResult] = useState(null)
+  const [minute, setMinute] = useState(0)
+  const [isPlaying, setIsPlaying] = useState(false)
 
   useEffect(() => {
     if (storeOptions.length === 0) return
@@ -76,129 +156,159 @@ export default function OperationsSimulator({ apiBaseUrl, stores = [] }) {
         : { ...current, store_id: storeOptions[0].id }
     ))
   }, [storeOptions])
-  const [results, setResults] = useState(null)
-  const [status, setStatus] = useState({ kind: 'idle', message: '' })
-  const [selectedScenario, setSelectedScenario] = useState('normalOne')
-  const [frameIndex, setFrameIndex] = useState(0)
-  const [isPlaying, setIsPlaying] = useState(false)
 
-  const activeResult = results?.[selectedScenario] ?? null
-  const activeFrame = activeResult?.frames?.[frameIndex] ?? null
-  const resultRecommendation = useMemo(
-    () => recommendation(results),
-    [results],
-  )
+  const comparison = runResult?.comparison ?? null
+  const duration = comparison?.event_one?.scenario?.duration_minutes
+    ?? conditions.duration_minutes
+  const demandSourceLabel = comparison?.demand_source === 'synthetic_order_simulator'
+    ? '합성 주문 기반 What-if'
+    : runResult?.demand_profile?.source === 'presentation_fallback'
+      ? '발표 기본 수요 기반 What-if'
+      : '합성 What-if 분석'
 
   useEffect(() => {
-    setFrameIndex(0)
-    setIsPlaying(false)
-  }, [activeResult?.run_id])
-
-  useEffect(() => {
-    if (!isPlaying || !activeResult?.frames?.length) return undefined
+    if (!isPlaying || !comparison) return undefined
     const timer = window.setInterval(() => {
-      setFrameIndex((current) => {
-        if (current >= activeResult.frames.length - 1) {
+      setMinute((current) => {
+        const next = nextPlaybackMinute(current, duration)
+        if (next >= duration) {
           setIsPlaying(false)
-          return current
+          return duration
         }
-        return current + 1
+        return next
       })
-    }, 650)
+    }, 100)
     return () => window.clearInterval(timer)
-  }, [activeResult, isPlaying])
+  }, [comparison, duration, isPlaying])
 
   const updateCondition = (key, value) => {
     setConditions((current) => ({ ...current, [key]: value }))
-    setResults(null)
+    setRunResult(null)
+    setSteps([])
+    setMinute(0)
     setIsPlaying(false)
   }
 
-  const runComparison = async (event) => {
-    event.preventDefault()
-    setStatus({ kind: 'loading', message: '세 운영 조건을 계산하고 있습니다.' })
-    setResults(null)
-    setIsPlaying(false)
-    try {
-      const requests = buildPresentationScenarios(conditions).map(async ({ key, payload }) => {
-        const response = await authenticatedFetch(`${apiBaseUrl}/api/simulations/operations`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        })
-        if (!response.ok) throw new Error(`시뮬레이션 요청 실패 (${response.status})`)
-        return [key, await response.json()]
+  const updateStep = (item) => {
+    if (item.event === 'run_started') {
+      setSteps([item])
+      return
+    }
+    if (item.event === 'tool_started') {
+      setSteps((current) => [...current, item])
+      return
+    }
+    if (item.event === 'tool_completed') {
+      setSteps((current) => {
+        const index = current.findLastIndex(
+          (step) => step.tool_name === item.tool_name && step.status === 'running',
+        )
+        if (index < 0) return [...current, item]
+        return current.map((step, stepIndex) => (stepIndex === index ? item : step))
       })
-      setResults(Object.fromEntries(await Promise.all(requests)))
-      setSelectedScenario('normalOne')
-      setFrameIndex(0)
-      setStatus({ kind: 'success', message: '같은 공통 조건으로 세 시나리오를 비교했습니다.' })
-    } catch (error) {
-      setStatus({ kind: 'error', message: error.message || '시뮬레이션을 실행하지 못했습니다.' })
+      return
+    }
+    if (item.event === 'fallback_started' || item.event === 'recommendation_ready') {
+      setSteps((current) => [...current, item])
     }
   }
 
+  const runAgent = async (event) => {
+    event.preventDefault()
+    setStatus({ kind: 'loading', message: 'Agent가 매장 데이터를 확인하고 있습니다.' })
+    setSteps([])
+    setRunResult(null)
+    setMinute(0)
+    setIsPlaying(false)
+    const endAt = activeRange?.endAt ?? new Date().toISOString()
+    const startAt = activeRange?.startAt
+      ?? new Date(new Date(endAt).getTime() - 24 * 60 * 60 * 1000).toISOString()
+    try {
+      const response = await authenticatedFetch(`${aiccBaseUrl}/operations-agent/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...conditions,
+          start_at: startAt,
+          end_at: endAt,
+        }),
+      })
+      const last = await consumeSse(response, (item) => {
+        updateStep(item)
+        if (item.event === 'run_failed') throw new Error(item.message || item.title)
+        if (item.event === 'run_completed') {
+          setRunResult(item.result)
+          setMinute(0)
+          setIsPlaying(true)
+        }
+      })
+      if (last?.event !== 'run_completed') {
+        throw new Error('운영 Agent가 완료 결과를 보내지 않았습니다.')
+      }
+      setStatus({ kind: 'success', message: '실제 도구 호출과 동일 수요 비교가 완료됐습니다.' })
+    } catch (error) {
+      setStatus({ kind: 'error', message: error.message || '운영 분석을 실행하지 못했습니다.' })
+      setIsPlaying(false)
+    }
+  }
+
+  const one = comparison?.event_one?.metrics
+  const two = comparison?.event_two?.metrics
+  const normal = comparison?.normal_one?.metrics
+
   return (
-    <section
-      id="hq-simulation"
-      className="operations-simulator"
-      aria-labelledby="operations-simulator-title"
-    >
+    <section id="hq-simulation" className="operations-simulator" aria-labelledby="operations-agent-title">
       <div className="supervisor-section-heading operations-simulator-heading">
         <div>
-          <p className="supervisor-section-kicker">WHAT-IF SIMULATION</p>
-          <h2 id="operations-simulator-title">운영 조건 비교</h2>
+          <p className="supervisor-section-kicker">BOUNDED AI OPERATIONS AGENT</p>
+          <h2 id="operations-agent-title">AI 운영 의사결정 Agent</h2>
         </div>
-        <p>
-          동일한 가상 방문 흐름에서 직원 수와 매장 조건을 바꿔 결과를 비교합니다.
-          실제 과거 실적에는 반영되지 않습니다.
-        </p>
+        <p>매장 데이터를 조회하고 동일 수요의 인력 운영안을 직접 시뮬레이션해 검토안을 제시합니다.</p>
+      </div>
+
+      <div className="operations-technology-strip" aria-label="사용 기술">
+        <span>Gemini Tool Calling</span>
+        <span>FastAPI Streaming</span>
+        <span>SimPy Discrete Event Simulation</span>
+        <span>동일 수요 비교</span>
       </div>
 
       <div className="simulation-source-notice" role="note">
-        <strong>합성 시뮬레이션</strong>
-        <span>SimPy 이산사건 모델 · DB 저장 없음 · 실제 데이터 아님</span>
+        <strong>{demandSourceLabel}</strong>
+        <span>선택 기간: {formatRange(activeRange)}</span>
+        <em>실제 POS 실적 또는 자동 인력 지시가 아닙니다.</em>
       </div>
 
-      <div className="operations-simulator-layout">
-        <form className="simulation-controls" onSubmit={runComparison}>
-          <fieldset>
-            <legend>공통 운영 조건</legend>
+      <div className="operations-agent-launch">
+        <form className="simulation-controls" onSubmit={runAgent}>
+          <div className="operations-agent-primary-fields">
+            <label>
+              대상 매장
+              <select
+                value={conditions.store_id}
+                onChange={(event) => updateCondition('store_id', event.target.value)}
+              >
+                {storeOptions.map((store) => (
+                  <option key={store.id} value={store.id}>{store.name}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              행사 수요 배수
+              <input
+                type="number"
+                min="1"
+                max="4"
+                step="0.1"
+                value={conditions.event_multiplier}
+                onChange={(event) => updateCondition('event_multiplier', Number(event.target.value))}
+              />
+            </label>
+          </div>
+
+          <details className="operations-agent-advanced">
+            <summary>세부 운영 조건</summary>
             <div className="simulation-field-grid">
-              <label>
-                대상 매장
-                <select
-                  value={conditions.store_id}
-                  onChange={(event) => updateCondition('store_id', event.target.value)}
-                >
-                  {storeOptions.map((store) => (
-                    <option key={store.id} value={store.id}>
-                      {store.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                운영 시간
-                <select
-                  value={conditions.duration_minutes}
-                  onChange={(event) => updateCondition('duration_minutes', Number(event.target.value))}
-                >
-                  <option value={60}>1시간</option>
-                  <option value={180}>3시간</option>
-                  <option value={360}>6시간</option>
-                </select>
-              </label>
-              <label>
-                시간당 방문객
-                <input
-                  type="number"
-                  min="1"
-                  max="180"
-                  value={conditions.arrivals_per_hour}
-                  onChange={(event) => updateCondition('arrivals_per_hour', Number(event.target.value))}
-                />
-              </label>
               <label>
                 평균 제조시간
                 <input
@@ -244,130 +354,146 @@ export default function OperationsSimulator({ apiBaseUrl, stores = [] }) {
                 />
                 <small>%</small>
               </label>
+              <label>
+                재현 seed
+                <input
+                  type="number"
+                  min="0"
+                  value={conditions.seed}
+                  onChange={(event) => updateCondition('seed', Number(event.target.value))}
+                />
+              </label>
             </div>
-          </fieldset>
-
-          <fieldset>
-            <legend>발표 비교 조건</legend>
-            <div className="simulation-preset-scenarios">
-              {PRESENTATION_SCENARIOS.map((scenario, index) => (
-                <article key={scenario.key}>
-                  <span>조건 {String.fromCharCode(65 + index)}</span>
-                  <strong>{scenario.shortLabel}</strong>
-                  <small>
-                    방문 배수 ×{scenario.eventMultiplier} · 직원 {scenario.staffCount}명
-                  </small>
-                </article>
-              ))}
-            </div>
-          </fieldset>
+          </details>
 
           <button className="simulation-run-button" type="submit" disabled={status.kind === 'loading'}>
-            {status.kind === 'loading' ? '계산 중…' : '세 조건 비교 실행'}
+            {status.kind === 'loading' ? 'Agent 실행 중…' : 'AI 운영안 분석 실행'}
           </button>
-          {status.message && (
-            <p className={`simulation-status is-${status.kind}`} role="status">{status.message}</p>
-          )}
+          {status.message && <p className={`simulation-status is-${status.kind}`} role="status">{status.message}</p>}
         </form>
 
-        <div className="simulation-playback-panel">
+        <div className="operations-agent-trace" aria-live="polite">
           <header>
-            <div>
-              <span>디지털 트윈 재생</span>
-              <strong>{activeResult ? activeResult.scenario.name : '실행 대기'}</strong>
-            </div>
-            {results && (
-              <div className="simulation-scenario-tabs">
-                {PRESENTATION_SCENARIOS.map((scenario, index) => (
-                  <button
-                    key={scenario.key}
-                    type="button"
-                    className={selectedScenario === scenario.key ? 'active' : ''}
-                    onClick={() => setSelectedScenario(scenario.key)}
-                  >
-                    조건 {String.fromCharCode(65 + index)}
-                  </button>
-                ))}
-              </div>
-            )}
+            <span>LIVE TOOL TRACE</span>
+            <strong>Agent 실행 근거</strong>
           </header>
-
-          {activeResult ? (
-            <>
-              <CameraSceneTwin
-                storeId={conditions.store_id}
-                simulationResult={activeResult}
-                simulationFrameIndex={frameIndex}
-              />
-              <div className="simulation-playback-controls">
-                <button type="button" onClick={() => setIsPlaying((current) => !current)}>
-                  {isPlaying ? '일시정지' : '재생'}
-                </button>
-                <input
-                  type="range"
-                  min="0"
-                  max={Math.max(activeResult.frames.length - 1, 0)}
-                  value={frameIndex}
-                  onChange={(event) => {
-                    setFrameIndex(Number(event.target.value))
-                    setIsPlaying(false)
-                  }}
-                  aria-label="시뮬레이션 재생 시점"
-                />
-                <strong>+{activeFrame?.at_minute ?? 0}분</strong>
-              </div>
-            </>
-          ) : (
-            <div className="simulation-playback-empty">
-              <strong>조건을 설정하고 비교를 실행하세요.</strong>
-              <p>방문, 대기, 주문, 착석, 퇴장 흐름이 이 화면에 재생됩니다.</p>
+          {steps.length === 0 ? (
+            <div className="operations-agent-trace-empty">
+              실행하면 데이터 조회와 시뮬레이션 도구 호출이 여기에 표시됩니다.
+            </div>
+          ) : steps.map((step, index) => (
+            <div className={`operations-agent-step is-${step.status}`} key={`${step.sequence}-${index}`}>
+              <i>{step.status === 'completed' ? '✓' : step.status === 'warning' ? '!' : index + 1}</i>
+              <span>
+                <strong>{step.title}</strong>
+                {step.tool_name && <small>{step.tool_name}</small>}
+              </span>
+            </div>
+          ))}
+          {runResult && (
+            <div className={`operations-agent-source is-${runResult.source}`}>
+              <strong>
+                {runResult.source === 'gemini_tool_agent'
+                  ? 'Gemini Tool Agent 완료'
+                  : '규칙 기반 대체 분석 완료'}
+              </strong>
+              <small>{runResult.model ?? 'Gemini 미사용'}</small>
             </div>
           )}
         </div>
       </div>
 
-      {results && (
-        <div className="simulation-results" aria-live="polite">
+      {comparison && (
+        <div className="operations-agent-result" aria-live="polite">
+          <div className="operations-demand-proof">
+            <div>
+              <span>분석 수요 구간</span>
+              <strong>{comparison.demand_window_label ?? runResult.demand_profile?.window_label}</strong>
+            </div>
+            <div>
+              <span>동일 행사 수요 ID</span>
+              <strong>{comparison.event_demand_trace_id}</strong>
+            </div>
+            <p>직원 1명·2명은 고객 도착 시각과 주문 조건이 같고 인력 수만 다릅니다.</p>
+          </div>
+
+          <div className="simulation-synced-playback">
+            <SimulationColumn
+              label="행사 조건 A"
+              result={comparison.event_one}
+              storeId={conditions.store_id}
+              minute={minute}
+            />
+            <SimulationColumn
+              label="행사 조건 B"
+              result={comparison.event_two}
+              storeId={conditions.store_id}
+              minute={minute}
+            />
+          </div>
+
+          <div className="simulation-playback-controls simulation-playback-controls-wide">
+            <button
+              type="button"
+              onClick={() => {
+                if (minute >= duration) {
+                  setMinute(0)
+                  setIsPlaying(true)
+                } else {
+                  setIsPlaying((current) => !current)
+                }
+              }}
+            >
+              {isPlaying ? '일시정지' : minute >= duration ? '처음부터 재생' : '재생'}
+            </button>
+            <input
+              type="range"
+              min="0"
+              max={duration}
+              step="0.1"
+              value={minute}
+              onChange={(event) => {
+                setMinute(Number(event.target.value))
+                setIsPlaying(false)
+              }}
+              aria-label="두 시나리오 공통 재생 시점"
+            />
+            <strong>+{minute.toFixed(1)}분</strong>
+          </div>
+
+          <div className="simulation-baseline-card">
+            <span>평상시 · 직원 1명 기준</span>
+            <strong>완료 {normal?.completed_orders ?? 0}건</strong>
+            <small>평균 대기 {normal?.average_wait_minutes ?? 0}분 · 포기 {normal?.abandoned_orders ?? 0}건</small>
+          </div>
+
           <div className="simulation-comparison-table-wrap">
             <table className="simulation-comparison-table">
-              <caption>평상시와 행사 발생 시 직원 수에 따른 운영 지표 비교</caption>
+              <caption>같은 행사 수요에서 직원 수에 따른 운영 지표 비교</caption>
               <thead>
-                <tr>
-                  <th scope="col">운영 지표</th>
-                  {PRESENTATION_SCENARIOS.map((scenario, index) => (
-                    <th scope="col" key={scenario.key}>
-                      <span>조건 {String.fromCharCode(65 + index)}</span>
-                      <strong>{scenario.shortLabel}</strong>
-                    </th>
-                  ))}
-                </tr>
+                <tr><th>운영 지표</th><th>직원 1명</th><th>직원 2명</th></tr>
               </thead>
               <tbody>
-                {METRICS.map((metric) => {
-                  const values = PRESENTATION_SCENARIOS.map(
-                    (scenario) => results[scenario.key].metrics[metric.key],
-                  )
-                  return (
-                    <tr key={metric.key}>
-                      <th scope="row">{metric.label}</th>
-                      {PRESENTATION_SCENARIOS.map((scenario, index) => (
-                        <td
-                          key={scenario.key}
-                          className={`is-${resultTone(metric, values, values[index])}`}
-                        >
-                          {metricValue(values[index], metric.unit)}
-                        </td>
-                      ))}
-                    </tr>
-                  )
-                })}
+                {METRICS.map((metric) => (
+                  <tr key={metric.key}>
+                    <th>{metric.label}</th>
+                    <td className={`is-${scenarioTone(metric, one[metric.key], two[metric.key], 'one')}`}>
+                      {metricValue(one[metric.key], metric.unit)}
+                    </td>
+                    <td className={`is-${scenarioTone(metric, one[metric.key], two[metric.key], 'two')}`}>
+                      {metricValue(two[metric.key], metric.unit)}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
-          <div className="simulation-recommendation">
-            <span>슈퍼바이저 검토안</span>
-            <p>{resultRecommendation}</p>
-            <small>결정이 아니라 검토용 제안입니다. 실제 매장 조건과 함께 판단해야 합니다.</small>
+
+          <div className="simulation-recommendation operations-agent-recommendation">
+            <span>AGENT VERIFIED RECOMMENDATION</span>
+            <h3>행사 시간대 직원 {runResult.recommendation.recommended_staff_count}명 검토</h3>
+            <p>{runResult.recommendation.summary}</p>
+            <small>슈퍼바이저 승인 필요 · 합성 What-if 결과 · 실제 운영 자동 변경 없음</small>
           </div>
         </div>
       )}

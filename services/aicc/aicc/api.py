@@ -9,6 +9,7 @@
 - Gemini(분석) 오류      → 503 insights_unavailable
 """
 
+import json
 import logging
 import time
 from contextlib import asynccontextmanager
@@ -26,6 +27,7 @@ from fastapi import (
     status,
 )
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, model_validator
 
 from .agent import StoreAgent
@@ -47,6 +49,7 @@ from .kakao import (
     is_change_store,
     store_id_override,
 )
+from .operations_agent import OperationsAgentRequest, OperationsDecisionAgent
 from .session import SessionStore
 from .store_directory import (
     directory_from_items,
@@ -140,6 +143,7 @@ class ChatResponse(BaseModel):
 async def lifespan(app: FastAPI):
     app.state.client = StoreApiClient()
     app.state.agent = StoreAgent()
+    app.state.operations_agent = OperationsDecisionAgent(app.state.client)
     # 상권 프로필(SGIS)은 앱 하나당 한 번만 만들어 매장별로 캐시한다(요청마다 재조회 방지).
     app.state.store_context = StoreContextProvider(build_sgis_client(get_settings()))
     try:
@@ -193,6 +197,41 @@ def create_insights(req: InsightsRequest) -> Any:
         ) from exc
 
     return result
+
+
+@app.post(
+    "/operations-agent/stream",
+    tags=["operations-agent"],
+    dependencies=[Depends(require_admin)],
+)
+def stream_operations_agent(req: OperationsAgentRequest) -> StreamingResponse:
+    """실제 도구 호출 단계와 최종 What-if 결과를 SSE로 전달한다."""
+
+    def stream():
+        try:
+            agent = getattr(app.state, "operations_agent", None)
+            if agent is None:
+                agent = OperationsDecisionAgent(app.state.client)
+            for item in agent.stream(req):
+                yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
+        except Exception as exc:
+            logger.warning("운영 Agent 스트림 실패: %s", exc, exc_info=True)
+            payload = {
+                "event": "run_failed",
+                "title": "운영 분석을 완료하지 못했습니다.",
+                "status": "error",
+                "message": str(exc),
+            }
+            yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @app.post("/chat", response_model=ChatResponse, tags=["chat"])

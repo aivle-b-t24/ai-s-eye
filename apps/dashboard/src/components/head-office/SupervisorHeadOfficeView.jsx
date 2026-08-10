@@ -694,8 +694,9 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
       </section>
 
       <OperationsSimulator
-        apiBaseUrl={apiBaseUrl}
+        aiccBaseUrl={aiccBaseUrl}
         stores={storeDirectory}
+        activeRange={activeRange}
       />
 
       <section
@@ -705,8 +706,8 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
       >
         <div className="supervisor-ai-header">
           <div>
-            <p className="supervisor-section-kicker">AI 운영 지원</p>
-            <h2 id="ai-insights-title">매장 운영 인사이트</h2>
+            <p className="supervisor-section-kicker">GENERATIVE AI DIAGNOSIS</p>
+            <h2 id="ai-insights-title">생성형 AI 매장 진단</h2>
             <p>
               현재 집계 수치를 근거로 매장별 특이사항과 권장 조치를 생성합니다.
             </p>

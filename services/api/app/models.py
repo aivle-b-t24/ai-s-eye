@@ -355,6 +355,7 @@ class TwinBoundingBox(BaseModel):
 
 class TwinAgent(BaseModel):
     id: str | None = None
+    order_id: str | None = None
     x: float = Field(ge=0, le=1)
     y: float = Field(ge=0, le=1)
     role: TwinAgentRole
@@ -634,6 +635,48 @@ class OperationsSimulationScenario(BaseModel):
     seed: int = Field(default=20260730, ge=0, le=2_147_483_647)
 
 
+class OperationsArrivalProfileSegment(BaseModel):
+    start_minute: float = Field(ge=0, le=480)
+    end_minute: float = Field(gt=0, le=480)
+    arrivals_per_hour: float = Field(ge=0, le=180)
+
+    @model_validator(mode="after")
+    def validate_range(self) -> "OperationsArrivalProfileSegment":
+        if self.start_minute >= self.end_minute:
+            raise ValueError("start_minute must be earlier than end_minute")
+        return self
+
+
+class OperationsComparisonRequest(BaseModel):
+    store_id: str = Field(default="store-001", min_length=1)
+    duration_minutes: int = Field(default=180, ge=30, le=480)
+    arrival_profile: list[OperationsArrivalProfileSegment] = Field(default_factory=list)
+    fallback_arrivals_per_hour: float = Field(default=24, ge=1, le=180)
+    event_multiplier: float = Field(default=1.6, ge=1, le=4)
+    average_service_minutes: float = Field(default=4, ge=0.5, le=20)
+    service_variability: float = Field(default=0.25, ge=0, le=1)
+    patience_minutes: float = Field(default=8, ge=1, le=60)
+    seat_count: int = Field(default=16, ge=0, le=100)
+    dine_in_rate: float = Field(default=0.65, ge=0, le=1)
+    seed: int = Field(default=20260730, ge=0, le=2_147_483_647)
+    demand_source: str = Field(default="presentation_fallback", min_length=1, max_length=80)
+    demand_window_label: str | None = Field(default=None, max_length=80)
+
+    @model_validator(mode="after")
+    def validate_arrival_profile(self) -> "OperationsComparisonRequest":
+        if not self.arrival_profile:
+            return self
+        ordered = sorted(self.arrival_profile, key=lambda item: item.start_minute)
+        if ordered[0].start_minute != 0:
+            raise ValueError("arrival_profile must start at minute 0")
+        if ordered[-1].end_minute != self.duration_minutes:
+            raise ValueError("arrival_profile must cover the full duration")
+        for previous, current in zip(ordered, ordered[1:]):
+            if previous.end_minute != current.start_minute:
+                raise ValueError("arrival_profile segments must be contiguous")
+        return self
+
+
 class OperationsSimulationMetrics(BaseModel):
     visitors: int = Field(ge=0)
     completed_orders: int = Field(ge=0)
@@ -645,13 +688,47 @@ class OperationsSimulationMetrics(BaseModel):
     seat_utilization_percent: float = Field(ge=0, le=100)
 
 
+class OperationsOrderStatusCounts(BaseModel):
+    waiting: int = Field(default=0, ge=0)
+    preparing: int = Field(default=0, ge=0)
+    ready: int = Field(default=0, ge=0)
+    completed: int = Field(default=0, ge=0)
+    abandoned: int = Field(default=0, ge=0)
+
+
+class OperationsSimulationEvent(BaseModel):
+    sequence: int = Field(ge=1)
+    at_minute: float = Field(ge=0)
+    event_type: Literal[
+        "customer_entered",
+        "order_received",
+        "queued",
+        "preparing",
+        "ready",
+        "completed",
+        "abandoned",
+        "seated",
+        "customer_exited",
+    ]
+    customer_id: str
+    order_id: str
+    queue_count: int = Field(ge=0)
+    in_service_count: int = Field(ge=0)
+    completed_orders: int = Field(ge=0)
+    abandoned_orders: int = Field(ge=0)
+
+
 class OperationsSimulationFrame(BaseModel):
+    sequence: int = Field(default=0, ge=0)
     at_minute: float = Field(ge=0)
     queue_count: int = Field(ge=0)
     in_service_count: int = Field(ge=0)
     seated_count: int = Field(ge=0)
     completed_orders: int = Field(ge=0)
     abandoned_orders: int = Field(ge=0)
+    order_status_counts: OperationsOrderStatusCounts = Field(
+        default_factory=OperationsOrderStatusCounts,
+    )
     agents: list[TwinAgent] = Field(default_factory=list)
 
 
@@ -663,7 +740,33 @@ class OperationsSimulationResult(BaseModel):
     scenario: OperationsSimulationScenario
     metrics: OperationsSimulationMetrics
     frames: list[OperationsSimulationFrame]
+    events: list[OperationsSimulationEvent] = Field(default_factory=list)
+    demand_trace_id: str | None = None
     assumptions: list[str] = Field(default_factory=list)
+
+
+class OperationsSimulationFairness(BaseModel):
+    event_variants_share_arrivals: bool = True
+    event_variants_share_customer_attributes: bool = True
+    changed_parameter: Literal["staff_count"] = "staff_count"
+
+
+class OperationsComparisonResult(BaseModel):
+    schema_version: str = "1.0"
+    source: Literal["simulation_comparison"] = "simulation_comparison"
+    comparison_id: str
+    generated_at: datetime
+    demand_source: str
+    demand_window_label: str | None = None
+    arrival_profile: list[OperationsArrivalProfileSegment]
+    base_trace_id: str
+    event_demand_trace_id: str
+    normal_one: OperationsSimulationResult
+    event_one: OperationsSimulationResult
+    event_two: OperationsSimulationResult
+    fairness: OperationsSimulationFairness = Field(
+        default_factory=OperationsSimulationFairness,
+    )
 
 
 class StoreMediaType(StrEnum):

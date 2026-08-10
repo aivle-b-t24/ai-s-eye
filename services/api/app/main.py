@@ -37,6 +37,8 @@ from .models import (
     FirebaseUserSummary,
     HqAdminSignupRequest,
     OrderEvent,
+    OperationsComparisonRequest,
+    OperationsComparisonResult,
     OperationsSimulationResult,
     OperationsSimulationScenario,
     QualityStatus,
@@ -77,7 +79,7 @@ from .firebase_users import (
     list_managed_accounts,
     update_store_manager_password,
 )
-from .operations_simulation import run_operations_simulation
+from .operations_simulation import run_operations_comparison, run_operations_simulation
 from .order_export import KST, build_order_export_csv
 from .occupancy import LatestOccupancyRepository
 from .repository import InMemoryRepository
@@ -889,6 +891,20 @@ def simulate_operations(
     """DB를 변경하지 않고 한 개 운영 조건의 What-if 결과를 계산한다."""
     validate_vision_store_id(scenario.store_id)
     return run_operations_simulation(scenario)
+
+
+@app.post(
+    "/api/simulations/operations/compare",
+    response_model=OperationsComparisonResult,
+    tags=["simulations"],
+    dependencies=[Depends(require_admin)],
+)
+def compare_operations(
+    request: OperationsComparisonRequest,
+) -> OperationsComparisonResult:
+    """같은 수요 trace로 평상시와 행사 인력 조건을 공정하게 비교한다."""
+    validate_vision_store_id(request.store_id)
+    return run_operations_comparison(request)
 
 
 @app.get(

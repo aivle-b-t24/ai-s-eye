@@ -2115,12 +2115,14 @@ padding: 28px 20px;
 color: #fff;
 background: rgba(7, 20, 18, 0.98);
 border-right: 1px solid rgba(255, 255, 255, 0.1);
-box-shadow: 30px 0 70px rgba(0, 0, 0, 0.28);
 transform: translateX(-100%);
 transition: transform 0.3s ease;
 }
+/* 닫혔을 땐 그림자 제거(화면 밖 드로어 그림자가 왼쪽 가장자리로 새는 것 방지).
+   열렸을 때만 그림자를 준다. */
 .side-menu.is-open {
 transform: translateX(0);
+box-shadow: 30px 0 70px rgba(0, 0, 0, 0.28);
 }
 .side-menu-header {
 display: flex;
@@ -7004,7 +7006,7 @@ body::before {
 .legal-modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: 2000000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -8156,4 +8158,15 @@ body::before {
     min-width: 0 !important;
     padding: 6px 12px !important;
   }
+}
+
+/* ==================== [챗봇 트리거가 푸터 클릭 가로채는 것 방지] ==================== */
+/* 닫힌 챗봇 트리거 컨테이너(fixed, z-index 999999)의 빈 영역이 화면 하단의 푸터 버튼
+   클릭을 가로챈다. 컨테이너 자체는 포인터 이벤트를 통과시키고, 실제 클릭 대상(말풍선·버튼)만
+   이벤트를 받게 한다. (드래그는 버튼 mousedown이 컨테이너로 버블링되어 그대로 동작) */
+.store-chatbot-trigger-container {
+  pointer-events: none !important;
+}
+.store-chatbot-trigger-container > * {
+  pointer-events: auto !important;
 }

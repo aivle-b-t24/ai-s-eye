@@ -13,6 +13,10 @@ class Settings(BaseModel):
     gemini_api_key: str | None
     gemini_model: str
     embedding_model: str
+    # 임베딩 전용 API 키(무료 티어). 있으면 임베딩은 Vertex 대신 이 키로 부른다
+    # (Vertex 임베딩은 분당 5회 제한이라, 챗봇 답은 Vertex·임베딩만 API 키로 분리).
+    embed_api_key: str | None
+    embed_api_model: str
     vertex_project: str | None
     vertex_location: str
     auth_required: bool
@@ -52,6 +56,8 @@ def get_settings() -> Settings:
         gemini_api_key=os.getenv("GOOGLE_API_KEY"),
         gemini_model=os.getenv("AICC_GEMINI_MODEL", default_model),
         embedding_model=os.getenv("AICC_EMBEDDING_MODEL", "text-multilingual-embedding-002"),
+        embed_api_key=os.getenv("AICC_EMBED_API_KEY"),
+        embed_api_model=os.getenv("AICC_EMBED_API_MODEL", "gemini-embedding-001"),
         vertex_project=os.getenv("AICC_VERTEX_PROJECT"),
         vertex_location=os.getenv("AICC_VERTEX_LOCATION", "us-central1"),
         auth_required=os.getenv("AUTH_REQUIRED", "false").lower()

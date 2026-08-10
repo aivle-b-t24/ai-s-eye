@@ -1,4 +1,5 @@
 import React from 'react'
+import { createPortal } from 'react-dom'
 
 // 이용약관(요약본) — 표준 항목만 담은 간결한 버전. 상세 조항은 실제 운영 시 확장.
 export function TermsBody() {
@@ -32,7 +33,7 @@ export function TermsBody() {
 
 export default function TermsModal({ open, onClose }) {
   if (!open) return null
-  return (
+  return createPortal(
     <div
       className="legal-modal-overlay"
       role="dialog"
@@ -55,6 +56,7 @@ export default function TermsModal({ open, onClose }) {
         </div>
         <TermsBody />
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

@@ -1,0 +1,68 @@
+name: main GCP 배포
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-gcp-main
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: GCP 운영 배포
+    runs-on: ubuntu-latest
+    environment:
+      name: gcp-production
+      url: https://aiseye.ldhcloud.com
+
+    steps:
+      - name: 저장소 받기
+        uses: actions/checkout@v4
+
+      - name: GCP 단기 인증
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - name: gcloud 준비
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: main 반영
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_ZONE: ${{ vars.GCP_ZONE }}
+          GCP_INSTANCE: ${{ vars.GCP_INSTANCE }}
+          GCP_APP_PATH: ${{ vars.GCP_APP_PATH }}
+          GCP_APP_USER: ${{ vars.GCP_APP_USER }}
+        run: |
+          gcloud compute ssh "$GCP_INSTANCE" \
+            --project "$GCP_PROJECT_ID" \
+            --zone "$GCP_ZONE" \
+            --tunnel-through-iap \
+            --quiet \
+            --command "sudo -u '$GCP_APP_USER' -H bash -lc \"set -euo pipefail; cd '$GCP_APP_PATH'; git fetch --prune origin main; git switch main; git pull --ff-only origin main; AISEYE_SKIP_GIT_UPDATE=true bash scripts/deploy-gcp.sh\""
+
+      - name: 공개 서비스 검증
+        run: |
+          curl --fail --silent --show-error --retry 10 --retry-all-errors https://aiseye.ldhcloud.com/ >/dev/null
+          curl --fail --silent --show-error --retry 10 --retry-all-errors https://aiseye-api.ldhcloud.com/health >/dev/null
+          curl --fail --silent --show-error --retry 10 --retry-all-errors https://aiseye-ai.ldhcloud.com/healthz >/dev/null
+
+      - name: 배포 결과
+        if: always()
+        run: |
+          {
+            echo "### GCP main 배포"
+            echo "- commit: \`${GITHUB_SHA}\`"
+            echo "- instance: \`${{ vars.GCP_INSTANCE }}\`"
+            echo "- result: \`${{ job.status }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

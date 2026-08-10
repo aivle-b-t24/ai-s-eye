@@ -1,0 +1,63 @@
+name: develop 미니PC 배포
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-minipc-develop
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Tailscale 미니PC 배포
+    runs-on: ubuntu-latest
+    environment:
+      name: minipc-develop
+      url: http://${{ vars.MINIPC_HOST }}:5173
+
+    steps:
+      - name: Tailscale 연결
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+          ping: ${{ vars.MINIPC_HOST }}
+
+      - name: SSH 키 준비
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.MINIPC_DEPLOY_SSH_KEY }}
+          MINIPC_KNOWN_HOSTS: ${{ secrets.MINIPC_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$MINIPC_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519" "$HOME/.ssh/known_hosts"
+
+      - name: develop 반영
+        env:
+          MINIPC_HOST: ${{ vars.MINIPC_HOST }}
+          MINIPC_USER: ${{ vars.MINIPC_USER }}
+          MINIPC_APP_PATH: ${{ vars.MINIPC_APP_PATH }}
+        run: |
+          ssh -o BatchMode=yes -o IdentitiesOnly=yes \
+            -i "$HOME/.ssh/id_ed25519" \
+            "$MINIPC_USER@$MINIPC_HOST" \
+            "set -euo pipefail; cd '$MINIPC_APP_PATH'; git fetch --prune origin develop; git switch develop; git pull --ff-only origin develop; AISEYE_SKIP_GIT_UPDATE=true bash scripts/deploy-minipc.sh"
+
+      - name: 배포 결과
+        if: always()
+        run: |
+          {
+            echo "### 미니PC develop 배포"
+            echo "- commit: \`${GITHUB_SHA}\`"
+            echo "- target: \`${{ vars.MINIPC_HOST }}\`"
+            echo "- result: \`${{ job.status }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

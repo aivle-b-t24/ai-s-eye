@@ -1,8 +1,11 @@
 .env
 .env.*
 !.env.example
+!.env.gcp.example
 sgis_keys.txt
 backups/
+.deployed-*-sha
+gha-creds-*.json
 .venv/
 .venv-vision/
 __pycache__/

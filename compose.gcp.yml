@@ -1,0 +1,220 @@
+name: ai-s-eye-gcp
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-database-url: &database-url
+  DATABASE_URL: postgresql://${POSTGRES_USER:-store}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:-store}
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-store}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-store}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${POSTGRES_USER:-store} -d ${POSTGRES_DB:-store}
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    logging: *default-logging
+
+  migrate:
+    build:
+      context: ./services/api
+    profiles:
+      - tools
+    environment:
+      <<: *database-url
+    command:
+      - alembic
+      - upgrade
+      - head
+    depends_on:
+      db:
+        condition: service_healthy
+    logging: *default-logging
+
+  api:
+    build:
+      context: ./services/api
+    restart: unless-stopped
+    environment:
+      <<: *database-url
+      APP_NAME: ${APP_NAME:-AI's Eye API}
+      APP_ENV: production
+      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS is required}
+      SAMPLE_DATA_DIR: /workspace/samples
+      VISION_SNAPSHOT_DIR: /workspace/vision-snapshots
+      VISION_SNAPSHOT_MAX_BYTES: ${VISION_SNAPSHOT_MAX_BYTES:-5242880}
+      STORE_MEDIA_DIR: /workspace/store-media
+      STORE_MEDIA_MAX_BYTES: ${STORE_MEDIA_MAX_BYTES:-209715200}
+      VISION_STORE_IDS: ${VISION_STORE_IDS:-store-001,store-002}
+      AUTH_REQUIRED: ${AUTH_REQUIRED:-true}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:?FIREBASE_PROJECT_ID is required}
+      FIREBASE_CREDENTIALS: ${FIREBASE_CREDENTIALS:-}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?INTERNAL_API_KEY is required}
+      RECAPTCHA_SECRET_KEY: ${RECAPTCHA_SECRET_KEY:?RECAPTCHA_SECRET_KEY is required}
+    ports:
+      - "${API_BIND_HOST:-0.0.0.0}:${API_PORT:-8000}:8000"
+    volumes:
+      - ./samples:/workspace/samples:ro
+      - vision_snapshot_data:/workspace/vision-snapshots
+      - store_media_data:/workspace/store-media
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    logging: *default-logging
+
+  store-state-cleanup:
+    build:
+      context: ./services/api
+    restart: unless-stopped
+    environment:
+      <<: *database-url
+      STORE_STATE_RETENTION_DAYS: ${STORE_STATE_RETENTION_DAYS:-7}
+      STORE_STATE_CLEANUP_INTERVAL_SECONDS: ${STORE_STATE_CLEANUP_INTERVAL_SECONDS:-21600}
+    command:
+      - /bin/sh
+      - -c
+      - >-
+        while true; do python -m app.cleanup_store_states --older-than-days
+        "$${STORE_STATE_RETENTION_DAYS}" --apply; sleep
+        "$${STORE_STATE_CLEANUP_INTERVAL_SECONDS}"; done
+    depends_on:
+      db:
+        condition: service_healthy
+    logging: *default-logging
+
+  aicc:
+    build:
+      context: ./services/aicc
+    restart: unless-stopped
+    environment:
+      AICC_API_BASE_URL: http://api:8000
+      AICC_REQUEST_TIMEOUT_SECONDS: ${AICC_REQUEST_TIMEOUT_SECONDS:-5}
+      AICC_DEFAULT_STORE_ID: ${AICC_DEFAULT_STORE_ID:-store-001}
+      AICC_STORE_DIRECTORY: ${AICC_STORE_DIRECTORY:-}
+      AICC_CORS_ORIGINS: ${AICC_CORS_ORIGINS:?AICC_CORS_ORIGINS is required}
+      AICC_VERTEX_PROJECT: ${AICC_VERTEX_PROJECT:?AICC_VERTEX_PROJECT is required}
+      AICC_VERTEX_LOCATION: ${AICC_VERTEX_LOCATION:-us-central1}
+      AICC_GEMINI_MODEL: ${AICC_GEMINI_MODEL:-gemini-2.5-flash}
+      AICC_SGIS_CONSUMER_KEY: ${AICC_SGIS_CONSUMER_KEY:-}
+      AICC_SGIS_CONSUMER_SECRET: ${AICC_SGIS_CONSUMER_SECRET:-}
+      AUTH_REQUIRED: ${AUTH_REQUIRED:-true}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:?FIREBASE_PROJECT_ID is required}
+      FIREBASE_CREDENTIALS: ${FIREBASE_CREDENTIALS:-}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?INTERNAL_API_KEY is required}
+      AICC_VISION_SCENE_URL: ${AICC_VISION_SCENE_URL:-http://127.0.0.1:9/internal/scene-suggestions}
+      AICC_SCENE_REQUEST_TIMEOUT_SECONDS: ${AICC_SCENE_REQUEST_TIMEOUT_SECONDS:-5}
+      AICC_KAKAO_SKILL_TOKEN: ${AICC_KAKAO_SKILL_TOKEN:-}
+    ports:
+      - "${AICC_BIND_HOST:-0.0.0.0}:${AICC_PORT:-8100}:8100"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8100/healthz', timeout=2)"
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    logging: *default-logging
+
+  dashboard:
+    build:
+      context: ./apps/dashboard
+      dockerfile: Dockerfile.prod
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:?VITE_API_BASE_URL is required}
+        VITE_AICC_BASE_URL: ${VITE_AICC_BASE_URL:?VITE_AICC_BASE_URL is required}
+        VITE_UPLOAD_API_BASE_URL: ${VITE_UPLOAD_API_BASE_URL:-${VITE_API_BASE_URL}}
+        VITE_CLOUD_API_BASE_URL: ${VITE_CLOUD_API_BASE_URL:-${VITE_API_BASE_URL}}
+        VITE_CLOUD_AICC_BASE_URL: ${VITE_CLOUD_AICC_BASE_URL:-${VITE_AICC_BASE_URL}}
+        VITE_AUTH_MODE: ${VITE_AUTH_MODE:-firebase}
+        VITE_ENABLE_CAMERA_TWIN_V2: ${VITE_ENABLE_CAMERA_TWIN_V2:-true}
+        VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY:?VITE_FIREBASE_API_KEY is required}
+        VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN:?VITE_FIREBASE_AUTH_DOMAIN is required}
+        VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID:?VITE_FIREBASE_PROJECT_ID is required}
+        VITE_FIREBASE_STORAGE_BUCKET: ${VITE_FIREBASE_STORAGE_BUCKET:-}
+        VITE_FIREBASE_MESSAGING_SENDER_ID: ${VITE_FIREBASE_MESSAGING_SENDER_ID:?VITE_FIREBASE_MESSAGING_SENDER_ID is required}
+        VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID:?VITE_FIREBASE_APP_ID is required}
+        VITE_ENABLE_DEMO_LOGIN: ${VITE_ENABLE_DEMO_LOGIN:-false}
+        VITE_DEMO_STORE_001_EMAIL: ${VITE_DEMO_STORE_001_EMAIL:-}
+        VITE_DEMO_STORE_001_PASSWORD: ${VITE_DEMO_STORE_001_PASSWORD:-}
+        VITE_DEMO_STORE_002_EMAIL: ${VITE_DEMO_STORE_002_EMAIL:-}
+        VITE_DEMO_STORE_002_PASSWORD: ${VITE_DEMO_STORE_002_PASSWORD:-}
+        VITE_DEMO_ADMIN_EMAIL: ${VITE_DEMO_ADMIN_EMAIL:-}
+        VITE_DEMO_ADMIN_PASSWORD: ${VITE_DEMO_ADMIN_PASSWORD:-}
+    restart: unless-stopped
+    ports:
+      - "${DASHBOARD_BIND_HOST:-0.0.0.0}:${DASHBOARD_PORT:-80}:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+      aicc:
+        condition: service_healthy
+    logging: *default-logging
+
+  vision-replay:
+    image: python:3.12-slim
+    restart: unless-stopped
+    environment:
+      PYTHONUNBUFFERED: "1"
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?INTERNAL_API_KEY is required}
+    command:
+      - python
+      - /workspace/services/vision-worker/replay_states.py
+      - --file
+      - /workspace/samples/cafe_stores_states.json
+      - --api
+      - http://api:8000
+      - --interval
+      - ${VISION_REPLAY_INTERVAL:-2}
+      - --frames-dir
+      - /workspace/services/vision-worker/outputs/snapshots/frames
+      - --raw-frames-dir
+      - /workspace/services/vision-worker/outputs/snapshots/raw-frames
+      - --loop
+      - --realtime
+      - --speed
+      - ${VISION_REPLAY_SPEED:-1}
+    volumes:
+      - ./services/vision-worker:/workspace/services/vision-worker:ro
+      - ./samples:/workspace/samples:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    logging: *default-logging
+
+volumes:
+  postgres_data:
+    name: ai-s-eye-gcp-postgres
+  vision_snapshot_data:
+    name: ai-s-eye-gcp-vision-snapshots
+  store_media_data:
+    name: ai-s-eye-gcp-store-media

@@ -72,11 +72,24 @@ class InsightsRequest(BaseModel):
 
     start_at: str | None = Field(default=None, description="집계 시작 시각(ISO8601)")
     end_at: str | None = Field(default=None, description="집계 끝 시각(ISO8601)")
+    store_ids: list[str] = Field(
+        default_factory=list,
+        max_length=20,
+        description="분석할 매장 ID. 비어 있으면 데이터가 있는 전체 매장",
+    )
 
     @model_validator(mode="after")
     def _check_order(self) -> "InsightsRequest":
         if self.start_at and self.end_at and self.start_at >= self.end_at:
             raise ValueError("start_at은 end_at보다 앞서야 합니다.")
+        normalized: list[str] = []
+        for raw_store_id in self.store_ids:
+            store_id = raw_store_id.strip()
+            if not store_id or len(store_id) > 100:
+                raise ValueError("store_ids에는 유효한 매장 ID만 입력해야 합니다.")
+            if store_id not in normalized:
+                normalized.append(store_id)
+        self.store_ids = normalized
         return self
 
 
@@ -184,6 +197,18 @@ def create_insights(req: InsightsRequest) -> Any:
             status_code=502,
             detail={"error": "store_api_error", "message": exc.message},
         ) from exc
+
+    # 집계 API는 본사 전체 매장을 반환한다. 사용자가 지정한 매장만 Gemini 입력으로 제한한다.
+    if req.store_ids and isinstance(summary, dict) and isinstance(summary.get("stores"), list):
+        selected_store_ids = set(req.store_ids)
+        summary = {
+            **summary,
+            "stores": [
+                store
+                for store in summary["stores"]
+                if isinstance(store, dict) and store.get("store_id") in selected_store_ids
+            ],
+        }
 
     # 2) Gemini로 분석 (상권 프로필 포함). store_context가 없으면(예: 테스트) None → 내부 기본값.
     try:

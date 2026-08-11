@@ -22,3 +22,16 @@ export function orderDataLabel(mode) {
   if (mode === 'order-event') return '외부 주문 이벤트'
   return '주문 데이터 없음'
 }
+
+export function hasInsightData(store) {
+  if (!store || typeof store !== 'object') return false
+  if (store.traffic_summary || store.video_summary) return true
+
+  const orders = store.order_summary
+  if (!orders || typeof orders !== 'object') return false
+  return Number(orders.total_order_count ?? 0) > 0
+    || Number(orders.order_event_count ?? 0) > 0
+    || (orders.data_sources?.length ?? 0) > 0
+    || (orders.top_menu_items?.length ?? 0) > 0
+    || Object.values(orders.latest_status_counts ?? {}).some((count) => Number(count) > 0)
+}

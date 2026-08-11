@@ -609,15 +609,25 @@ class DatabaseRepository:
         start_at: datetime | None = None,
         end_at: datetime | None = None,
     ) -> StoreSummaryResponse:
-        """기간에 포함된 상태와 주문 이력을 매장별로 집계한다."""
-        state_statement = select(StoreStateHistoryRecord).order_by(
-            StoreStateHistoryRecord.store_id,
-            StoreStateHistoryRecord.captured_at,
-            StoreStateHistoryRecord.id,
+        """활성 매장의 기간 내 상태와 주문 이력을 집계한다.
+
+        삭제된 매장의 원본 이력은 보존하되 본사 기본 KPI·비교·AI 입력에서는 제외한다.
+        활성 여부의 단일 기준은 stores 매장 마스터다.
+        """
+        active_store_ids = select(StoreRecord.id)
+        state_statement = (
+            select(StoreStateHistoryRecord)
+            .where(StoreStateHistoryRecord.store_id.in_(active_store_ids))
+            .order_by(
+                StoreStateHistoryRecord.store_id,
+                StoreStateHistoryRecord.captured_at,
+                StoreStateHistoryRecord.id,
+            )
         )
         order_statement = (
             select(OrderEventRecord)
             .options(selectinload(OrderEventRecord.items))
+            .where(OrderEventRecord.store_id.in_(active_store_ids))
             .order_by(
                 OrderEventRecord.store_id,
                 OrderEventRecord.occurred_at,

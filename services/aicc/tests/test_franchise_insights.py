@@ -7,6 +7,7 @@ from aicc.franchise_insights import (
     InsightsUnavailableError,
     _to_kst,
     build_prompt,
+    build_rule_based_insights,
     generate_insights,
 )
 
@@ -259,6 +260,42 @@ def test_non_json_response_raises() -> None:
     client = FakeGemini("이건 JSON이 아님")
     with pytest.raises(InsightsUnavailableError):
         generate_insights(summary(), client=client)
+
+
+def test_rule_based_fallback_uses_only_summary_numbers() -> None:
+    result = build_rule_based_insights(summary())
+    by_store = {item["store_id"]: item for item in result["insights"]}
+
+    first = by_store["store-001"]
+    assert first["insight_type"] == "congestion"
+    assert first["severity"] == "high"
+    assert first["evidence"]["peak_queue_count_estimate"] == 9
+    assert "2026-07-22 12:00" in first["summary"]
+    assert "이벤트" not in first["probable_cause"]
+    assert "직장인" not in first["probable_cause"]
+    assert "추정 제한" in first["probable_cause"]
+    assert "store-001 9명" in result["comparison"]["summary"]
+    assert "store-002 4명" in result["comparison"]["summary"]
+
+
+def test_rule_based_fallback_handles_order_only_store() -> None:
+    result = build_rule_based_insights(
+        {
+            "stores": [
+                {
+                    "store_id": "store-orders",
+                    "traffic_summary": None,
+                    "order_summary": {"total_order_count": 12},
+                    "video_summary": None,
+                }
+            ]
+        }
+    )
+
+    insight = result["insights"][0]
+    assert insight["insight_type"] == "order_activity"
+    assert insight["evidence"] == {"total_order_count": 12}
+    assert "주문 12건" in insight["summary"]
 
 
 def test_empty_stores_raises_without_calling_gemini() -> None:

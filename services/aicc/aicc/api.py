@@ -35,7 +35,11 @@ from .auth import ADMIN_ROLE, CurrentUser, get_current_user, require_admin
 from .client import StoreApiClient
 from .config import get_settings
 from .errors import ToolError
-from .franchise_insights import InsightsUnavailableError, generate_insights
+from .franchise_insights import (
+    InsightsUnavailableError,
+    build_rule_based_insights,
+    generate_insights,
+)
 from .kakao import (
     ERROR_TEXT,
     build_action_menu,
@@ -113,6 +117,8 @@ class Comparison(BaseModel):
 class InsightsResponse(BaseModel):
     insights: list[Insight]
     comparison: Comparison = Field(default_factory=Comparison)
+    source: str = Field(default="gemini", description="gemini 또는 rule_based_fallback")
+    notice: str | None = Field(default=None, description="대체 분석 사용 안내")
 
 
 class ChatTurn(BaseModel):
@@ -216,12 +222,26 @@ def create_insights(req: InsightsRequest) -> Any:
             summary, context_provider=getattr(app.state, "store_context", None)
         )
     except InsightsUnavailableError as exc:
-        raise HTTPException(
-            status_code=503,
-            detail={"error": "insights_unavailable", "message": f"분석을 생성하지 못했습니다: {exc}"},
-        ) from exc
+        logger.warning("Gemini 매장 진단을 규칙 기반으로 대체합니다: %s", exc)
+        try:
+            result = build_rule_based_insights(summary)
+        except InsightsUnavailableError as fallback_exc:
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "error": "insights_unavailable",
+                    "message": f"분석을 생성하지 못했습니다: {fallback_exc}",
+                },
+            ) from fallback_exc
+        return {
+            **result,
+            "source": "rule_based_fallback",
+            "notice": (
+                "생성형 AI 사용량이 많아 현재 집계 수치만 사용한 규칙 기반 대체 분석입니다."
+            ),
+        }
 
-    return result
+    return {**result, "source": "gemini"}
 
 
 @app.post(

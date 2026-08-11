@@ -1066,6 +1066,29 @@
   font-weight: 600;
 }
 
+.supervisor-ai-source-badge.is-fallback {
+  color: #8a3800;
+  background: #fff2e8;
+}
+
+.supervisor-ai-fallback-notice {
+  margin: 0 24px 16px;
+  padding: 16px 18px;
+  border-left: 4px solid #f1c21b;
+  background: #fff8e1;
+}
+
+.supervisor-ai-fallback-notice strong {
+  color: var(--supervisor-ink);
+  font-size: 0.84rem;
+}
+
+.supervisor-ai-fallback-notice p {
+  margin: 5px 0 0;
+  color: var(--supervisor-muted);
+  font-size: 0.78rem;
+}
+
 @media (max-width: 1120px) {
   .supervisor-kpi-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));

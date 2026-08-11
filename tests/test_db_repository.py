@@ -16,6 +16,7 @@ from app.db_models import (
     OrderEventRecord,
     StoreStateHistoryRecord,
     StoreStateRecord,
+    StoreRecord,
 )
 from app.db_repository import DatabaseRepository
 from app.models import (
@@ -89,6 +90,9 @@ def database_repository() -> tuple[DatabaseRepository, sessionmaker[Session], st
                 delete(StoreStateRecord).where(
                     StoreStateRecord.store_id.like(f"{test_id}%")
                 )
+            )
+            session.execute(
+                delete(StoreRecord).where(StoreRecord.id.like(f"{test_id}%"))
             )
             session.commit()
         engine.dispose()
@@ -177,7 +181,7 @@ def test_scene_versions_are_saved_and_previous_version_can_be_restored(
 def test_latest_store_state_is_returned(
     database_repository: tuple[DatabaseRepository, sessionmaker[Session], str],
 ) -> None:
-    repository, _, test_id = database_repository
+    repository, session_factory, test_id = database_repository
     captured_at = datetime(2026, 7, 22, 9, 0, tzinfo=timezone.utc)
     older_state = StoreState(
         store_id=test_id,
@@ -208,7 +212,7 @@ def test_latest_store_state_is_returned(
     assert saved_state.visible_person_count == 6
     assert saved_state.queue_count_estimate == 3
 
-    with database_repository[1]() as session:
+    with session_factory() as session:
         raw_count = session.scalar(
             select(func.count())
             .select_from(StoreStateRecord)
@@ -451,7 +455,7 @@ def test_same_order_id_is_read_separately_by_store(
 def test_store_summary_uses_period_and_separates_stores(
     database_repository: tuple[DatabaseRepository, sessionmaker[Session], str],
 ) -> None:
-    repository, _, test_id = database_repository
+    repository, session_factory, test_id = database_repository
     store_one = f"{test_id}-store-001"
     store_two = f"{test_id}-store-002"
     unique_offset = int(test_id[-12:], 16)
@@ -459,6 +463,15 @@ def test_store_summary_uses_period_and_separates_stores(
         microseconds=unique_offset
     )
     end_at = start_at + timedelta(days=1)
+
+    with session_factory() as session:
+        session.add_all(
+            [
+                StoreRecord(id=store_one, name=f"{test_id}-summary-one"),
+                StoreRecord(id=store_two, name=f"{test_id}-summary-two"),
+            ]
+        )
+        session.commit()
 
     for store_id, hour, person_count, queue_count in (
         (store_one, 1, 8, 1),
@@ -532,6 +545,24 @@ def test_store_summary_uses_period_and_separates_stores(
     assert filtered_stores[store_one].traffic_summary is None
     assert filtered_stores[store_one].order_summary.total_order_count == 0
     assert filtered_stores[store_one].order_summary.order_event_count == 0
+
+    repository.delete_store(store_one)
+    after_delete = repository.get_store_summary(start_at=start_at, end_at=end_at)
+
+    assert {store.store_id for store in after_delete.stores} == {store_two}
+    with session_factory() as session:
+        saved_state_count = session.scalar(
+            select(func.count())
+            .select_from(StoreStateHistoryRecord)
+            .where(StoreStateHistoryRecord.store_id == store_one)
+        )
+        saved_order_count = session.scalar(
+            select(func.count())
+            .select_from(OrderEventRecord)
+            .where(OrderEventRecord.store_id == store_one)
+        )
+    assert saved_state_count == 2
+    assert saved_order_count == 2
 
 
 def test_store_timeline_groups_store_records_by_hour(

@@ -144,6 +144,33 @@ def test_prompt_includes_synthetic_order_source() -> None:
     assert "주문 데이터 출처: synthetic_order_simulator" in p
 
 
+def test_prompt_handles_null_partial_summaries() -> None:
+    """기간 내 Vision·영상 데이터가 없어도 주문 데이터만으로 프롬프트를 만든다."""
+    partial = {
+        "stores": [
+            {
+                "store_id": "store-009",
+                "traffic_summary": None,
+                "order_summary": {
+                    "total_order_count": 12,
+                    "order_event_count": 36,
+                    "data_sources": [],
+                    "latest_status_counts": {},
+                    "top_menu_items": [],
+                },
+                "video_summary": None,
+            }
+        ]
+    }
+
+    p = build_prompt(partial)
+
+    assert "[store-009]" in p
+    assert "인원·대기: 데이터 없음" in p
+    assert "주문: 총 12건" in p
+    assert "영상: 데이터 없음" in p
+
+
 def test_system_prompt_has_probable_cause_guardrail() -> None:
     """추정 원인 규칙과 '지어내기 금지' 가드레일이 프롬프트에 살아있어야 한다."""
     from aicc.franchise_insights import SYSTEM_PROMPT
@@ -155,6 +182,7 @@ def test_system_prompt_has_probable_cause_guardrail() -> None:
     assert "지점명은 절대 지어내지 않는다" in SYSTEM_PROMPT  # 강남점 등 임의 지점명 환각 금지
     assert "글자 그대로만 쓴다" in SYSTEM_PROMPT  # 동 이름 바꿔치기(신림동 등) 금지
     assert "evidence에 넣지 않는다" in SYSTEM_PROMPT  # evidence는 숫자만
+    assert "데이터 없음'으로 표시된 항목은 운영 이상으로 해석하지 않는다" in SYSTEM_PROMPT
 
 
 class FakeContext:
@@ -240,6 +268,48 @@ def test_empty_stores_raises_without_calling_gemini() -> None:
     with pytest.raises(InsightsUnavailableError, match="데이터가 없습니다"):
         generate_insights({"stores": []}, client=client)
     assert "contents" not in capture  # Gemini 호출이 아예 안 됨
+
+
+def test_generate_skips_store_with_all_null_summaries() -> None:
+    """신규 계정의 빈 매장은 제외하고 실제 집계가 있는 매장만 Gemini에 전달한다."""
+    mixed = summary()
+    mixed["stores"].append(
+        {
+            "store_id": "store-empty",
+            "traffic_summary": None,
+            "order_summary": None,
+            "video_summary": None,
+        }
+    )
+    capture: dict[str, Any] = {}
+    client = FakeGemini(json.dumps(FAKE_OUTPUT), capture=capture)
+
+    generate_insights(mixed, client=client)
+
+    assert "[store-001]" in capture["contents"]
+    assert "[store-002]" in capture["contents"]
+    assert "[store-empty]" not in capture["contents"]
+
+
+def test_all_null_summaries_raise_without_calling_gemini() -> None:
+    """매장 행만 존재해도 모든 집계가 null이면 빈 분석으로 처리한다."""
+    capture: dict[str, Any] = {}
+    client = FakeGemini(json.dumps(FAKE_OUTPUT), capture=capture)
+    empty_summary = {
+        "stores": [
+            {
+                "store_id": "store-empty",
+                "traffic_summary": None,
+                "order_summary": None,
+                "video_summary": None,
+            }
+        ]
+    }
+
+    with pytest.raises(InsightsUnavailableError, match="데이터가 없습니다"):
+        generate_insights(empty_summary, client=client)
+
+    assert "contents" not in capture
 
 
 @pytest.mark.parametrize("bad", [[], "문자열", {"period": {}}, {"stores": "리스트아님"}, None])

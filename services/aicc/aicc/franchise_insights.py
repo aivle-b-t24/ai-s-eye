@@ -275,6 +275,142 @@ def attach_display_text(
     return result
 
 
+def _severity_for_peak_wait(peak_wait: float) -> str:
+    if peak_wait >= 8:
+        return "high"
+    if peak_wait >= 4:
+        return "medium"
+    if peak_wait > 0:
+        return "low"
+    return "info"
+
+
+def _number(value: Any, default: float = 0) -> float:
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+    return default
+
+
+def build_rule_based_insights(summary: Any) -> dict[str, Any]:
+    """Gemini 장애 시 집계에 있는 수치만 사용해 최소 운영 분석을 만든다.
+
+    원인을 생성하지 않고 관측 사실과 추가 확인 항목만 제시한다. 따라서 429 같은
+    외부 모델 장애가 발생해도 본사 화면이 빈 오류로 끝나지 않는다.
+    """
+    if not isinstance(summary, dict) or not isinstance(summary.get("stores"), list):
+        raise InsightsUnavailableError("집계 응답 형식이 올바르지 않습니다(stores 목록 없음).")
+
+    stores = [store for store in summary["stores"] if _has_analysis_data(store)]
+    if not stores:
+        raise InsightsUnavailableError(
+            "선택한 기간에 분석할 매장 데이터가 없습니다. 다른 기간을 선택해 주세요."
+        )
+
+    insights: list[dict[str, Any]] = []
+    queue_comparison: list[tuple[str, float]] = []
+    for store in stores:
+        sid = str(store.get("store_id") or "unknown-store")
+        traffic = _summary_section(store.get("traffic_summary"))
+        orders = _summary_section(store.get("order_summary"))
+        video = _summary_section(store.get("video_summary"))
+        issue_count = int(_number(video.get("quality_issue_count")))
+
+        if issue_count > 0 or (
+            video and video.get("latest_quality_status") not in {None, "normal"}
+        ):
+            insights.append(
+                {
+                    "store_id": sid,
+                    "insight_type": "video_issue",
+                    "severity": "medium",
+                    "summary": (
+                        f"선택 기간에 영상 품질 이상 {issue_count}건이 집계됐으며 "
+                        f"최신 상태는 {video.get('latest_quality_status')}입니다."
+                    ),
+                    "probable_cause": (
+                        "집계 수치만으로 영상 이상 원인을 특정할 수 없습니다(추정 제한)."
+                    ),
+                    "evidence": {
+                        "quality_issue_count": issue_count,
+                        "latest_quality_status": video.get("latest_quality_status"),
+                    },
+                    "recommendation": "해당 시각의 원본 영상과 카메라 연결 상태를 확인하세요.",
+                }
+            )
+            continue
+
+        if traffic:
+            average_wait = _number(traffic.get("average_queue_count_estimate"))
+            peak_wait = _number(traffic.get("peak_queue_count_estimate"))
+            peak_at = traffic.get("peak_queue_count_estimate_at")
+            queue_comparison.append((sid, peak_wait))
+            insight_type = "congestion" if peak_wait >= 4 else "operating_status"
+            insights.append(
+                {
+                    "store_id": sid,
+                    "insight_type": insight_type,
+                    "severity": _severity_for_peak_wait(peak_wait),
+                    "summary": (
+                        f"최대 대기 인원은 {peak_wait:g}명"
+                        f"({_to_kst(peak_at)})이며 평균은 {average_wait:g}명입니다."
+                    ),
+                    "probable_cause": (
+                        "현재 집계만으로 원인을 특정할 수 없으며 피크 전후 추이와 "
+                        "반복 여부를 추가 확인해야 합니다(추정 제한)."
+                    ),
+                    "evidence": {
+                        "average_queue_count_estimate": average_wait,
+                        "peak_queue_count_estimate": peak_wait,
+                        "peak_queue_count_estimate_at": peak_at,
+                    },
+                    "recommendation": (
+                        "피크 전후 시간대의 주문·인원 추이를 확인한 뒤 인력 조정 여부를 "
+                        "What-if 시뮬레이션으로 검토하세요."
+                    ),
+                }
+            )
+            continue
+
+        total_orders = int(_number(orders.get("total_order_count")))
+        insights.append(
+            {
+                "store_id": sid,
+                "insight_type": "order_activity",
+                "severity": "info",
+                "summary": f"선택 기간에 주문 {total_orders}건이 집계됐습니다.",
+                "probable_cause": (
+                    "인원·대기 데이터가 없어 주문량 변화의 원인을 특정할 수 없습니다(추정 제한)."
+                ),
+                "evidence": {"total_order_count": total_orders},
+                "recommendation": "시간대별 주문 추이와 Vision 데이터가 함께 수집되는지 확인하세요.",
+            }
+        )
+
+    if len(queue_comparison) >= 2:
+        queue_text = ", ".join(
+            f"{store_id} {peak_wait:g}명" for store_id, peak_wait in queue_comparison
+        )
+        comparison_summary = f"선택 매장의 최대 대기는 {queue_text}으로 집계됐습니다."
+        comparison_recommendation = (
+            "동일한 수집 기간과 데이터량인지 확인한 뒤 피크가 반복되는 매장을 우선 검토하세요."
+        )
+    else:
+        comparison_summary = "선택 매장의 집계 수치를 규칙 기반으로 확인했습니다."
+        comparison_recommendation = (
+            "AI 생성 분석이 복구되면 상권 맥락을 포함한 추가 진단을 다시 실행할 수 있습니다."
+        )
+
+    return attach_display_text(
+        {
+            "insights": insights,
+            "comparison": {
+                "summary": comparison_summary,
+                "recommendation": comparison_recommendation,
+            },
+        }
+    )
+
+
 def generate_insights(
     summary: Any,
     client: Any | None = None,

@@ -13,6 +13,7 @@ import { currentHqSection } from './hqNavigation'
 import {
   SUPERVISOR_STORE_IDS,
   hasInsightData,
+  insightSourceLabel,
   orderDataLabel,
   orderDataMode,
   timelineIntervalForPeriod,
@@ -48,6 +49,8 @@ const INSIGHT_TYPE_LABELS = {
   congestion: '혼잡 특이사항',
   afternoon_demand: '오후 수요 특이사항',
   video_issue: '영상 품질 특이사항',
+  operating_status: '운영 상태',
+  order_activity: '주문 집계',
 }
 
 const SEVERITY_LABELS = {
@@ -798,7 +801,13 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
             <p>
               현재 집계 수치를 근거로 매장별 특이사항과 권장 조치를 생성합니다.
             </p>
-            <span className="supervisor-ai-source-badge">데모 데이터 기반 분석</span>
+            <span
+              className={`supervisor-ai-source-badge ${
+                insights?.source === 'rule_based_fallback' ? 'is-fallback' : ''
+              }`}
+            >
+              {insightSourceLabel(insights?.source)}
+            </span>
           </div>
           <div className="supervisor-ai-actions">
             <fieldset className="supervisor-ai-store-filter">
@@ -866,6 +875,13 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
               <strong>기간별 운영 데이터를 분석하고 있습니다.</strong>
               <p>집계 데이터는 그대로 유지되며 AI 결과만 새로 생성됩니다.</p>
             </div>
+          </div>
+        )}
+
+        {insights?.source === 'rule_based_fallback' && (
+          <div className="supervisor-ai-fallback-notice" role="status">
+            <strong>AI 호출 대신 대체 분석을 표시했습니다.</strong>
+            <p>{insights.notice}</p>
           </div>
         )}
 

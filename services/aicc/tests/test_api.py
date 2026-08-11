@@ -186,9 +186,26 @@ def test_store_api_error_returns_502(monkeypatch) -> None:
     assert r.json()["detail"]["error"] == "store_api_error"
 
 
-def test_gemini_error_returns_503(monkeypatch) -> None:
+def test_gemini_error_returns_rule_based_fallback(monkeypatch) -> None:
     tc = client_with(ok_handler, gemini_text=None, monkeypatch=monkeypatch)
     r = tc.post("/insights", json={})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["source"] == "rule_based_fallback"
+    assert "규칙 기반 대체 분석" in body["notice"]
+    assert {item["store_id"] for item in body["insights"]} == {
+        "store-001",
+        "store-002",
+    }
+
+
+def test_insights_without_any_data_still_returns_503(monkeypatch) -> None:
+    def empty_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"stores": []})
+
+    tc = client_with(empty_handler, gemini_text=None, monkeypatch=monkeypatch)
+    r = tc.post("/insights", json={})
+
     assert r.status_code == 503
     assert r.json()["detail"]["error"] == "insights_unavailable"
 

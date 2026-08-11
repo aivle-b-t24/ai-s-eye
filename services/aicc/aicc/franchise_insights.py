@@ -40,7 +40,9 @@ SYSTEM_PROMPT = """너는 프랜차이즈 본사의 운영 분석가다.
 - 근거(evidence)에는 판단에 쓴 실제 숫자(피크 인원·대기, 피크 시각, 주문 수 등)만 담는다.
   상권 정보·동 이름·설명 같은 텍스트는 evidence에 넣지 않는다(상권은 probable_cause에서만 다룬다).
 - 주문 데이터 출처가 synthetic_order_simulator이면 합성 데모 수치로 취급하고 실제 POS 실적이라고 표현하지 않는다.
-- 두 매장의 차이를 비교하고, 운영자가 참고할 권장사항을 매장별·비교별로 만든다.
+- '데이터 없음'으로 표시된 항목은 운영 이상으로 해석하지 않는다. 데이터가 있는 항목만 분석한다.
+- 선택 매장이 2곳 이상이면 차이를 비교하고, 1곳이면 해당 매장의 종합 의견을 comparison에 담는다.
+  운영자가 참고할 권장사항을 매장별·비교별로 만든다.
 - 반드시 아래 JSON 형식만 출력한다. 다른 말은 하지 않는다.
 
 분석 품질 규칙:
@@ -117,6 +119,38 @@ def build_client() -> Any | None:
     return genai.Client(api_key=settings.gemini_api_key)
 
 
+def _summary_section(value: Any) -> dict[str, Any]:
+    """null 또는 잘못된 형식의 집계 섹션을 빈 딕셔너리로 정규화한다."""
+    return value if isinstance(value, dict) else {}
+
+
+def _positive_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0
+
+
+def _has_order_data(orders: dict[str, Any]) -> bool:
+    status_counts = _summary_section(orders.get("latest_status_counts"))
+    return any(
+        (
+            _positive_number(orders.get("total_order_count")),
+            _positive_number(orders.get("order_event_count")),
+            bool(orders.get("data_sources")),
+            bool(orders.get("top_menu_items")),
+            any(_positive_number(count) for count in status_counts.values()),
+        )
+    )
+
+
+def _has_analysis_data(store: Any) -> bool:
+    """매장에 AI가 분석할 수 있는 집계 섹션이 하나라도 있는지 확인한다."""
+    if not isinstance(store, dict):
+        return False
+    traffic = _summary_section(store.get("traffic_summary"))
+    orders = _summary_section(store.get("order_summary"))
+    video = _summary_section(store.get("video_summary"))
+    return bool(traffic) or _has_order_data(orders) or bool(video)
+
+
 def build_prompt(summary: Any, profiles: dict[str, str] | None = None) -> str:
     """집계 데이터를 사람이 읽는 숫자 목록으로 바꿔 프롬프트를 만든다.
 
@@ -127,35 +161,53 @@ def build_prompt(summary: Any, profiles: dict[str, str] | None = None) -> str:
     profiles = profiles or {}
     lines: list[str] = ["집계 데이터 (기간별, 시간은 KST):"]
     for store in summary.get("stores", []):
+        if not isinstance(store, dict):
+            continue
         sid = store.get("store_id")
-        t = store.get("traffic_summary", {})
-        o = store.get("order_summary", {})
-        v = store.get("video_summary", {})
+        t = _summary_section(store.get("traffic_summary"))
+        o = _summary_section(store.get("order_summary"))
+        v = _summary_section(store.get("video_summary"))
         lines.append(f"\n[{sid}]")
-        lines.append(
-            f"  인원: 평균 {t.get('average_visible_person_count')}, "
-            f"피크 {t.get('peak_visible_person_count')} "
-            f"({_to_kst(t.get('peak_visible_person_count_at'))})"
-        )
-        lines.append(
-            f"  대기: 평균 {t.get('average_queue_count_estimate')}, "
-            f"피크 {t.get('peak_queue_count_estimate')} "
-            f"({_to_kst(t.get('peak_queue_count_estimate_at'))})"
-        )
-        lines.append(
-            f"  주문: 총 {o.get('total_order_count')}건, 상태 {o.get('latest_status_counts')}"
-        )
-        data_sources = o.get("data_sources") or []
-        if data_sources:
-            lines.append(f"  주문 데이터 출처: {', '.join(data_sources)}")
-        tops = ", ".join(
-            f"{m.get('name')}x{m.get('quantity')}" for m in o.get("top_menu_items", [])[:5]
-        )
-        if tops:
-            lines.append(f"  인기메뉴: {tops}")
-        lines.append(
-            f"  영상: {v.get('latest_quality_status')}, 이상 {v.get('quality_issue_count')}건"
-        )
+        if t:
+            lines.append(
+                f"  인원: 평균 {t.get('average_visible_person_count')}, "
+                f"피크 {t.get('peak_visible_person_count')} "
+                f"({_to_kst(t.get('peak_visible_person_count_at'))})"
+            )
+            lines.append(
+                f"  대기: 평균 {t.get('average_queue_count_estimate')}, "
+                f"피크 {t.get('peak_queue_count_estimate')} "
+                f"({_to_kst(t.get('peak_queue_count_estimate_at'))})"
+            )
+        else:
+            lines.append("  인원·대기: 데이터 없음")
+
+        if _has_order_data(o):
+            lines.append(
+                f"  주문: 총 {o.get('total_order_count')}건, 상태 {o.get('latest_status_counts')}"
+            )
+            raw_data_sources = o.get("data_sources")
+            data_sources = raw_data_sources if isinstance(raw_data_sources, list) else []
+            if data_sources:
+                lines.append(f"  주문 데이터 출처: {', '.join(map(str, data_sources))}")
+            raw_top_menu_items = o.get("top_menu_items")
+            top_menu_items = raw_top_menu_items if isinstance(raw_top_menu_items, list) else []
+            tops = ", ".join(
+                f"{m.get('name')}x{m.get('quantity')}"
+                for m in top_menu_items[:5]
+                if isinstance(m, dict)
+            )
+            if tops:
+                lines.append(f"  인기메뉴: {tops}")
+        else:
+            lines.append("  주문: 데이터 없음")
+
+        if v:
+            lines.append(
+                f"  영상: {v.get('latest_quality_status')}, 이상 {v.get('quality_issue_count')}건"
+            )
+        else:
+            lines.append("  영상: 데이터 없음")
         prof = profiles.get(sid)
         if prof:
             lines.append(f"  상권: {prof}")
@@ -247,6 +299,15 @@ def generate_insights(
             "선택한 기간에 분석할 매장 데이터가 없습니다. 다른 기간(최근 7일·30일)을 선택해 주세요."
         )
 
+    # 신규 계정처럼 매장 행만 있고 세 집계가 모두 null인 항목은 Gemini 입력에서 제외한다.
+    # 일부 섹션만 있는 매장은 남겨서, 존재하는 운영 데이터만으로 분석할 수 있게 한다.
+    analyzable_stores = [store for store in summary["stores"] if _has_analysis_data(store)]
+    if not analyzable_stores:
+        raise InsightsUnavailableError(
+            "선택한 기간에 분석할 매장 데이터가 없습니다. 다른 기간(최근 7일·30일)을 선택해 주세요."
+        )
+    analysis_summary = {**summary, "stores": analyzable_stores}
+
     client = client if client is not None else build_client()
     if client is None:
         raise InsightsUnavailableError("Gemini 클라이언트를 만들지 못했습니다.")
@@ -256,14 +317,14 @@ def generate_insights(
     # 매장별 상권 프로필(SGIS). 실패/미설정이면 빈 dict → 상권 없이 진행.
     provider = context_provider or StoreContextProvider(build_sgis_client(get_settings()))
     profiles: dict[str, str] = {}
-    for store in summary.get("stores", []):
+    for store in analyzable_stores:
         sid = store.get("store_id")
         if sid:
             text = provider.profile_text(sid)
             if text:
                 profiles[sid] = text
 
-    prompt = build_prompt(summary, profiles)
+    prompt = build_prompt(analysis_summary, profiles)
     try:
         response = client.models.generate_content(
             model=get_settings().gemini_model,

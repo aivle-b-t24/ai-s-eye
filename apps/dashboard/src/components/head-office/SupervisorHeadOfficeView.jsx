@@ -12,6 +12,7 @@ import OrderTrendChart from './OrderTrendChart'
 import { currentHqSection } from './hqNavigation'
 import {
   SUPERVISOR_STORE_IDS,
+  hasInsightData,
   orderDataLabel,
   orderDataMode,
   timelineIntervalForPeriod,
@@ -266,6 +267,7 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
   const [insights, setInsights] = useState(null)
   const [insightsLoading, setInsightsLoading] = useState(false)
   const [insightsError, setInsightsError] = useState('')
+  const [insightStoreIds, setInsightStoreIds] = useState(SUPERVISOR_STORE_IDS)
   const [storeNames, setStoreNames] = useState({})
   const [storeIds, setStoreIds] = useState(SUPERVISOR_STORE_IDS)
   const [storeDirectory, setStoreDirectory] = useState([])
@@ -391,6 +393,28 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
     ),
     [summary],
   )
+  const insightStoreOptions = useMemo(
+    () => stores.map((store) => ({
+      id: store.store_id,
+      name: getStoreName(store.store_id, storeNames),
+      hasData: hasInsightData(store),
+    })),
+    [storeNames, stores],
+  )
+
+  useEffect(() => {
+    const availableIds = insightStoreOptions
+      .filter((store) => store.hasData)
+      .map((store) => store.id)
+    if (availableIds.length === 0) {
+      setInsightStoreIds([])
+      return
+    }
+    setInsightStoreIds((current) => {
+      const validSelection = current.filter((storeId) => availableIds.includes(storeId))
+      return validSelection.length > 0 ? validSelection : availableIds.slice(0, 2)
+    })
+  }, [insightStoreOptions])
   const orderMode = useMemo(() => orderDataMode(stores), [stores])
   const kpis = useMemo(
     () => buildKpis(stores, orderMode, storeNames),
@@ -448,6 +472,10 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
 
   const generateInsights = async () => {
     if (!summary || insightsLoading) return
+    if (insightStoreIds.length === 0) {
+      setInsightsError('분석할 데이터가 있는 매장을 한 곳 이상 선택해 주세요.')
+      return
+    }
 
     setInsightsLoading(true)
     setInsightsError('')
@@ -460,6 +488,7 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
         body: JSON.stringify({
           start_at: activeRange.startAt,
           end_at: activeRange.endAt,
+          store_ids: insightStoreIds,
         }),
       })
       if (!response.ok) {
@@ -771,14 +800,56 @@ export default function SupervisorHeadOfficeView({ apiBaseUrl, aiccBaseUrl }) {
             </p>
             <span className="supervisor-ai-source-badge">데모 데이터 기반 분석</span>
           </div>
-          <button
-            type="button"
-            className="supervisor-primary-button"
-            onClick={generateInsights}
-            disabled={!summary || summaryLoading || insightsLoading}
-          >
-            {insightsLoading ? 'AI 분석 중' : 'AI 운영 분석 생성'}
-          </button>
+          <div className="supervisor-ai-actions">
+            <fieldset className="supervisor-ai-store-filter">
+              <legend>분석 매장</legend>
+              <div>
+                {insightStoreOptions.map((store) => (
+                  <label
+                    key={store.id}
+                    className={!store.hasData ? 'is-disabled' : ''}
+                    title={!store.hasData ? '선택 기간에 분석할 데이터가 없습니다.' : undefined}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={insightStoreIds.includes(store.id)}
+                      disabled={!store.hasData || insightsLoading}
+                      onChange={(event) => {
+                        setInsights(null)
+                        setInsightsError('')
+                        setInsightStoreIds((current) => {
+                          if (event.target.checked) {
+                            return current.includes(store.id) ? current : [...current, store.id]
+                          }
+                          return current.length > 1
+                            ? current.filter((storeId) => storeId !== store.id)
+                            : current
+                        })
+                      }}
+                    />
+                    <span>{store.name}</span>
+                    <small>{store.id}</small>
+                  </label>
+                ))}
+              </div>
+              {insightStoreOptions.length === 0 && (
+                <p>선택 기간에 조회된 매장이 없습니다.</p>
+              )}
+            </fieldset>
+            <button
+              type="button"
+              className="supervisor-primary-button"
+              onClick={generateInsights}
+              disabled={
+                !summary
+                || summaryLoading
+                || insightsLoading
+                || insightStoreIds.length === 0
+              }
+            >
+              {insightsLoading ? 'AI 분석 중' : 'AI 운영 분석 생성'}
+            </button>
+          </div>
         </div>
 
         {insightsError && (

@@ -132,6 +132,47 @@ def test_insights_ok_with_period(monkeypatch) -> None:
     assert "start_at" in seen["url"] and "end_at" in seen["url"]  # 기간이 집계 API로 전달됨
 
 
+def test_insights_analyzes_only_selected_stores(monkeypatch) -> None:
+    captured: dict[str, Any] = {}
+
+    def fake_generate(summary: dict[str, Any], context_provider: Any = None) -> dict[str, Any]:
+        captured["store_ids"] = [store["store_id"] for store in summary["stores"]]
+        return FAKE_INSIGHTS
+
+    tc = client_with(ok_handler, monkeypatch=monkeypatch)
+    monkeypatch.setattr(api, "generate_insights", fake_generate)
+
+    r = tc.post("/insights", json={"store_ids": ["store-002"]})
+
+    assert r.status_code == 200
+    assert captured["store_ids"] == ["store-002"]
+
+
+def test_insights_deduplicates_selected_stores(monkeypatch) -> None:
+    seen: dict[str, Any] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["request"] = request
+        return httpx.Response(200, json=summary_body())
+
+    captured: dict[str, Any] = {}
+
+    def fake_generate(summary: dict[str, Any], context_provider: Any = None) -> dict[str, Any]:
+        captured["store_ids"] = [store["store_id"] for store in summary["stores"]]
+        return FAKE_INSIGHTS
+
+    tc = client_with(handler, monkeypatch=monkeypatch)
+    monkeypatch.setattr(api, "generate_insights", fake_generate)
+
+    r = tc.post(
+        "/insights",
+        json={"store_ids": [" store-001 ", "store-001", "store-002"]},
+    )
+
+    assert r.status_code == 200
+    assert captured["store_ids"] == ["store-001", "store-002"]
+
+
 # --- 오류 구분 ---
 
 

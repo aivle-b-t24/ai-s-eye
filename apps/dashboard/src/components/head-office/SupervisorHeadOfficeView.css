@@ -684,6 +684,78 @@
   margin-top: 8px;
 }
 
+.supervisor-ai-actions {
+  display: flex;
+  min-width: min(100%, 420px);
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+.supervisor-ai-store-filter {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.supervisor-ai-store-filter legend {
+  margin-bottom: 8px;
+  color: var(--supervisor-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.supervisor-ai-store-filter > div {
+  display: flex;
+  max-width: 440px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.supervisor-ai-store-filter label {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 7px;
+  align-items: center;
+  padding: 7px 10px;
+  border: 1px solid var(--supervisor-border);
+  background: #fff;
+  cursor: pointer;
+}
+
+.supervisor-ai-store-filter label:has(input:checked) {
+  border-color: var(--supervisor-blue);
+  background: #edf5ff;
+}
+
+.supervisor-ai-store-filter label.is-disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.supervisor-ai-store-filter input {
+  grid-row: 1 / span 2;
+  margin: 0;
+  accent-color: var(--supervisor-blue);
+}
+
+.supervisor-ai-store-filter span {
+  color: var(--supervisor-ink);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.supervisor-ai-store-filter small,
+.supervisor-ai-store-filter p {
+  color: var(--supervisor-muted);
+  font-size: 0.66rem;
+}
+
+.supervisor-ai-store-filter p {
+  margin: 0;
+}
+
 .supervisor-ai-empty,
 .supervisor-ai-loading,
 .supervisor-ai-error {
@@ -1130,6 +1202,13 @@
   .supervisor-ai-header .supervisor-primary-button,
   .supervisor-error-panel .supervisor-secondary-button {
     width: 100%;
+  }
+
+  .supervisor-ai-actions {
+    width: 100%;
+    min-width: 0;
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .supervisor-ai-empty,

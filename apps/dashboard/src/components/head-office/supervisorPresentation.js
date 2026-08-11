@@ -35,3 +35,9 @@ export function hasInsightData(store) {
     || (orders.top_menu_items?.length ?? 0) > 0
     || Object.values(orders.latest_status_counts ?? {}).some((count) => Number(count) > 0)
 }
+
+export function insightSourceLabel(source) {
+  return source === 'rule_based_fallback'
+    ? '규칙 기반 대체 분석'
+    : '데모 데이터 기반 분석'
+}

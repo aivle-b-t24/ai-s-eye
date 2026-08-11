@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import {
   hasInsightData,
+  insightSourceLabel,
   orderDataLabel,
   orderDataMode,
   timelineIntervalForPeriod,
@@ -29,6 +30,11 @@ test('AI 분석 가능한 매장과 집계가 전혀 없는 매장을 구분한�
     },
     video_summary: null,
   }), false)
+})
+
+test('Gemini 장애 시 규칙 기반 대체 분석임을 명확히 표시한다', () => {
+  assert.equal(insightSourceLabel('gemini'), '데모 데이터 기반 분석')
+  assert.equal(insightSourceLabel('rule_based_fallback'), '규칙 기반 대체 분석')
 })
 
 test('주문 출처를 합성·혼합으로 구분한다', () => {

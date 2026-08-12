@@ -624,7 +624,7 @@ class OperationsSimulationScenario(BaseModel):
     name: str = Field(default="기본 시나리오", min_length=1, max_length=60)
     store_id: str = Field(default="store-001", min_length=1)
     duration_minutes: int = Field(default=180, ge=30, le=480)
-    staff_count: int = Field(default=1, ge=1, le=6)
+    staff_count: int = Field(default=1, ge=1, le=10)
     arrivals_per_hour: float = Field(default=24, ge=1, le=180)
     event_multiplier: float = Field(default=1, ge=0.5, le=4)
     average_service_minutes: float = Field(default=4, ge=0.5, le=20)
@@ -653,6 +653,8 @@ class OperationsComparisonRequest(BaseModel):
     arrival_profile: list[OperationsArrivalProfileSegment] = Field(default_factory=list)
     fallback_arrivals_per_hour: float = Field(default=24, ge=1, le=180)
     event_multiplier: float = Field(default=1.6, ge=1, le=4)
+    current_staff_count: int = Field(default=1, ge=1, le=10)
+    max_staff_count: int = Field(default=2, ge=1, le=10)
     average_service_minutes: float = Field(default=4, ge=0.5, le=20)
     service_variability: float = Field(default=0.25, ge=0, le=1)
     patience_minutes: float = Field(default=8, ge=1, le=60)
@@ -664,6 +666,8 @@ class OperationsComparisonRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_arrival_profile(self) -> "OperationsComparisonRequest":
+        if self.current_staff_count > self.max_staff_count:
+            raise ValueError("current_staff_count must not exceed max_staff_count")
         if not self.arrival_profile:
             return self
         ordered = sorted(self.arrival_profile, key=lambda item: item.start_minute)
@@ -751,6 +755,20 @@ class OperationsSimulationFairness(BaseModel):
     changed_parameter: Literal["staff_count"] = "staff_count"
 
 
+class OperationsStaffingTargets(BaseModel):
+    max_average_wait_minutes: float = Field(default=5, ge=0)
+    max_abandonment_rate_percent: float = Field(default=5, ge=0, le=100)
+    max_staff_utilization_percent: float = Field(default=90, ge=0, le=100)
+
+
+class OperationsStaffingOption(BaseModel):
+    staff_count: int = Field(ge=1, le=10)
+    metrics: OperationsSimulationMetrics
+    abandonment_rate_percent: float = Field(ge=0, le=100)
+    meets_targets: bool
+    unmet_targets: list[str] = Field(default_factory=list)
+
+
 class OperationsComparisonResult(BaseModel):
     schema_version: str = "1.0"
     source: Literal["simulation_comparison"] = "simulation_comparison"
@@ -761,9 +779,18 @@ class OperationsComparisonResult(BaseModel):
     arrival_profile: list[OperationsArrivalProfileSegment]
     base_trace_id: str
     event_demand_trace_id: str
+    current_staff_count: int = Field(default=1, ge=1, le=10)
+    max_staff_count: int = Field(default=2, ge=1, le=10)
+    recommended_staff_count: int = Field(default=2, ge=1, le=10)
+    capacity_sufficient: bool = True
+    staffing_targets: OperationsStaffingTargets = Field(
+        default_factory=OperationsStaffingTargets,
+    )
+    staffing_options: list[OperationsStaffingOption] = Field(default_factory=list)
     normal_one: OperationsSimulationResult
     event_one: OperationsSimulationResult
     event_two: OperationsSimulationResult
+    event_recommended: OperationsSimulationResult | None = None
     fairness: OperationsSimulationFairness = Field(
         default_factory=OperationsSimulationFairness,
     )

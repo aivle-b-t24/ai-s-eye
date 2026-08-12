@@ -122,6 +122,41 @@ def test_comparison_shares_exact_event_demand() -> None:
     assert result.fairness.changed_parameter == "staff_count"
 
 
+def test_comparison_searches_to_max_and_selects_minimum_sufficient_staff() -> None:
+    request = _comparison_request().model_copy(update={"max_staff_count": 5})
+    result = run_operations_comparison(request)
+
+    assert [option.staff_count for option in result.staffing_options] == [1, 2, 3, 4, 5]
+    passing = [option.staff_count for option in result.staffing_options if option.meets_targets]
+    assert passing
+    assert result.recommended_staff_count == min(passing)
+    assert result.capacity_sufficient is True
+    assert result.event_one.scenario.staff_count == request.current_staff_count
+    assert result.event_two.scenario.staff_count == request.max_staff_count
+    recommended = (
+        result.event_one
+        if result.recommended_staff_count == request.current_staff_count
+        else result.event_two
+        if result.recommended_staff_count == request.max_staff_count
+        else result.event_recommended
+    )
+    assert recommended is not None
+    assert recommended.scenario.staff_count == result.recommended_staff_count
+    assert recommended.demand_trace_id == result.event_demand_trace_id
+
+
+def test_comparison_reports_when_max_staff_cannot_meet_targets() -> None:
+    request = _comparison_request().model_copy(update={
+        "event_multiplier": 4,
+        "max_staff_count": 2,
+    })
+    result = run_operations_comparison(request)
+
+    assert result.capacity_sufficient is False
+    assert result.recommended_staff_count == 2
+    assert all(not option.meets_targets for option in result.staffing_options)
+
+
 def test_order_lifecycle_and_half_minute_frames_are_recorded() -> None:
     result = run_operations_comparison(_comparison_request()).event_two
     event_types = {event.event_type for event in result.events}
@@ -156,6 +191,31 @@ def test_comparison_api_returns_three_variants(client: TestClient) -> None:
     assert body["event_one"]["scenario"]["staff_count"] == 1
     assert body["event_two"]["scenario"]["staff_count"] == 2
     assert body["event_one"]["demand_trace_id"] == body["event_two"]["demand_trace_id"]
+
+
+def test_comparison_accepts_current_and_max_staff(client: TestClient) -> None:
+    payload = _comparison_request().model_dump(mode="json")
+    payload.update({"current_staff_count": 2, "max_staff_count": 5})
+
+    response = client.post("/api/simulations/operations/compare", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["current_staff_count"] == 2
+    assert body["max_staff_count"] == 5
+    assert body["normal_one"]["scenario"]["staff_count"] == 2
+    assert body["event_one"]["scenario"]["staff_count"] == 2
+    assert body["event_two"]["scenario"]["staff_count"] == 5
+    assert [option["staff_count"] for option in body["staffing_options"]] == [1, 2, 3, 4, 5]
+
+
+def test_comparison_rejects_current_staff_above_maximum() -> None:
+    try:
+        OperationsComparisonRequest(current_staff_count=5, max_staff_count=4)
+    except ValueError as exc:
+        assert "current_staff_count must not exceed max_staff_count" in str(exc)
+    else:
+        raise AssertionError("invalid staffing range was accepted")
 
 
 def test_arrival_profile_must_cover_duration() -> None:

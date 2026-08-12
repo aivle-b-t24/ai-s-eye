@@ -7,6 +7,7 @@ from google.genai import types
 from aicc.operations_agent import (
     OperationsAgentRequest,
     OperationsDecisionAgent,
+    _verified_recommendation,
     build_peak_arrival_profile,
 )
 
@@ -24,6 +25,14 @@ def _comparison() -> dict[str, Any]:
     }
     two = {
         **one,
+        "completed_orders": 88,
+        "abandoned_orders": 8,
+        "average_wait_minutes": 5.8,
+        "max_queue": 9,
+        "staff_utilization_percent": 95,
+    }
+    three = {
+        **two,
         "completed_orders": 94,
         "abandoned_orders": 3,
         "in_progress_orders": 3,
@@ -31,14 +40,39 @@ def _comparison() -> dict[str, Any]:
         "max_queue": 6,
         "staff_utilization_percent": 81,
     }
+    four = {
+        **three,
+        "completed_orders": 98,
+        "abandoned_orders": 0,
+        "in_progress_orders": 2,
+        "average_wait_minutes": 1.2,
+        "max_queue": 2,
+        "staff_utilization_percent": 62,
+    }
     normal = {**one, "visitors": 60, "completed_orders": 58, "abandoned_orders": 0}
     return {
         "comparison_id": "comparison-test",
         "event_demand_trace_id": "demand-shared",
         "base_trace_id": "demand-base",
+        "current_staff_count": 1,
+        "max_staff_count": 4,
+        "recommended_staff_count": 3,
+        "capacity_sufficient": True,
+        "staffing_options": [
+            {"staff_count": 1, "metrics": one, "meets_targets": False},
+            {"staff_count": 2, "metrics": two, "meets_targets": False},
+            {"staff_count": 3, "metrics": three, "meets_targets": True},
+            {"staff_count": 4, "metrics": four, "meets_targets": True},
+        ],
         "normal_one": {"metrics": normal, "events": [], "frames": []},
         "event_one": {"metrics": one, "events": [], "frames": [], "demand_trace_id": "demand-shared"},
-        "event_two": {"metrics": two, "events": [], "frames": [], "demand_trace_id": "demand-shared"},
+        "event_two": {"metrics": four, "events": [], "frames": [], "demand_trace_id": "demand-shared"},
+        "event_recommended": {
+            "metrics": three,
+            "events": [],
+            "frames": [],
+            "demand_trace_id": "demand-shared",
+        },
     }
 
 
@@ -70,6 +104,8 @@ class FakeStoreClient:
 
     def compare_operations(self, payload: dict[str, Any]) -> dict[str, Any]:
         assert payload["arrival_profile"][1]["arrivals_per_hour"] == 34
+        assert payload["current_staff_count"] == 1
+        assert payload["max_staff_count"] == 4
         return _comparison()
 
 
@@ -87,7 +123,7 @@ class ToolCallingModels:
         elif self.calls == 2:
             calls = [SimpleNamespace(name="compare_staffing_options", args={})]
         else:
-            return SimpleNamespace(function_calls=[], text='{"summary":"직원 2명 권장"}')
+            return SimpleNamespace(function_calls=[], text='{"summary":"직원 3명 권장"}')
         content = types.Content(
             role="model",
             parts=[types.Part.from_function_call(name=call.name, args={}) for call in calls],
@@ -168,7 +204,8 @@ def test_agent_streams_actual_tool_trace_and_verified_recommendation() -> None:
     completed = events[-1]
     assert completed["event"] == "run_completed"
     assert completed["result"]["source"] == "gemini_tool_agent"
-    assert completed["result"]["recommendation"]["recommended_staff_count"] == 2
+    assert completed["result"]["recommendation"]["recommended_staff_count"] == 3
+    assert completed["result"]["recommendation"]["max_staff_count"] == 4
     assert completed["result"]["comparison"]["event_demand_trace_id"] == "demand-shared"
 
 
@@ -190,3 +227,30 @@ def test_agent_stops_gemini_after_five_turns_and_finishes_with_rules() -> None:
     assert any(item["event"] == "fallback_started" for item in events)
     assert events[-1]["event"] == "run_completed"
     assert events[-1]["result"]["source"] == "rule_fallback"
+
+
+def test_recommendation_reports_insufficient_maximum_staff() -> None:
+    comparison = _comparison()
+    comparison["max_staff_count"] = 4
+    comparison["capacity_sufficient"] = False
+    for option in comparison["staffing_options"]:
+        option["meets_targets"] = False
+
+    recommendation = _verified_recommendation(comparison)
+
+    assert recommendation["recommended_staff_count"] == 4
+    assert recommendation["capacity_sufficient"] is False
+    assert "최대 직원 4명으로도" in recommendation["summary"]
+
+
+def test_agent_request_rejects_current_staff_above_maximum() -> None:
+    try:
+        OperationsAgentRequest(**{
+            **_request().model_dump(),
+            "current_staff_count": 5,
+            "max_staff_count": 4,
+        })
+    except ValueError as exc:
+        assert "current_staff_count must not exceed max_staff_count" in str(exc)
+    else:
+        raise AssertionError("invalid staffing range was accepted")

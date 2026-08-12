@@ -2,18 +2,18 @@
 
 ## 심사 시 한 문장 설명
 
-본사 Agent가 선택 기간의 매장 데이터와 시간대별 주문 추이를 도구로 조회하고, 같은 고객 수요를 직원 1명·2명에게 적용한 SimPy 결과를 서버가 검증한 뒤 슈퍼바이저 검토안을 제시한다.
+본사 Agent가 선택 기간의 매장 데이터와 시간대별 주문 추이를 조회하고, 같은 고객 수요로 직원 1명부터 투입 가능 최대 인원까지 SimPy 탐색을 실행한 뒤 운영 목표를 만족하는 최소 인원을 슈퍼바이저 검토안으로 제시한다.
 
 ## 데이터 흐름
 
 ```mermaid
 flowchart LR
-    U["본사 슈퍼바이저<br/>매장·기간·행사 배수 선택"]
+    U["본사 슈퍼바이저<br/>매장·기간·현재/최대 인원 선택"]
     D["React 본사 화면<br/>SSE 실행 단계·동기 재생"]
     A["제한형 운영 Agent<br/>Gemini 수동 Tool Calling<br/>최대 5회"]
     Q["FastAPI 조회 도구<br/>운영 요약·1시간 추이"]
-    S["SimPy 비교 도구<br/>평상시 1명·행사 1명·행사 2명"]
-    V["서버 검증<br/>동일 demand_trace_id·수치 교차 확인"]
+    S["SimPy 탐색 도구<br/>행사 직원 1명~최대 인원"]
+    V["서버 검증<br/>동일 demand_trace_id·최소 적정 인원"]
     R["권장안<br/>슈퍼바이저 승인 필요"]
 
     U --> D
@@ -32,6 +32,8 @@ flowchart LR
 - 주문 수요 생성, 이산사건 진행, 지표 계산, 권장 수치 검증은 코드가 담당한다.
 - Gemini 실패 시 `규칙 기반 대체 분석`으로 표시하고 동일한 세 도구 순서를 코드가 완료한다.
 - What-if 결과는 DB에 저장하지 않으며 실제 POS 실적이나 자동 인력 지시로 표시하지 않는다.
+- 적정 기준은 평균 대기 5분 이하, 주문 포기율 5% 이하, 직원 가동률 90% 이하이며 세 기준을 모두 만족하는 최소 인원을 선택한다.
+- 최대 인원까지 기준을 만족하지 못하면 임의의 적정 인원을 만들지 않고 `최대 인원으로도 목표 미달`로 표시한다.
 
 ## 로컬 실제 실행 결과
 
@@ -68,11 +70,13 @@ flowchart LR
     {"start_minute": 120, "end_minute": 180, "arrivals_per_hour": 24}
   ],
   "event_multiplier": 1.6,
+  "current_staff_count": 1,
+  "max_staff_count": 6,
   "seed": 20260730
 }
 ```
 
-응답에는 `comparison_id`, `base_trace_id`, `event_demand_trace_id`, `normal_one`, `event_one`, `event_two`, `fairness`가 포함된다. 행사 직원 1명·2명은 같은 `event_demand_trace_id`와 주문 ID·도착 시각·고객 속성을 공유한다.
+응답에는 `staffing_options`, `recommended_staff_count`, `capacity_sufficient`, `staffing_targets`와 현재·최대·권장 재생 결과가 포함된다. 모든 인원 조건은 같은 `event_demand_trace_id`와 주문 ID·도착 시각·고객 속성을 공유한다.
 
 ### Agent 스트림
 
@@ -94,7 +98,8 @@ run_completed
 ## 테스트 항목
 
 - 동일 요청·seed의 수요, 이벤트, 지표 재현성
-- 행사 직원 1명·2명의 주문 ID, 도착 시각, 고객 속성, 수요 trace 동일성
+- 직원 1명부터 최대 인원까지 주문 ID, 도착 시각, 고객 속성, 수요 trace 동일성
+- 목표를 만족하는 최소 인원 선택과 최대 인원 목표 미달 판정
 - 마지막 시간 구간까지 주문 생성 및 주문 상태 합계 정합성
 - 기존 단일 시뮬레이션 응답 하위 호환성
 - KST 피크 3시간 선택과 주문 데이터 없음 기본 수요 대체

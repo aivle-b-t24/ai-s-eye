@@ -27,6 +27,8 @@ from .models import (
     OperationsSimulationMetrics,
     OperationsSimulationResult,
     OperationsSimulationScenario,
+    OperationsStaffingOption,
+    OperationsStaffingTargets,
     TwinAgent,
     TwinAgentRole,
     TwinAgentState,
@@ -35,6 +37,7 @@ from .models import (
 
 SAMPLE_MINUTES = 0.5
 PICKUP_MINUTES = 0.2
+STAFFING_TARGETS = OperationsStaffingTargets()
 
 STORE_LAYOUTS = {
     "store-001": {
@@ -199,6 +202,9 @@ def _frame_agents(
     agents: list[TwinAgent] = []
     for index in range(staff_count):
         point = layout["staff"][index % len(layout["staff"])]
+        layer = index // len(layout["staff"])
+        if layer > 0:
+            point = _position_with_jitter(point, layer + 1)
         agents.append(TwinAgent(
             id=f"sim-staff-{index + 1}",
             x=point[0],
@@ -254,6 +260,8 @@ def _run_with_demand(
     scenario: OperationsSimulationScenario,
     demand: list[DemandCustomer],
     demand_trace_id: str,
+    *,
+    include_playback: bool = True,
 ) -> OperationsSimulationResult:
     env = simpy.Environment()
     staff = simpy.Resource(env, capacity=scenario.staff_count)
@@ -284,6 +292,8 @@ def _run_with_demand(
 
     def snapshot(at_minute: float) -> None:
         nonlocal frame_sequence
+        if not include_playback:
+            return
         frame_sequence += 1
         states = list(active.values())
         frames.append(OperationsSimulationFrame(
@@ -311,6 +321,8 @@ def _run_with_demand(
         customer: DemandCustomer,
     ) -> None:
         nonlocal event_sequence
+        if not include_playback:
+            return
         event_sequence += 1
         states = list(active.values())
         events.append(OperationsSimulationEvent(
@@ -406,7 +418,8 @@ def _run_with_demand(
             yield env.timeout(SAMPLE_MINUTES)
 
     env.process(arrivals())
-    env.process(sampler())
+    if include_playback:
+        env.process(sampler())
     env.run(until=scenario.duration_minutes)
     snapshot(scenario.duration_minutes)
 
@@ -492,22 +505,19 @@ def run_operations_comparison(
     }
     normal_scenario = OperationsSimulationScenario(
         **common,
-        name="평상시 · 직원 1명",
-        staff_count=1,
+        name=f"평상시 · 직원 {request.current_staff_count}명",
+        staff_count=request.current_staff_count,
         event_multiplier=1,
     )
-    event_one_scenario = OperationsSimulationScenario(
-        **common,
-        name=f"행사 ×{request.event_multiplier:g} · 직원 1명",
-        staff_count=1,
-        event_multiplier=request.event_multiplier,
-    )
-    event_two_scenario = OperationsSimulationScenario(
-        **common,
-        name=f"행사 ×{request.event_multiplier:g} · 직원 2명",
-        staff_count=2,
-        event_multiplier=request.event_multiplier,
-    )
+    event_scenarios = {
+        staff_count: OperationsSimulationScenario(
+            **common,
+            name=f"행사 ×{request.event_multiplier:g} · 직원 {staff_count}명",
+            staff_count=staff_count,
+            event_multiplier=request.event_multiplier,
+        )
+        for staff_count in range(1, request.max_staff_count + 1)
+    }
 
     base_demand, base_trace_id = _generate_demand(
         profile,
@@ -517,7 +527,7 @@ def run_operations_comparison(
     event_demand, event_trace_id = _generate_demand(
         profile,
         multiplier=request.event_multiplier,
-        scenario=event_one_scenario,
+        scenario=event_scenarios[request.current_staff_count],
     )
     normal_full = _run_with_demand(normal_scenario, base_demand, base_trace_id)
     # 비교 화면에서 평상시는 기준 KPI만 사용한다. 좌우 재생 대상인 행사 두 조건에
@@ -526,8 +536,68 @@ def run_operations_comparison(
         "frames": [normal_full.frames[0], normal_full.frames[-1]],
         "events": [],
     })
-    event_one = _run_with_demand(event_one_scenario, event_demand, event_trace_id)
-    event_two = _run_with_demand(event_two_scenario, event_demand, event_trace_id)
+    event_results = {
+        staff_count: _run_with_demand(
+            scenario,
+            event_demand,
+            event_trace_id,
+            include_playback=False,
+        )
+        for staff_count, scenario in event_scenarios.items()
+    }
+    staffing_options: list[OperationsStaffingOption] = []
+    for staff_count, result in event_results.items():
+        metrics = result.metrics
+        abandonment_rate = (
+            metrics.abandoned_orders / metrics.visitors * 100
+            if metrics.visitors > 0
+            else 0
+        )
+        unmet_targets: list[str] = []
+        if metrics.average_wait_minutes > STAFFING_TARGETS.max_average_wait_minutes:
+            unmet_targets.append("average_wait_minutes")
+        if abandonment_rate > STAFFING_TARGETS.max_abandonment_rate_percent:
+            unmet_targets.append("abandonment_rate_percent")
+        if (
+            metrics.staff_utilization_percent
+            > STAFFING_TARGETS.max_staff_utilization_percent
+        ):
+            unmet_targets.append("staff_utilization_percent")
+        staffing_options.append(OperationsStaffingOption(
+            staff_count=staff_count,
+            metrics=metrics,
+            abandonment_rate_percent=round(abandonment_rate, 1),
+            meets_targets=not unmet_targets,
+            unmet_targets=unmet_targets,
+        ))
+
+    recommended_option = next(
+        (option for option in staffing_options if option.meets_targets),
+        staffing_options[-1],
+    )
+    recommended_staff_count = recommended_option.staff_count
+    capacity_sufficient = recommended_option.meets_targets
+    playback_staff_counts = {
+        request.current_staff_count,
+        request.max_staff_count,
+        recommended_staff_count,
+    }
+    playback_results = {
+        staff_count: _run_with_demand(
+            event_scenarios[staff_count],
+            event_demand,
+            event_trace_id,
+        )
+        for staff_count in playback_staff_counts
+    }
+    event_one = playback_results[request.current_staff_count]
+    event_two = playback_results[request.max_staff_count]
+    event_recommended = (
+        playback_results[recommended_staff_count]
+        if recommended_staff_count
+        not in {request.current_staff_count, request.max_staff_count}
+        else None
+    )
 
     return OperationsComparisonResult(
         comparison_id=_hash_payload("comparison", request.model_dump(mode="json")),
@@ -537,7 +607,14 @@ def run_operations_comparison(
         arrival_profile=profile,
         base_trace_id=base_trace_id,
         event_demand_trace_id=event_trace_id,
+        current_staff_count=request.current_staff_count,
+        max_staff_count=request.max_staff_count,
+        recommended_staff_count=recommended_staff_count,
+        capacity_sufficient=capacity_sufficient,
+        staffing_targets=STAFFING_TARGETS,
+        staffing_options=staffing_options,
         normal_one=normal_one,
         event_one=event_one,
         event_two=event_two,
+        event_recommended=event_recommended,
     )

@@ -10,11 +10,20 @@ import {
   nextPlaybackMinute,
   recentEventsAtMinute,
 } from './operationsAgentStream'
+import {
+  getRecommendedSimulation,
+  MAX_STAFF_COUNT,
+  MIN_STAFF_COUNT,
+  staffingOptionState,
+  updateStaffingCondition,
+} from './operationsStaffing'
 
 const DEFAULT_CONDITIONS = {
   store_id: 'store-001',
   duration_minutes: 180,
   event_multiplier: 1.6,
+  current_staff_count: 1,
+  max_staff_count: 4,
   average_service_minutes: 4,
   patience_minutes: 8,
   seat_count: 16,
@@ -158,6 +167,7 @@ export default function OperationsSimulator({
   }, [storeOptions])
 
   const comparison = runResult?.comparison ?? null
+  const recommendedSimulation = getRecommendedSimulation(comparison)
   const duration = comparison?.event_one?.scenario?.duration_minutes
     ?? conditions.duration_minutes
   const demandSourceLabel = comparison?.demand_source === 'synthetic_order_simulator'
@@ -182,7 +192,11 @@ export default function OperationsSimulator({
   }, [comparison, duration, isPlaying])
 
   const updateCondition = (key, value) => {
-    setConditions((current) => ({ ...current, [key]: value }))
+    setConditions((current) => (
+      key === 'current_staff_count' || key === 'max_staff_count'
+        ? updateStaffingCondition(current, key, value)
+        : { ...current, [key]: value }
+    ))
     setRunResult(null)
     setSteps([])
     setMinute(0)
@@ -252,8 +266,8 @@ export default function OperationsSimulator({
     }
   }
 
-  const one = comparison?.event_one?.metrics
-  const two = comparison?.event_two?.metrics
+  const current = comparison?.event_one?.metrics
+  const recommended = recommendedSimulation?.metrics
   const normal = comparison?.normal_one?.metrics
 
   return (
@@ -303,6 +317,30 @@ export default function OperationsSimulator({
                 value={conditions.event_multiplier}
                 onChange={(event) => updateCondition('event_multiplier', Number(event.target.value))}
               />
+            </label>
+            <label>
+              현재 근무 인원
+              <select
+                value={conditions.current_staff_count}
+                onChange={(event) => updateCondition('current_staff_count', Number(event.target.value))}
+              >
+                {Array.from(
+                  { length: MAX_STAFF_COUNT - MIN_STAFF_COUNT + 1 },
+                  (_, index) => index + MIN_STAFF_COUNT,
+                ).map((count) => <option key={count} value={count}>{count}명</option>)}
+              </select>
+            </label>
+            <label>
+              투입 가능 최대 인원
+              <select
+                value={conditions.max_staff_count}
+                onChange={(event) => updateCondition('max_staff_count', Number(event.target.value))}
+              >
+                {Array.from(
+                  { length: MAX_STAFF_COUNT - MIN_STAFF_COUNT + 1 },
+                  (_, index) => index + MIN_STAFF_COUNT,
+                ).map((count) => <option key={count} value={count}>{count}명</option>)}
+              </select>
             </label>
           </div>
 
@@ -403,7 +441,7 @@ export default function OperationsSimulator({
         </div>
       </div>
 
-      {comparison && (
+      {comparison && recommendedSimulation && (
         <div className="operations-agent-result" aria-live="polite">
           <div className="operations-demand-proof">
             <div>
@@ -411,22 +449,31 @@ export default function OperationsSimulator({
               <strong>{comparison.demand_window_label ?? runResult.demand_profile?.window_label}</strong>
             </div>
             <div>
+              <span>직원 탐색 범위</span>
+              <strong>
+                현재 {comparison.current_staff_count}명 · 최대 {comparison.max_staff_count}명
+              </strong>
+            </div>
+            <div>
               <span>동일 행사 수요 ID</span>
               <strong>{comparison.event_demand_trace_id}</strong>
             </div>
-            <p>직원 1명·2명은 고객 도착 시각과 주문 조건이 같고 인력 수만 다릅니다.</p>
+            <p>
+              직원 1~{comparison.max_staff_count}명은 고객 도착 시각과 주문 조건이 같고
+              인력 수만 다릅니다.
+            </p>
           </div>
 
           <div className="simulation-synced-playback">
             <SimulationColumn
-              label="행사 조건 A"
+              label="현재 운영안"
               result={comparison.event_one}
               storeId={conditions.store_id}
               minute={minute}
             />
             <SimulationColumn
-              label="행사 조건 B"
-              result={comparison.event_two}
+              label={comparison.capacity_sufficient ? '최소 적정 운영안' : '최대 투입 운영안'}
+              result={recommendedSimulation}
               storeId={conditions.store_id}
               minute={minute}
             />
@@ -462,26 +509,69 @@ export default function OperationsSimulator({
           </div>
 
           <div className="simulation-baseline-card">
-            <span>평상시 · 직원 1명 기준</span>
+            <span>평상시 · 직원 {comparison.current_staff_count}명 기준</span>
             <strong>완료 {normal?.completed_orders ?? 0}건</strong>
             <small>평균 대기 {normal?.average_wait_minutes ?? 0}분 · 포기 {normal?.abandoned_orders ?? 0}건</small>
+          </div>
+
+          <div className="simulation-staffing-search-wrap">
+            <div className="simulation-staffing-search-heading">
+              <div>
+                <span>STAFFING RANGE SEARCH</span>
+                <strong>동일 수요 인원별 자동 탐색</strong>
+              </div>
+              <small>
+                목표: 평균 대기 {comparison.staffing_targets.max_average_wait_minutes}분 이하 ·
+                포기율 {comparison.staffing_targets.max_abandonment_rate_percent}% 이하 ·
+                가동률 {comparison.staffing_targets.max_staff_utilization_percent}% 이하
+              </small>
+            </div>
+            <div className="simulation-staffing-options">
+              {comparison.staffing_options.map((option) => {
+                const state = staffingOptionState(option, comparison)
+                const isRecommendation = option.staff_count === comparison.recommended_staff_count
+                return (
+                  <article className={`is-${state}`} key={option.staff_count}>
+                    <header>
+                      <strong>{option.staff_count}명</strong>
+                      <span>
+                        {isRecommendation
+                          ? comparison.capacity_sufficient ? '권장' : '최대·목표 미달'
+                          : state === 'current' ? '현재' : option.meets_targets ? '충족' : '부족'}
+                      </span>
+                    </header>
+                    <dl>
+                      <div><dt>평균 대기</dt><dd>{option.metrics.average_wait_minutes}분</dd></div>
+                      <div><dt>포기율</dt><dd>{option.abandonment_rate_percent}%</dd></div>
+                      <div><dt>가동률</dt><dd>{option.metrics.staff_utilization_percent}%</dd></div>
+                    </dl>
+                  </article>
+                )
+              })}
+            </div>
           </div>
 
           <div className="simulation-comparison-table-wrap">
             <table className="simulation-comparison-table">
               <caption>같은 행사 수요에서 직원 수에 따른 운영 지표 비교</caption>
               <thead>
-                <tr><th>운영 지표</th><th>직원 1명</th><th>직원 2명</th></tr>
+                <tr>
+                  <th>운영 지표</th>
+                  <th>현재 {comparison.current_staff_count}명</th>
+                  <th>
+                    {comparison.capacity_sufficient ? '권장' : '최대'} {comparison.recommended_staff_count}명
+                  </th>
+                </tr>
               </thead>
               <tbody>
                 {METRICS.map((metric) => (
                   <tr key={metric.key}>
                     <th>{metric.label}</th>
-                    <td className={`is-${scenarioTone(metric, one[metric.key], two[metric.key], 'one')}`}>
-                      {metricValue(one[metric.key], metric.unit)}
+                    <td className={`is-${scenarioTone(metric, current[metric.key], recommended[metric.key], 'one')}`}>
+                      {metricValue(current[metric.key], metric.unit)}
                     </td>
-                    <td className={`is-${scenarioTone(metric, one[metric.key], two[metric.key], 'two')}`}>
-                      {metricValue(two[metric.key], metric.unit)}
+                    <td className={`is-${scenarioTone(metric, current[metric.key], recommended[metric.key], 'two')}`}>
+                      {metricValue(recommended[metric.key], metric.unit)}
                     </td>
                   </tr>
                 ))}
@@ -491,7 +581,11 @@ export default function OperationsSimulator({
 
           <div className="simulation-recommendation operations-agent-recommendation">
             <span>AGENT VERIFIED RECOMMENDATION</span>
-            <h3>행사 시간대 직원 {runResult.recommendation.recommended_staff_count}명 검토</h3>
+            <h3>
+              {runResult.recommendation.capacity_sufficient
+                ? `행사 시간대 직원 ${runResult.recommendation.recommended_staff_count}명 검토`
+                : `최대 ${runResult.recommendation.max_staff_count}명으로도 목표 미달`}
+            </h3>
             <p>{runResult.recommendation.summary}</p>
             <small>슈퍼바이저 승인 필요 · 합성 What-if 결과 · 실제 운영 자동 변경 없음</small>
           </div>

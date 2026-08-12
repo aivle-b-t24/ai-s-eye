@@ -28,6 +28,8 @@ class OperationsAgentRequest(BaseModel):
     end_at: datetime
     duration_minutes: int = Field(default=180, ge=30, le=480)
     event_multiplier: float = Field(default=1.6, ge=1, le=4)
+    current_staff_count: int = Field(default=1, ge=1, le=10)
+    max_staff_count: int = Field(default=4, ge=1, le=10)
     average_service_minutes: float = Field(default=4, ge=0.5, le=20)
     patience_minutes: float = Field(default=8, ge=1, le=60)
     seat_count: int = Field(default=16, ge=0, le=100)
@@ -42,12 +44,15 @@ class OperationsAgentRequest(BaseModel):
             raise ValueError("start_at must be earlier than end_at")
         if self.end_at - self.start_at > timedelta(days=31):
             raise ValueError("analysis period must not exceed 31 days")
+        if self.current_staff_count > self.max_staff_count:
+            raise ValueError("current_staff_count must not exceed max_staff_count")
         return self
 
 
 SYSTEM_PROMPT = """너는 프랜차이즈 본사의 제한형 운영 의사결정 Agent다.
 
-목표는 선택 매장의 행사 시간대 직원 1명과 2명 운영안을 공정하게 비교하는 것이다.
+목표는 선택 매장의 행사 시간대에 현재 인원부터 투입 가능 최대 인원까지 공정하게
+탐색하고, 운영 목표를 만족하는 최소 인원을 찾는 것이다.
 반드시 도구로 실제 데이터를 확인하고, 다음 순서에 필요한 도구를 스스로 선택한다.
 - 매장 집계와 시간대별 추이를 모두 확인한다.
 - 그 다음 동일 수요 직원 비교를 실행한다.
@@ -131,45 +136,94 @@ def build_peak_arrival_profile(
 
 
 def _verified_recommendation(comparison: dict[str, Any]) -> dict[str, Any]:
-    one = comparison["event_one"]["metrics"]
-    two = comparison["event_two"]["metrics"]
-    wait_reduction = round(one["average_wait_minutes"] - two["average_wait_minutes"], 2)
+    options = comparison.get("staffing_options") or []
+    if options:
+        passing = [option for option in options if option.get("meets_targets")]
+        selected_option = min(
+            passing or options,
+            key=lambda option: option["staff_count"]
+            if passing
+            else -option["staff_count"],
+        )
+        selected = selected_option["staff_count"]
+        capacity_sufficient = bool(passing)
+        current_staff_count = comparison.get("current_staff_count", 1)
+        current_option = next(
+            (
+                option
+                for option in options
+                if option["staff_count"] == current_staff_count
+            ),
+            options[0],
+        )
+        current = current_option["metrics"]
+        recommended = selected_option["metrics"]
+    else:
+        # 구버전 비교 API와의 배포 순서 호환 경로다.
+        current = comparison["event_one"]["metrics"]
+        recommended = comparison["event_two"]["metrics"]
+        current_staff_count = 1
+        wait_gain = current["average_wait_minutes"] - recommended["average_wait_minutes"]
+        abandon_gain = current["abandoned_orders"] - recommended["abandoned_orders"]
+        selected = 2 if wait_gain > 0 or abandon_gain > 0 else 1
+        capacity_sufficient = True
+        if selected == 1:
+            recommended = current
+
+    wait_reduction = round(
+        current["average_wait_minutes"] - recommended["average_wait_minutes"],
+        2,
+    )
     wait_reduction_percent = (
-        round(wait_reduction / one["average_wait_minutes"] * 100, 1)
-        if one["average_wait_minutes"] > 0
+        round(wait_reduction / current["average_wait_minutes"] * 100, 1)
+        if current["average_wait_minutes"] > 0
         else 0
     )
-    completed_gain = two["completed_orders"] - one["completed_orders"]
-    abandoned_reduction = one["abandoned_orders"] - two["abandoned_orders"]
-    recommend_two = (
-        (
-            wait_reduction_percent >= 20
-            and two["completed_orders"] >= one["completed_orders"]
-        )
-        or abandoned_reduction > 0
+    completed_gain = recommended["completed_orders"] - current["completed_orders"]
+    abandoned_reduction = (
+        current["abandoned_orders"] - recommended["abandoned_orders"]
     )
-    selected = 2 if recommend_two else 1
-    if selected == 2:
+    max_staff_count = comparison.get("max_staff_count", selected)
+    if not capacity_sufficient:
         summary = (
-            f"행사 시간대 직원 2명을 검토하세요. 직원 1명 대비 평균 대기가 "
+            f"투입 가능한 최대 직원 {max_staff_count}명으로도 설정한 운영 목표를 모두 "
+            "충족하지 못했습니다. 최대 인력 투입과 함께 주문 제한·제조 단순화 등 "
+            "추가 운영 대책을 검토하세요."
+        )
+    elif selected > current_staff_count:
+        summary = (
+            f"행사 시간대 직원 {selected}명을 검토하세요. 현재 "
+            f"{current_staff_count}명 대비 평균 대기가 "
             f"{wait_reduction:.1f}분 줄고 완료 주문은 {completed_gain}건, "
             f"주문 포기는 {abandoned_reduction}건 개선됩니다."
         )
+    elif selected < current_staff_count:
+        summary = (
+            f"운영 목표를 만족하는 최소 인원은 {selected}명입니다. 현재 "
+            f"{current_staff_count}명에서 조정하더라도 평균 대기 "
+            f"{recommended['average_wait_minutes']:.1f}분, 주문 포기 "
+            f"{recommended['abandoned_orders']}건 수준입니다."
+        )
     else:
         summary = (
-            "현재 수요에서는 직원 2명 증원의 개선 폭이 작습니다. "
-            "직원 1명을 유지하고 실제 피크 수요를 추가 확인하세요."
+            f"현재 직원 {current_staff_count}명이 운영 목표를 만족하는 최소 인원입니다. "
+            "현재 인원을 유지하고 실제 피크 수요를 함께 확인하세요."
         )
     return {
         "recommended_staff_count": selected,
+        "current_staff_count": current_staff_count,
+        "max_staff_count": max_staff_count,
+        "capacity_sufficient": capacity_sufficient,
         "summary": summary,
         "evidence": {
             "average_wait_reduction_minutes": wait_reduction,
             "average_wait_reduction_percent": wait_reduction_percent,
             "completed_order_gain": completed_gain,
             "abandoned_order_reduction": abandoned_reduction,
-            "one_staff_utilization_percent": one["staff_utilization_percent"],
-            "two_staff_utilization_percent": two["staff_utilization_percent"],
+            "current_staff_utilization_percent": current["staff_utilization_percent"],
+            "recommended_staff_utilization_percent": recommended[
+                "staff_utilization_percent"
+            ],
         },
         "approval_required": True,
     }
@@ -249,6 +303,8 @@ class OperationsDecisionAgent:
                     "duration_minutes": request.duration_minutes,
                     "arrival_profile": profile["segments"],
                     "event_multiplier": request.event_multiplier,
+                    "current_staff_count": request.current_staff_count,
+                    "max_staff_count": request.max_staff_count,
                     "average_service_minutes": request.average_service_minutes,
                     "patience_minutes": request.patience_minutes,
                     "seat_count": request.seat_count,
@@ -260,8 +316,13 @@ class OperationsDecisionAgent:
                 return {
                     "ok": True,
                     "event_demand_trace_id": comparison["event_demand_trace_id"],
-                    "one_staff": comparison["event_one"]["metrics"],
-                    "two_staff": comparison["event_two"]["metrics"],
+                    "current_staff_count": comparison.get("current_staff_count"),
+                    "max_staff_count": comparison.get("max_staff_count"),
+                    "recommended_staff_count": comparison.get(
+                        "recommended_staff_count"
+                    ),
+                    "capacity_sufficient": comparison.get("capacity_sufficient"),
+                    "staffing_options": comparison.get("staffing_options") or [],
                 }
             return {"ok": False, "message": f"허용되지 않은 도구입니다: {name}"}
 
@@ -281,7 +342,7 @@ class OperationsDecisionAgent:
                 return {}
 
             def compare_staffing_options() -> dict[str, Any]:
-                """같은 행사 수요로 직원 1명과 2명 운영 결과를 비교한다."""
+                """같은 행사 수요로 현재 인원부터 최대 인원까지 비교한다."""
                 return {}
 
             contents: list[Any] = [
@@ -289,7 +350,9 @@ class OperationsDecisionAgent:
                     role="user",
                     parts=[types.Part(text=(
                         f"{request.store_id}의 {_iso(request.start_at)}부터 "
-                        f"{_iso(request.end_at)}까지 데이터를 분석해 행사 인력안을 제안해줘."
+                        f"{_iso(request.end_at)}까지 데이터를 분석해 현재 직원 "
+                        f"{request.current_staff_count}명, 최대 {request.max_staff_count}명 "
+                        "범위에서 행사 인력안을 제안해줘."
                     ))],
                 )
             ]
@@ -334,7 +397,9 @@ class OperationsDecisionAgent:
                         {
                             "get_store_operating_summary": "매장 운영 데이터 확인 완료",
                             "get_hourly_timeline": "피크 주문 시간대 확인 완료",
-                            "compare_staffing_options": "직원 1명·2명 비교 완료",
+                            "compare_staffing_options": (
+                                f"직원 1~{request.max_staff_count}명 탐색 완료"
+                            ),
                         }.get(call.name, call.name),
                         status="completed",
                         tool_name=call.name,
